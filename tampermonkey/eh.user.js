@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         e站收藏统计
 // @namespace    Schwi
-// @version      0.5
+// @version      0.6
 // @description  获取e站所有收藏，以及对所有标签进行排序以找到你最爱的标签，可按namespace分组，支持翻译
 // @author       Schwi
 // @match        *://e-hentai.org/*
@@ -174,8 +174,8 @@
         console.log(reclassList)
         console.log(tagList)
         console.log(groupedTagList)
-        console.log(JSON.stringify(myFavList))
+        console.log(JSON.stringify(myFavList, null, 2))
         // JSON输出，myFavList太长了，单独打印吧
-        console.log(JSON.stringify({ reclassList, tagList, groupedTagList }))
+        console.log(JSON.stringify({ reclassList, tagList, groupedTagList }, null, 2))
     }
 })();
