@@ -157,7 +157,6 @@
         return { myFavList, reclassList, tagList, groupedTagList }
     }
 
-
     const div = document.createElement('div')
     div.innerHTML = `
     <a id="schwi_btn">统计收藏</a>
@@ -174,8 +173,7 @@
         console.log(reclassList)
         console.log(tagList)
         console.log(groupedTagList)
-        console.log(JSON.stringify(myFavList, null, 2))
-        // JSON输出，myFavList太长了，单独打印吧
-        console.log(JSON.stringify({ reclassList, tagList, groupedTagList }, null, 2))
+        const jsonStr = JSON.stringify({ reclassList, tagList, groupedTagList, myFavList }, null, 2)
+        window.showSaveFilePicker().then(handler=>handler.createWritable().then(cw=>cw.write(jsonStr).then(()=>cw.close()))).catch(e=>console.log(jsonStr))
     }
 })();
