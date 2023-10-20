@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         e站收藏统计
 // @namespace    Schwi
-// @version      0.6
+// @version      0.8
 // @description  获取e站所有收藏，以及对所有标签进行排序以找到你最爱的标签，可按namespace分组，支持翻译
 // @author       Schwi
 // @match        *://e-hentai.org/*
@@ -157,6 +157,15 @@
         return { myFavList, reclassList, tagList, groupedTagList }
     }
 
+    function download(filename, data) {
+        const a = document.createElement('a')
+        a.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(data)
+        a.download = filename
+        a.style.display = 'none'
+        a.click()
+        a.remove()
+    }
+
     const div = document.createElement('div')
     div.innerHTML = `
     <a id="schwi_btn">统计收藏</a>
@@ -174,6 +183,6 @@
         console.log(tagList)
         console.log(groupedTagList)
         const jsonStr = JSON.stringify({ reclassList, tagList, groupedTagList, myFavList }, null, 2)
-        window.showSaveFilePicker().then(handler=>handler.createWritable().then(cw=>cw.write(jsonStr).then(()=>cw.close()))).catch(e=>console.log(jsonStr))
+        dowmload('eh.json', jsonStr)
     }
 })();
