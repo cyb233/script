@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         颜色标识B站收藏番剧作品更新状态
 // @namespace    Schwi
-// @version      0.2
+// @version      0.3
 // @description  灰色未开播，绿色已完结，红色连载中
 // @author       Schwi
 // @match        https://space.bilibili.com/*/bangumi
@@ -29,14 +29,16 @@
             const follows = document.querySelectorAll(".pgc-follow-list > .pgc-space-follow-item")
             follows.forEach(ele=>{
                 const state = ele.querySelector('.publish-state')
-                if (state.innerText == '即将开播') {
-                    ele.style.background='#00000020'
-                } else if (state.innerText.indexOf('全') === 0) {
-                    ele.style.background='#00ff0020'
-                } else if (state.innerText.indexOf('更新至') === 0) {
-                    ele.style.background='#ff000020'
+                if (state) {
+                    if (state.innerText == '即将开播') {
+                        ele.style.background='#00000020'
+                    } else if (state.innerText.indexOf('全') === 0) {
+                        ele.style.background='#00ff0020'
+                    } else if (state.innerText.indexOf('更新至') === 0) {
+                        ele.style.background='#ff000020'
+                    }
                 } else {
-                    ele.style.background=''
+                    ele.style.background='#00000020'
                 }
             })
             await sleep(1000)
