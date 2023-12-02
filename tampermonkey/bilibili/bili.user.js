@@ -41,7 +41,7 @@
                     ele.style.background='#00000020'
                 }
             })
-            await sleep(1000)
+            await sleep(100)
         }
     }
     repeatLoop()
