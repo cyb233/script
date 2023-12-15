@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         快速下载你赞助的fanbox
+// @name         下载你赞助的fanbox
 // @namespace    Schwi
 // @version      0.1
-// @description  快速下载你赞助的fanbox
+// @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       You
 // @match        https://*.fanbox.cc/*
 // @exclude      https://www.fanbox.cc/*
