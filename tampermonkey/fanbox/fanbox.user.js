@@ -8,6 +8,7 @@
 // @exclude      https://www.fanbox.cc/*
 // @icon         https://s.pximg.net/common/images/fanbox/favicon.ico
 // @grant        GM_download
+// @license      GPL-3.0
 // ==/UserScript==
 
 (function () {
