@@ -6,6 +6,7 @@
 // @author       Schwi
 // @match        https://live.bilibili.com/*
 // @icon         https://www.bilibili.com/favicon.ico
+// @grant        unsafeWindow
 // ==/UserScript==
 
 (function() {
@@ -37,4 +38,5 @@
             console.log(`共计${i}个`)
         })
     }
+    unsafeWindow.downloadEmojis = downloadEmojis
 })();
