@@ -27,7 +27,6 @@
             for (let i in json.data.data) {
                 if (indexs.length === 0 || indexs.includes(i)) {
                     for (let emoticon of emojis.emoticons) {
-                        i++
                         console.log(emoticon)
                         setTimeout(() => {
                             downloadRes(emoticon.url, `${emojis.pkg_id}_${emoticon.emoticon_id}_${emoticon.emoji}_${emoticon.emoticon_unique}.png`)
