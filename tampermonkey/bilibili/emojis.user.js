@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载Bilibili直播间的Emojis
 // @namespace    Schwi
-// @version      0.2
+// @version      0.3
 // @description  下载Bilibili直播间的Emojis
 // @author       Schwi
 // @match        https://live.bilibili.com/*
@@ -27,7 +27,7 @@
             console.log(json.data.data)
             let i = 0
             for (i in json.data.data) {
-                if (indexs.length === 0 || indexs.includes(i)) {
+                if (indexs.length === 0 || indexs.includes(parseInt(i))) {
                     let emojis = json.data.data[i]
                     for (let emoticon of emojis.emoticons) {
                         console.log(emoticon)
@@ -37,7 +37,6 @@
                     }
                 }
             }
-            console.log(`共计${i}个`)
         })
     }
     unsafeWindow.downloadEmojis = downloadEmojis
