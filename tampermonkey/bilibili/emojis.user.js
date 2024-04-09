@@ -25,8 +25,10 @@
     function downloadEmojis(...indexs) {
         fetch(`https://api.live.bilibili.com/xlive/web-ucenter/v2/emoticon/GetEmoticons?platform=pc&room_id=${location.pathname.substring(1)}`,{credentials: "include"}).then(res=>res.json()).then(json=>{
             console.log(json.data.data)
-            for (let i in json.data.data) {
+            let i = 0
+            for (i in json.data.data) {
                 if (indexs.length === 0 || indexs.includes(i)) {
+                    let emojis = json.data.data[i]
                     for (let emoticon of emojis.emoticons) {
                         console.log(emoticon)
                         setTimeout(() => {
