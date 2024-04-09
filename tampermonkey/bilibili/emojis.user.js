@@ -1,12 +1,11 @@
 // ==UserScript==
-// @name         下载直播间所有Emojis
+// @name         下载Bilibili直播间的Emojis
 // @namespace    Schwi
-// @version      0.1
-// @description  下载直播间所有Emojis
+// @version      0.2
+// @description  下载Bilibili直播间的Emojis
 // @author       Schwi
 // @match        https://live.bilibili.com/*
 // @icon         https://www.bilibili.com/favicon.ico
-// @grant        GM_download
 // ==/UserScript==
 
 (function() {
@@ -22,12 +21,11 @@
         a.click()
         a.remove()
     }
-    function downloadEmojis(...pkgIds) {
+    function downloadEmojis(...indexs) {
         fetch(`https://api.live.bilibili.com/xlive/web-ucenter/v2/emoticon/GetEmoticons?platform=pc&room_id=${location.pathname.substring(1)}`,{credentials: "include"}).then(res=>res.json()).then(json=>{
             console.log(json.data.data)
-            let i = 0
-            for (let emojis of json.data.data) {
-                if (pkgIds.length === 0 || pkgIds.includes(emojis.pkg_id)) {
+            for (let i in json.data.data) {
+                if (indexs.length === 0 || indexs.includes(i)) {
                     for (let emoticon of emojis.emoticons) {
                         i++
                         console.log(emoticon)
