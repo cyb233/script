@@ -2,10 +2,10 @@
 // @name         下载Bilibili直播间的Emojis
 // @namespace    Schwi
 // @version      0.3
-// @description  下载Bilibili直播间的Emojis
+// @description  下载哔哩哔哩直播间的Emojis
 // @author       Schwi
 // @match        https://live.bilibili.com/*
-// @icon         https://www.bilibili.com/favicon.ico
+// @icon         https://live.bilibili.com/favicon.ico
 // @grant        unsafeWindow
 // ==/UserScript==
 
