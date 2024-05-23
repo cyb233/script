@@ -36,7 +36,7 @@ total_page = math.ceil(int(total_count)/max_page_size)
 
 def getPage(pageNo):
     try:
-        time.sleep(1)
+        #time.sleep(1)
         with requests.get(str.format(service_url, max_page_size, pageNo, api_key), timeout=300, verify=False, proxies=proxies) as resp:
             #print(resp.text)
             return resp.json()
@@ -46,7 +46,7 @@ def getPage(pageNo):
 
 def getDocument(photo_id):
     try:
-        time.sleep(1)
+        #time.sleep(1)
         with requests.get(str.format(photo_url, photo_id), timeout=300, verify=False, proxies=proxies) as resp:
             #print(resp.text)
             return parsel.Selector(resp.text)
