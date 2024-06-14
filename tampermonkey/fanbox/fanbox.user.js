@@ -1,11 +1,10 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      0.1
+// @version      0.2
 // @description  快速下载你赞助的fanbox用户的所有投稿
-// @author       You
+// @author       Schwi
 // @match        https://*.fanbox.cc/*
-// @exclude      https://www.fanbox.cc/*
 // @icon         https://s.pximg.net/common/images/fanbox/favicon.ico
 // @grant        GM_download
 // @license      GPL-3.0
@@ -13,7 +12,19 @@
 
 (function () {
     'use strict';
-    const username = () => top.window.location.host.split('.')[0]
+    if (window !== top.window) return
+    const username = () => {
+        let username = top.window.location.host.split('.')[0]
+        if (username === 'www') {
+            const pathname = top.window.location.pathname
+            if (pathname.indexOf('/@') == -1) {
+                return
+            }
+            username = pathname.split('/@')[1].split('/')[0]
+        }
+        return username
+    }
+    let yourPlan
     const sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay))
     function get(url) {
         let xhr = new XMLHttpRequest()
@@ -38,26 +49,29 @@
         console.log('下载所有')
         let startUrl = `https://api.fanbox.cc/post.listCreator?creatorId=${username()}&limit=1`
         let resp = get(startUrl)
-        const firstId = resp.body.items[0].id
-        let nextUrl = `https://api.fanbox.cc/post.info?postId=${firstId}`
+        let nextId = resp.body.items[0].id
         function repeatLoop() {
             return new Promise((resolve) => {
                 const fileArray = []
                 let i = 0
-                while (nextUrl) {
+                while (nextId) {
                     console.log(`请求第${++i}个`)
-                    let resp = get(nextUrl)
-                    const files = resp.body.body.files
-                    if (files) {
-                        for (let file in files) {
-                            fileArray.push(files[file])
+                    let resp = get(`https://api.fanbox.cc/post.info?postId=${nextId}`)
+                    if (resp.body.body) {
+                        const files = resp.body.body.files
+                        if (files) {
+                            for (let file in files) {
+                                fileArray.push(files[file])
+                            }
                         }
+                    }else{
+                        console.log(`${nextId}:${resp.body.title} 赞助等级不足，需要 ${resp.body.feeRequired} 日元档，您的档位是 ${yourPlan} 日元`)
                     }
                     const prevPost = resp.body.prevPost
-                    if (!prevPost) {
+                    nextId = prevPost?.id
+                    if (!nextId) {
                         break
                     }
-                    nextUrl = `https://api.fanbox.cc/post.info?postId=${prevPost.id}`
                     sleep(500)
                 }
                 resolve(fileArray)
@@ -70,7 +84,7 @@
                 console.log(`下载第${++i}个`)
                 GM_download({
                     url: files[file].url,
-                    name: `${files[file].name}.${files[file].extension}`,
+                    name: `${username()}_${files[file].name}.${files[file].extension}`,
                     saveAs: false,
                     onerror: download => console.log(download)
                 })
@@ -79,20 +93,28 @@
     }
 
     async function init() {
-        let btns
-        let btn
-        while (!(btns && (btn = btns[1]))) {
-            btns = document.querySelectorAll(`a[href="https://www.fanbox.cc/creators/supporting/@${username()}"]`)
+        let div
+        while (!div) {
+            div = document.querySelector('[class|=CreatorHeader__IsNotMobileSmallWrapper] [class|=styled__UserStatusWrapper]')
             await sleep(100)
         }
-        return btn
+        return div
     }
-    init().then(btn => {
-        const div = document.createElement('div')
-        div.innerHTML = `
-        <button id='downloadAll''>下载所有</span>
-        `
-        btn.parentElement.appendChild(div)
-        document.querySelector("#downloadAll").onclick = fmain
+    init().then(div => {
+        console.log('添加下载按钮')
+        let btn = document.createElement('button')
+        btn.id = 'downloadAll'
+        btn.innerText = '下载所有'
+        btn.onclick = fmain
+        div.appendChild(btn)
+    }).then(() => {
+        let resp = get(`https://api.fanbox.cc/plan.listCreator?creatorId=${username()}`)
+        let yourPlans = resp.body.filter(plan => plan.paymentMethod)
+        if (yourPlans.length === 0) {
+            console.log('您没有赞助过此画师')
+            yourPlan = 0
+            return
+        }
+        yourPlan = yourPlans[0].fee
     })
 })();
