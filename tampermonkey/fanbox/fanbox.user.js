@@ -1,13 +1,15 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      0.2
+// @version      0.3
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
 // @icon         https://s.pximg.net/common/images/fanbox/favicon.ico
 // @grant        GM_download
 // @license      GPL-3.0
+// @downloadURL https://update.greasyfork.org/scripts/482310/%E4%B8%8B%E8%BD%BD%E4%BD%A0%E8%B5%9E%E5%8A%A9%E7%9A%84fanbox.user.js
+// @updateURL https://update.greasyfork.org/scripts/482310/%E4%B8%8B%E8%BD%BD%E4%BD%A0%E8%B5%9E%E5%8A%A9%E7%9A%84fanbox.meta.js
 // ==/UserScript==
 
 (function () {
@@ -60,6 +62,7 @@
                     if (resp.body.body) {
                         const files = resp.body.body.files
                         if (files) {
+                            console.log(`找到了 ${files.length} 个附件`)
                             for (let file in files) {
                                 fileArray.push(files[file])
                             }
