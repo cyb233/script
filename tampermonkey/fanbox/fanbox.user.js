@@ -8,8 +8,6 @@
 // @icon         https://s.pximg.net/common/images/fanbox/favicon.ico
 // @grant        GM_download
 // @license      GPL-3.0
-// @downloadURL https://update.greasyfork.org/scripts/482310/%E4%B8%8B%E8%BD%BD%E4%BD%A0%E8%B5%9E%E5%8A%A9%E7%9A%84fanbox.user.js
-// @updateURL https://update.greasyfork.org/scripts/482310/%E4%B8%8B%E8%BD%BD%E4%BD%A0%E8%B5%9E%E5%8A%A9%E7%9A%84fanbox.meta.js
 // ==/UserScript==
 
 (function () {
