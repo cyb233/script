@@ -5,4 +5,7 @@
 ![20231216001739](https://github.com/cyb233/script/assets/39186981/1a971d3a-02f6-4a43-8b8e-b0edf9080b22)
 
 ## Tips
-注意，本脚本会一次性下载所有可下载的投稿作品
+1. 本脚本会一次性下载所有可下载的投稿作品
+2. 本脚本仅支持附件类型(如图所示)
+
+![image](https://github.com/cyb233/script/assets/39186981/bd9c0d83-f14a-4d17-8320-b5a85df4f13f)
