@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      0.3
+// @version      0.4
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -49,7 +49,7 @@
         console.log('下载所有')
         let startUrl = `https://api.fanbox.cc/post.listCreator?creatorId=${username()}&limit=1`
         let resp = get(startUrl)
-        let nextId = resp.body.items[0].id
+        let nextId = resp.body[0].id
         function repeatLoop() {
             return new Promise((resolve) => {
                 const fileArray = []
@@ -87,7 +87,9 @@
                     url: files[file].url,
                     name: `${username()}_${files[file].name}.${files[file].extension}`,
                     saveAs: false,
-                    onerror: download => console.log(download)
+                    onload: download => console.log(`成功 ${username()}_${files[file].name}.${files[file].extension}`),
+                    onerror: download => console.error(`失败 ${username()}_${files[file].name}.${files[file].extension}，{download}`),
+                    ontimeout: download => console.error(`超时${username()}_${files[file].name}.${files[file].extension}`)
                 })
             }
         })
