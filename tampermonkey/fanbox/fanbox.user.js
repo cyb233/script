@@ -87,9 +87,9 @@
                     url: files[file].url,
                     name: `${username()}_${files[file].name}.${files[file].extension}`,
                     saveAs: false,
-                    onload: download => console.log(`成功 ${username()}_${files[file].name}.${files[file].extension}`),
-                    onerror: download => console.error(`失败 ${username()}_${files[file].name}.${files[file].extension}，{download}`),
-                    ontimeout: download => console.error(`超时${username()}_${files[file].name}.${files[file].extension}`)
+                    onload: () => console.log(`成功 ${username()}_${files[file].name}.${files[file].extension}`),
+                    onerror: download => console.error(`失败 ${username()}_${files[file].name}.${files[file].extension}, ${download}`),
+                    ontimeout: () => console.error(`超时${username()}_${files[file].name}.${files[file].extension}`)
                 })
             }
         })
