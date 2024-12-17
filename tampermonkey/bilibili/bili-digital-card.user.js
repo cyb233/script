@@ -129,13 +129,13 @@
                                 (lottery) =>
                                 lottery.owned_item_amount >= lottery.require_item_amount && // 可领取
                                 lottery.has_redeemed_cnt === 0 && // 未领取
-                                lottery.endtime * 1000 >= new Date().getTime() // 未过期
+                                lottery.end_time * 1000 >= new Date().getTime() // 未过期
                             ) ||
                             collectItem.collect_list.collect_chain?.some(
                                 (lottery) =>
                                 lottery.owned_item_amount >= lottery.require_item_amount &&
                                 lottery.has_redeemed_cnt === 0 &&
-                                lottery.endtime * 1000 >= new Date().getTime()
+                                lottery.end_time * 1000 >= new Date().getTime()
                             )
                         );
                     });
