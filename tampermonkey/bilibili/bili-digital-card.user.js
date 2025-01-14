@@ -127,7 +127,7 @@
                 cardData.data
               );
               // 根据需要处理卡牌数据
-              collectList.push({ url: `https://www.bilibili.com/blackboard/activity-Mz9T5bO5Q3.html?id=${collection.act_id}&type=dlc`, ...cardData.data });
+              collectList.push({ actName: collection.act_name, url: `https://www.bilibili.com/blackboard/activity-Mz9T5bO5Q3.html?id=${collection.act_id}&type=dlc`, ...cardData.data });
               processedLotteries++;
               checkLotteryCompletion();
             });
