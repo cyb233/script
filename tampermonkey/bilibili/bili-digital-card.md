@@ -10,6 +10,6 @@
 
 运行效果演示：
 > `最终收集列表`是所有有卡牌的收藏集的列表，`筛选后的收集列表`是其中有可领取奖励的收藏集的列表  
-> 可以通过actName和name搜索，也可以在浏览器直接打开url
+> 可以通过`actName`和`name`搜索，也可以在浏览器直接打开`url`
 
 ![image](https://github.com/user-attachments/assets/f1b3f3b0-39e8-4cc5-b5d8-0c8f4c96cdac)
