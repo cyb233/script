@@ -144,7 +144,7 @@
 
       function checkCompletion() {
         if (processedCollections === collectionCount) {
-          console.log("所有收藏已处理。);
+          console.log("所有收藏已处理。");
           console.log("最终收集列表:", collectList);
 
           // 筛选出符合条件的收藏集
