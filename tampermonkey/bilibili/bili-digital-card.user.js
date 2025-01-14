@@ -82,14 +82,14 @@
 
       collections.forEach((collection) => {
         console.log(
-          `处理收藏: ${collection.act_name} (ID: ${collection.act_id})`
+          `处理收藏: ${collection.act_name}(ID: ${collection.act_id})`
         );
         const detailUrl = `https://api.bilibili.com/x/vas/dlc_act/act/basic?act_id=${collection.act_id}`;
 
         apiRequest(detailUrl, function (detailData) {
           if (!detailData || detailData.code !== 0) {
             console.error(
-              `获取 act_id ${collection.act_id} 的基本信息失败:`,
+              `获取 ${collection.act_name}(act_id:${collection.act_id}) 的基本信息失败:`,
               detailData ? detailData.message : "无响应"
             );
             processedCollections++;
@@ -98,7 +98,7 @@
           }
 
           console.log(
-            `成功获取 act_id ${collection.act_id} 的基本信息:`,
+            `成功获取 ${collection.act_name}(act_id:${collection.act_id}) 的基本信息:`,
             detailData.data
           );
           const lotteries = detailData.data.lottery_list;
@@ -114,7 +114,7 @@
             apiRequest(cardDetailUrl, function (cardData) {
               if (!cardData || cardData.code !== 0) {
                 console.error(
-                  `获取 act_id ${collection.act_id} 和 lottery_id ${lottery.lottery_id} 的详情失败:`,
+                  `获取 ${collection.act_name}(act_id:${collection.act_id}&lottery_id:${lottery.lottery_id}) 的详情失败:`,
                   cardData ? cardData.message : "无响应"
                 );
                 processedLotteries++;
@@ -123,7 +123,7 @@
               }
 
               console.log(
-                `成功获取 act_id ${collection.act_id} 和 lottery_id ${lottery.lottery_id} 的详情:`,
+                `成功获取 ${collection.act_name}[cardData.data.name](act_id:${collection.act_id}&lottery_id:${lottery.lottery_id}) 的详情:`,
                 cardData.data
               );
               // 根据需要处理卡牌数据
@@ -144,7 +144,8 @@
 
       function checkCompletion() {
         if (processedCollections === collectionCount) {
-          console.log("所有收藏已处理。最终收集列表:", collectList);
+          console.log("所有收藏已处理。);
+          console.log("最终收集列表:", collectList);
 
           // 筛选出符合条件的收藏集
           const filteredCollectList = collectList.filter((collectItem) => {
