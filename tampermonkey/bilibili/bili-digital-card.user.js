@@ -127,7 +127,7 @@
                 cardData.data
               );
               // 根据需要处理卡牌数据
-              collectList.push({ actName: collection.act_name, url: `https://www.bilibili.com/blackboard/activity-Mz9T5bO5Q3.html?id=${collection.act_id}&type=dlc`, ...cardData.data });
+              collectList.push({ title: detailData.data.act_title, name: cardData.data.name, url: `https://www.bilibili.com/blackboard/activity-Mz9T5bO5Q3.html?id=${detailData.data.act_id}&type=dlc`, act: detailData.data, lottery: cardData.data });
               processedLotteries++;
               checkLotteryCompletion();
             });
@@ -150,11 +150,11 @@
           // 筛选出符合条件的收藏集
           const filteredCollectList = collectList.filter((collectItem) => {
             return (
-              collectItem.collect_list.collect_infos?.some(
+              collectItem.lottery.collect_list.collect_infos?.some(
                 (lottery) =>
                   canGetReward(lottery)
               ) ||
-              collectItem.collect_list.collect_chain?.some(
+              collectItem.lottery.collect_list.collect_chain?.some(
                 (lottery) =>
                   canGetReward(lottery)
               )
