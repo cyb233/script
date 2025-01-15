@@ -123,7 +123,7 @@
                             }
 
                             console.log(
-                                `成功获取 ${collection.act_name}[cardData.data.name](act_id:${collection.act_id}&lottery_id:${lottery.lottery_id}) 的详情:`,
+                                `成功获取 ${collection.act_name}[${cardData.data.name}](act_id:${collection.act_id}&lottery_id:${lottery.lottery_id}) 的详情:`,
                                 cardData.data
                             );
                             // 根据需要处理卡牌数据
@@ -238,22 +238,62 @@
                 dialog.style.display = "flex";
                 dialog.style.flexDirection = "column";
 
-                // 标题和关闭按钮容器
+                // 标题和按钮容器
                 const header = document.createElement("div");
                 header.style.display = "flex";
                 header.style.justifyContent = "space-between";
                 header.style.alignItems = "center";
                 header.style.marginBottom = "20px";
 
+                // 左侧标题和 Debug 按钮容器
+                const titleContainer = document.createElement("div");
+                titleContainer.style.display = "flex";
+                titleContainer.style.alignItems = "center";
+                titleContainer.style.gap = "10px"; // 间距
+
                 // 标题
                 const title = document.createElement("h2");
                 title.textContent = "筛选结果";
-                header.appendChild(title);
+                title.style.margin = "0"; // 去掉默认边距
+                titleContainer.appendChild(title);
+
+                // Debug 按钮
+                const debugButton = document.createElement("button");
+                debugButton.textContent = "Debug";
+                debugButton.style.padding = "5px 10px";
+                debugButton.style.backgroundColor = "#4caf50";
+                debugButton.style.color = "#fff";
+                debugButton.style.border = "none";
+                debugButton.style.borderRadius = "5px";
+                debugButton.style.cursor = "pointer";
+                titleContainer.appendChild(debugButton);
+
+                // Debug 按钮的点击事件
+                debugButton.addEventListener("click", () => {
+                    const groupedByType = {};
+
+                    collectList.forEach((item) => {
+                        // 从奖励数据中获取类型并分组
+                        const rewardList = item.lottery.collect_list?.collect_infos || [];
+                        rewardList.forEach((reward) => {
+                            const type = Object.keys(REDEEM_ITEM_TYPE).find(
+                                (key) => REDEEM_ITEM_TYPE[key] === reward.redeem_item_type
+                            ) || `未知类型(${reward.redeem_item_type})`;
+
+                            if (!groupedByType[type]) {
+                                groupedByType[type] = [];
+                            }
+                            groupedByType[type].push(item);
+                        });
+                    });
+
+                    console.log("按类型分组的收藏集:", groupedByType);
+                });
 
                 // 关闭按钮
                 const closeButton = document.createElement("button");
                 closeButton.textContent = "关闭";
-                closeButton.style.padding = "10px 20px";
+                closeButton.style.padding = "5px 10px";
                 closeButton.style.backgroundColor = "#ff4d4d";
                 closeButton.style.color = "#fff";
                 closeButton.style.border = "none";
@@ -263,8 +303,10 @@
                 closeButton.addEventListener("click", () => {
                     document.body.removeChild(dialog);
                 });
-                header.appendChild(closeButton);
 
+                // 将标题和按钮容器添加到标题栏
+                header.appendChild(titleContainer);
+                header.appendChild(closeButton);
                 dialog.appendChild(header);
 
                 // 复选框控制区域
