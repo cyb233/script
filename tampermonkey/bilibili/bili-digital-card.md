@@ -11,7 +11,7 @@
 ![86844b2a-80aa-4fb3-8491-c5ed72e7eb17](https://github.com/user-attachments/assets/9fb3ba7a-f7e6-4080-a6e3-cfb91e02d44d)
 
 运行效果演示：
-> `最终收集列表`是所有有卡牌的收藏集的列表，`筛选后的收集列表`是其中有可领取奖励的收藏集的列表  
-> 可以通过`title`和`name`搜索，也可以在浏览器直接打开`url`
+> 筛选按钮未勾选是所有有卡牌的收藏集的列表，勾选后是其中有可领取奖励的收藏集的列表
+> 点击查看详情即可打开收藏集页面
 
-![image](https://github.com/user-attachments/assets/ee34976b-ab13-471c-9cac-76819c4df877)
+![47fe0910-5717-41f6-ad0e-19ecb2bab691](https://github.com/user-attachments/assets/32cfabbd-d4a2-4cfd-b456-264779cbff8b)
