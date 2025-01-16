@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 收藏集奖励筛查脚本
 // @namespace    Schwi
-// @version      0.7
+// @version      0.8
 // @description  调用 API 来收集自己的 Bilibili 收藏集，并筛选未领取的奖励，结果输出到控制台，复制结果中的url字段打开即可，注意，至少存在一张卡牌才能本项目的接口被检测到
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -37,6 +37,49 @@
         CollectorMedal: 1001,
     };
 
+    // 创建进度条容器
+    function createProgressBar(totalTasks) {
+        const progressContainer = document.createElement("div");
+        progressContainer.style.position = "fixed";
+        progressContainer.style.top = "50%";
+        progressContainer.style.left = "50%";
+        progressContainer.style.transform = "translate(-50%, -50%)";
+        progressContainer.style.width = "80%";
+        progressContainer.style.padding = "10px";
+        progressContainer.style.backgroundColor = "#fff";
+        progressContainer.style.borderRadius = "10px";
+        progressContainer.style.boxShadow = "0 4px 8px rgba(0, 0, 0, 0.2)";
+        progressContainer.style.zIndex = "10000";
+        progressContainer.style.textAlign = "center";
+
+        const progressTitle = document.createElement("h3");
+        progressTitle.textContent = "任务进行中...";
+        progressContainer.appendChild(progressTitle);
+
+        const progressBar = document.createElement("progress");
+        progressBar.style.width = "100%";
+        progressBar.max = totalTasks;
+        progressBar.value = 0;
+        progressContainer.appendChild(progressBar);
+
+        const progressText = document.createElement("p");
+        progressText.style.marginTop = "10px";
+        progressText.textContent = `0/${totalTasks} 完成`;
+        progressContainer.appendChild(progressText);
+
+        document.body.appendChild(progressContainer);
+
+        return {
+            update: function (currentTask) {
+                progressBar.value = currentTask;
+                progressText.textContent = `${currentTask}/${totalTasks} 完成`;
+            },
+            hide: function () {
+                document.body.removeChild(progressContainer);
+            }
+        };
+    }
+
     // 发起 API 请求的函数
     function apiRequest(url, callback) {
         console.log(`正在请求: ${url}`);
@@ -68,7 +111,7 @@
         let collectList = [];
 
         apiRequest(collectionUrl, function (collectionData) {
-            if (!collectionData || collectionData.code !== 0) {
+            if (!collectionData || collectionData.code !== 0 || !collectionData.data.list) {
                 console.error(
                     "获取收藏列表失败:",
                     collectionData ? collectionData.message : "无响应"
@@ -78,13 +121,13 @@
 
             console.log("成功获取收藏列表:", collectionData.data.list);
             const collections = collectionData.data.list;
-            let collectionCount = collections.length;
+            const collectionCount = collections.length;
             let processedCollections = 0;
 
-            collections.forEach((collection) => {
-                console.log(
-                    `处理收藏: ${collection.act_name}(ID: ${collection.act_id})`
-        );
+            const progressBar = createProgressBar(collectionCount); // 创建进度条
+
+            collections.forEach((collection, index) => {
+                console.log(`处理收藏: ${collection.act_name}(ID: ${collection.act_id})`);
                 const detailUrl = `https://api.bilibili.com/x/vas/dlc_act/act/basic?act_id=${collection.act_id}`;
 
                 apiRequest(detailUrl, function (detailData) {
@@ -94,6 +137,7 @@
                             detailData ? detailData.message : "无响应"
                         );
                         processedCollections++;
+                        progressBar.update(processedCollections); // 更新进度条
                         checkCompletion();
                         return;
                     }
@@ -103,7 +147,6 @@
                         detailData.data
                     );
                     const lotteries = detailData.data.lottery_list;
-                    let lotteryCount = lotteries.length;
                     let processedLotteries = 0;
 
                     lotteries.forEach((lottery) => {
@@ -119,6 +162,7 @@
                                     cardData ? cardData.message : "无响应"
                                 );
                                 processedLotteries++;
+                                progressBar.update(processedCollections); // 更新进度条
                                 checkLotteryCompletion();
                                 return;
                             }
@@ -130,17 +174,20 @@
                             // 根据需要处理卡牌数据
                             collectList.push({ title: detailData.data.act_title, name: cardData.data.name, url: `https://www.bilibili.com/blackboard/activity-Mz9T5bO5Q3.html?id=${collection.act_id}&type=dlc`, act: detailData.data, lottery: cardData.data });
                             processedLotteries++;
+                            progressBar.update(processedCollections); // 更新进度条
                             checkLotteryCompletion();
                         });
 
                         function checkLotteryCompletion() {
-                            if (processedLotteries === lotteryCount) {
+                            if (processedLotteries === lotteries.length) {
                                 processedCollections++;
+                                progressBar.update(processedCollections); // 更新进度条
                                 checkCompletion();
                             }
                         }
                     });
                 });
+
             });
 
             function checkCompletion() {
@@ -163,18 +210,18 @@
                     });
 
                     console.log("筛选后的收集列表:", filteredCollectList);
-
+                    progressBar.hide(); // 隐藏进度条
                     showResultDialog(collectList, filteredCollectList)
                 }
             }
 
             /**
-       * 别问我为啥这么写，B站前端JS就是这么判断的
-       *
-       * @param {object} reward 每条奖励的信息
-       * @param {string} scene 不知道是啥，还没研究明白，先这么写着
-       * @returns boolean 这个奖励是否能被领取
-       */
+             * 别问我为啥这么写，B站前端JS就是这么判断的
+             *
+             * @param {object} reward 每条奖励的信息
+             * @param {string} scene 不知道是啥，还没研究明白，先这么写着
+             * @returns boolean 这个奖励是否能被领取
+             */
             function canGetReward(reward, scene = "milestone") {
                 const curTime = new Date().getTime();
                 const has_redeemed_cnt = reward.has_redeemed_cnt;
