@@ -16,7 +16,7 @@
 
     // 检查脚本是否已经运行
     if (window.top !== window) {
-        console.log("脚本已经在当前页面运行过了。");
+        console.log("脚本不应运行于iframe");
         return;
     }
 
@@ -111,11 +111,16 @@
         let collectList = [];
 
         apiRequest(collectionUrl, function (collectionData) {
-            if (!collectionData || collectionData.code !== 0 || !collectionData.data.list) {
-                console.error(
-                    "获取收藏列表失败:",
-                    collectionData ? collectionData.message : "无响应"
-                );
+            if (!collectionData || collectionData.code !== 0) {
+                const errorMsg = `获取收藏列表失败: ${collectionData ? collectionData.message : "无响应"}`
+                console.error(errorMsg);
+                alert(errorMsg)
+                return;
+            }
+            if (!collectionData.data.list) {
+                const errorMsg = `获取收藏列表失败: 您没有收藏集`
+                console.error(errorMsg);
+                alert(errorMsg)
                 return;
             }
 
