@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Bilibili 收藏集奖励筛查脚本
 // @namespace    Schwi
-// @version      0.8
-// @description  调用 API 来收集自己的 Bilibili 收藏集，并筛选未领取的奖励，结果输出到控制台，复制结果中的url字段打开即可，注意，至少存在一张卡牌才能本项目的接口被检测到
+// @version      0.9
+// @description  调用 API 来收集自己的 Bilibili 收藏集，并筛选未领取的奖励。注意，一套收藏集中至少存在一张卡牌才能本项目的接口被检测到!
 // @author       Schwi
 // @match        *://*.bilibili.com/*
 // @connect      api.bilibili.com
