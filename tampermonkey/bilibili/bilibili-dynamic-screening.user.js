@@ -2,7 +2,7 @@
 // @name         Bilibili 动态筛选
 // @namespace    Schwi
 // @version      0.1
-// @description  Bilibili 动态筛选
+// @description  Bilibili 动态筛选，快速找出感兴趣的动态
 // @author       Schwi
 // @match        *://*.bilibili.com/*
 // @connect      api.bilibili.com
