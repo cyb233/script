@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 动态筛选
 // @namespace    Schwi
-// @version      0.1
+// @version      0.2
 // @description  Bilibili 动态筛选，快速找出感兴趣的动态
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -266,6 +266,16 @@
             }
         };
 
+        const getDescText = (dynamic, isForward) => {
+            let descText = dynamic.modules.module_dynamic.desc?.text || ''
+            if (isForward) {
+                const subDescText = getDescText(dynamic.orig)
+                descText += `<hr />${subDescText}`
+            }
+
+            return descText
+        }
+
         for (let dynamic of dynamicList) {
             const isForward = dynamic.type === 'DYNAMIC_TYPE_FORWARD';
             const baseDynamic = isForward ? dynamic.orig : dynamic;
@@ -274,16 +284,6 @@
             const authorUid = dynamic.modules.module_author.mid;
             const url = `https://t.bilibili.com/${dynamic.id_str}`;
             const spaceUrl = `https://space.bilibili.com/${authorUid}`;
-
-            const getDescText = (dynamic, isForward) => {
-                let descText = dynamic.modules.module_dynamic.desc?.text || ''
-                if (isForward) {
-                    const subDescText = getDescText(dynamic.orig)
-                    descText += `<hr />${subDescText}`
-                }
-
-                return descText
-            }
 
             let backgroundImage = '';
             if (type === 'DYNAMIC_TYPE_DRAW') {
@@ -295,7 +295,7 @@
             dynamicItem.style.border = "1px solid #ddd";
             dynamicItem.style.borderRadius = "10px";
             dynamicItem.style.overflow = "hidden";
-            dynamicItem.style.height = "200px";
+            dynamicItem.style.height = "300px";
             dynamicItem.style.backgroundImage = `url(${backgroundImage})`;
             dynamicItem.style.backgroundSize = "cover";
             dynamicItem.style.backgroundPosition = "center";
@@ -333,6 +333,18 @@
             // 设置 cardTitle 的内容
             cardTitle.innerHTML = isForward ? `${authorLink.outerHTML} 转发了 ${originalAuthorLink.outerHTML} 的动态` : `${authorLink.outerHTML} 发布了动态`;
 
+            // 显示发布时间
+            const publishTime = document.createElement("div");
+            publishTime.style.fontSize = "12px";
+            publishTime.style.marginTop = "2px";
+            publishTime.style.background = "rgba(0, 0, 0, 0.5)";
+            publishTime.style.backdropFilter = "blur(5px)";
+            publishTime.style.borderRadius = "5px";
+            publishTime.style.padding = "5px";
+            publishTime.style.marginBottom = "5px";
+            publishTime.style.textAlign = "center";
+            publishTime.textContent = `发布时间: ${new Date(dynamic.modules.module_author.pub_ts * 1000).toLocaleString()}`;
+
             // 显示 DYNAMIC_TYPE 对应的注释
             const typeComment = document.createElement("div");
             typeComment.style.fontSize = "12px";
@@ -356,7 +368,7 @@
             describe.style.marginBottom = "5px";
             describe.style.textAlign = "center";
             describe.style.flexGrow = "1"; // 添加 flexGrow 以使描述占据剩余空间
-            describe.style.overflow = "hidden";
+            describe.style.overflowY = "auto";
             describe.style.textOverflow = "ellipsis";
             describe.innerHTML = getDescText(dynamic, isForward); // 修改为 innerHTML 以支持 HTML 标签
 
@@ -374,6 +386,7 @@
             dynamicItem.appendChild(cardTitle);
             dynamicItem.appendChild(typeComment);
             dynamicItem.appendChild(describe);
+            dynamicItem.appendChild(publishTime); // 添加发布时间
             dynamicItem.appendChild(viewDetailsButton);
 
             gridContainer.appendChild(dynamicItem);
