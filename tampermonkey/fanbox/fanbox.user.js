@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      1.0
+// @version      1.1
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -24,6 +24,8 @@
     if (window.top !== window.self) return
 
     filesize = filesize.filesize
+
+    let allPost = []
 
     const defaultFormat = `{publishedDatetime}_{title}/{filename}`
 
@@ -693,10 +695,12 @@
     }
 
     async function fmain() {
-        // 创建进度条
-        const progressBar = createProgressBar()
-        // 获取所有投稿
-        const allPost = await getAllPost(progressBar)
+        if (allPost.length === 0) {
+            // 创建进度条
+            const progressBar = createProgressBar()
+            // 获取所有投稿
+            allPost = await getAllPost(progressBar)
+        }
         // 创建结果弹窗
         const resultDialog = createResultDialog(allPost)
     }
