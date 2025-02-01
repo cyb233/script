@@ -13,8 +13,8 @@
 // @grant        GM_download
 // @connect      api.fanbox.cc
 // @connect      downloads.fanbox.cc
-// @require      https://cdn.jsdelivr.net/npm/@zip.js/zip.js/dist/zip.min.js
-// @require      https://cdn.filesizejs.com/filesize.min.js
+// @require      https://cdn.jsdelivr.net/npm/@zip.js/zip.js@2.7.57/dist/zip.min.js
+// @require      https://cdn.jsdelivr.net/gh/avoidwork/filesize.js@10.1.6/dist/filesize.min.js
 // @supportURL   https://github.com/cyb233/script
 // @license      GPL-3.0
 // ==/UserScript==
