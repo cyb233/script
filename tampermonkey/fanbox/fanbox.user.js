@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      0.7
+// @version      0.8
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -25,7 +25,7 @@
 
     filesize = filesize.filesize
 
-    const defaultFormat = `{title}_{publishedDatetime}/{filename}`
+    const defaultFormat = `{publishedDatetime}_{title}/{filename}`
 
     const postType = {
         text: { type: 'text', name: '文本' },
@@ -175,6 +175,7 @@
     async function downloadPost(selectedPost, pathFormat = defaultFormat) {
         const downloadFiles = []
         const downloadTexts = []
+        const fileNames = new Set(); // 用于记录已存在的文件名
         for (const post of selectedPost) {
             let imgs = post.body.images || []
             let files = post.body.files || []
@@ -240,13 +241,33 @@
                 console.log(`${file.title}:${file.filename} 下载失败`)
                 continue
             }
-            console.log(`${file.title}:${file.filename} 下载成功，文件大小 ${filesize(resp.response.size)}`)
-            await writer.add(file.filename, new zip.BlobReader(resp.response));
+            let filename = file.filename;
+            let counter = 1;
+            while (fileNames.has(filename)) {
+                const extIndex = file.filename.lastIndexOf('.');
+                const baseName = file.filename.substring(0, extIndex);
+                const extension = file.filename.substring(extIndex);
+                filename = `${baseName}(${counter})${extension}`;
+                counter++;
+            }
+            fileNames.add(filename);
+            console.log(`${file.title}:${filename} 下载成功，文件大小 ${filesize(resp.response.size)}`)
+            await writer.add(filename, new zip.BlobReader(resp.response));
             downloadProgressDialog.updateTotalProgress();
         }
         for (const text of downloadTexts) {
             console.log(`${text.title}:${text.filename} 下载成功，文件大小 ${filesize(text.text.length)}`)
-            await writer.add(text.filename, new zip.TextReader(text.text));
+            let filename = text.filename;
+            let counter = 1;
+            while (fileNames.has(filename)) {
+                const extIndex = text.filename.lastIndexOf('.');
+                const baseName = text.filename.substring(0, extIndex);
+                const extension = text.filename.substring(extIndex);
+                filename = `${baseName}(${counter})${extension}`;
+                counter++;
+            }
+            fileNames.add(filename);
+            await writer.add(filename, new zip.TextReader(text.text));
             downloadProgressDialog.updateTotalProgress();
         }
         console.log(`${downloadFiles.length + downloadTexts.length} 个文件下载完成`)
