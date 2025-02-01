@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      1.1
+// @version      1.2
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -33,6 +33,16 @@
         text: { type: 'text', name: '文本' },
         image: { type: 'image', name: '图片' },
         file: { type: 'file', name: '文件' },
+        video: {
+            type: 'video', name: '视频', getFullUrl: (blockEmbed) => {
+                const serviceProvideMap = {
+                    soundcloud: `https://soundcloud.com/${blockEmbed.videoId}`,
+                    vimeo: `https://vimeo.com/${blockEmbed.videoId}`,
+                    youtube: `https://www.youtube.com/watch?v=${blockEmbed.videoId}`
+                }
+                return serviceProvideMap[blockEmbed.serviceProvider]
+            }
+        },
         article: { type: 'article', name: '文章' }
     }
     const baseinfo = () => {
@@ -68,14 +78,39 @@
                 // 处理post类型
                 resp.body.body.images = resp.body.body.images || []
                 resp.body.body.files = resp.body.body.files || []
+                resp.body.body.video = resp.body.body.video || {}
                 if (resp.body.type === postType.text.type) {
-                    resp.body.body.text = resp.body.body.text;
                 } else if (resp.body.type === postType.image.type) {
-                    resp.body.body.images = resp.body.body.images;
-                    resp.body.body.text = resp.body.body.text;
                 } else if (resp.body.type === postType.file.type) {
-                    resp.body.body.files = resp.body.body.files;
-                    resp.body.body.text = resp.body.body.text;
+                } else if (resp.body.type === postType.video.type) {
+                    const url = postType.video.getFullUrl(resp.body.body.video)
+                    let html =
+                        `
+                        <!DOCTYPE html>
+                        <html lang="zh-CN">
+                        <head>
+                            <meta charset="UTF-8">
+                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                            <title>${resp.body.title}</title>
+                            <style>
+                            .iframely-responsive>* {
+                                top: 0;
+                                left: 0;
+                                width: 100%;
+                                height: 100%;
+                                position: absolute;
+                                border: 0;
+                                box-sizing: border-box;
+                            }
+                            </style>
+                        </head>
+                        <body>`
+                    html += `<h1>${resp.body.title}</h1>`
+                    html += `<p><a href="${url}" target="_blank">${url}</a></p>`
+                    html += `<p>${resp.body.body.text}</p>`
+                    html += `</body></html>`
+                    resp.body.body.html = html
+                    resp.body.body.text = ''
                 } else if (resp.body.type === postType.article.type) {
                     const blocks = resp.body.body.blocks;
                     const image = resp.body.body.imageMap;
@@ -102,10 +137,12 @@
                             }
                             </style>
                         </head>
-                        <body>
-                            <p><img src="${resp.body.coverImageUrl}" alt=""/></p>
-                            <h1>${resp.body.title}</h1>
-                        `
+                        <body>`
+                    if (resp.body.coverImageUrl) {
+                        html += `<p><img src="${resp.body.coverImageUrl}" alt=""/></p>`
+                    }
+                    html += `<h1>${resp.body.title}</h1>`
+
                     for (const block of blocks) {
                         if (block.type === 'p') {
                             html += `<p>${block.text}</p>`
@@ -119,16 +156,9 @@
                             html += `<p><a href="${blockFile.url}" download="${blockFile.name}.${blockFile.extension}">${blockFile.name}.${blockFile.extension}</a></p>`
                         } else if (block.type === 'embed') {
                             const blockEmbed = embed[block.embedId]
-                            const serviceProvideMap = {
-                                gist: `https://gist.github.com/${blockEmbed.contentId}`,
-                                google_forms: `https://docs.google.com/forms/d/e/${blockEmbed.contentId}/viewform`,
-                                soundcloud: `https://soundcloud.com/${blockEmbed.contentId}`,
-                                twitter: `https://twitter.com/i/web/status/${blockEmbed.contentId}`,
-                                vimeo: `https://vimeo.com/${blockEmbed.contentId}`,
-                                youtube: `https://www.youtube.com/watch?v=${blockEmbed.contentId}`
-                            }
-                            if (serviceProvideMap[blockEmbed.serviceProvider]) {
-                                html += `<p><a href="${serviceProvideMap[blockEmbed.serviceProvider]}" target="_blank">${blockEmbed.serviceProvider}</a></p>`
+                            const url = postType.video.getFullUrl(blockEmbed)
+                            if (url) {
+                                html += `<p><a href="${url}" target="_blank">${url}</a></p>`
                             } else {
                                 html += `<p>${JSON.stringify(block)}</p>`
                             }
@@ -136,6 +166,8 @@
                             const blockUrlEmbed = urlEmbed[block.urlEmbedId]
                             if (blockUrlEmbed.type.startsWith('html')) {
                                 html += `<p class="iframely-responsive">${blockUrlEmbed.html}</p>`
+                            } else if (blockUrlEmbed.type === 'default') {
+                                html += `<p><a src="${blockUrlEmbed.url}">${blockUrlEmbed.host}</a></p>`
                             } else {
                                 html += `<p>${JSON.stringify(block)}</p>`
                             }
@@ -143,6 +175,7 @@
                             html += `<p>${JSON.stringify(block)}</p>`
                         }
                     }
+                    html += `</body></html>`
                     for (const key in image) {
                         resp.body.body.images.push(image[key])
                     }
