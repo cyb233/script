@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      0.5
+// @version      0.6
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -22,6 +22,8 @@
 (function () {
     'use strict';
     if (window.top !== window.self) return
+
+    filesize = filesize.filesize
 
     const postType = {
         text: { type: 'text', name: '文本' },
