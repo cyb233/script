@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      0.8
+// @version      0.9
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -176,6 +176,7 @@
         const downloadFiles = []
         const downloadTexts = []
         const fileNames = new Set(); // 用于记录已存在的文件名
+        let totalDownloadedSize = 0;
         for (const post of selectedPost) {
             let imgs = post.body.images || []
             let files = post.body.files || []
@@ -241,6 +242,8 @@
                 console.log(`${file.title}:${file.filename} 下载失败`)
                 continue
             }
+            totalDownloadedSize += resp.response.size;
+            downloadProgressDialog.updateTotalSize(totalDownloadedSize);
             let filename = file.filename;
             let counter = 1;
             while (fileNames.has(filename)) {
@@ -267,6 +270,8 @@
                 counter++;
             }
             fileNames.add(filename);
+            totalDownloadedSize += text.text.length;
+            downloadProgressDialog.updateTotalSize(totalDownloadedSize);
             await writer.add(filename, new zip.TextReader(text.text));
             downloadProgressDialog.updateTotalProgress();
         }
@@ -312,6 +317,11 @@
         fileProgress.style.marginBottom = '10px'; // 调整内边距
         dialog.appendChild(fileProgress);
 
+        const totalSize = document.createElement('p');
+        totalSize.innerText = `总大小: 0B`;
+        totalSize.style.marginBottom = '10px'; // 调整内边距
+        dialog.appendChild(totalSize);
+
         document.body.appendChild(dialog);
 
         return {
@@ -321,6 +331,9 @@
             },
             updateFileProgress: (loaded, total) => {
                 fileProgress.innerText = `当前文件进度: ${filesize(loaded)}/${filesize(total)}`;
+            },
+            updateTotalSize: (size) => {
+                totalSize.innerText = `总大小: ${filesize(size)}`;
             },
             close: () => {
                 document.body.removeChild(dialog);
