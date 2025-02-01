@@ -248,7 +248,7 @@
         console.log(`${downloadFiles.length + downloadTexts.length} 个文件下载完成`)
         console.log('开始生成压缩包', writer)
         const zipFileBlob = await writer.close();
-        console.log('压缩包生成完成，开始下载')
+        console.log(`压缩包生成完成，开始下载，压缩包大小:${filesize(zipFileBlob.size)}`)
         GM_download({
             url: URL.createObjectURL(zipFileBlob),
             name: `${baseinfo().username}.zip`
