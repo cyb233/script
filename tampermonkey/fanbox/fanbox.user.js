@@ -15,6 +15,7 @@
 // @connect      downloads.fanbox.cc
 // @require      https://cdn.jsdelivr.net/npm/@zip.js/zip.js/dist/zip.min.js
 // @require      https://cdn.filesizejs.com/filesize.min.js
+// @supportURL   https://github.com/cyb233/script
 // @license      GPL-3.0
 // ==/UserScript==
 
