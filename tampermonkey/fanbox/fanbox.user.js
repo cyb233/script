@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      0.6
+// @version      0.7
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -24,6 +24,8 @@
     if (window.top !== window.self) return
 
     filesize = filesize.filesize
+
+    const defaultFormat = `{title}_{publishedDatetime}/{filename}`
 
     const postType = {
         text: { type: 'text', name: '文本' },
@@ -170,7 +172,7 @@
         return formattedPath;
     }
 
-    async function downloadPost(selectedPost, pathFormat = `{title}/{filename}`) {
+    async function downloadPost(selectedPost, pathFormat = defaultFormat) {
         const downloadFiles = []
         const downloadTexts = []
         for (const post of selectedPost) {
@@ -330,7 +332,7 @@
      * 创建结果弹窗，长宽90%, 顶部标题栏显示`投稿查询结果${选中数量}/${总数量}`，右上角有关闭按钮
      * 弹窗顶部有一个全选按钮，点击后全选所有投稿，有一个下载按钮，点击后下载所有勾选的投稿
      * 点击下载按钮后，会下载所有选中的投稿，下载路径格式为输入框的值，传入downloadPost函数
-     * 弹窗顶部有一个输入框，用于输入下载路径格式，例如`{title}/{filename}`，默认为`{title}/{filename}`，通过GM_setValue和GM_getValue保存到本地，可用参数`{username}`,`{title}`,`{filename}`,`{publishedDatetime}`，用于替换为投稿的用户名、标题、文件名、发布时间
+     * 弹窗顶部有一个输入框，用于输入下载路径格式，通过GM_setValue和GM_getValue保存到本地，可用参数`{username}`,`{title}`,`{filename}`,`{publishedDatetime}`，用于替换为投稿的用户名、标题、文件名、发布时间
      * 投稿结果使用grid布局，长宽200px，每个格子顶部正中为标题，第二行为文件和图片数量，剩余空间为正文，正文总是存在并撑满剩余空间，且Y轴可滚动
      * 点击格子可以选中或取消选中，选中的格子会被下载按钮下载
      * 底部有查看详情按钮，链接格式为`/posts/${post.body.id}`
@@ -444,7 +446,7 @@
                 return;
             }
             const pathFormatInput = dialog.querySelector('input[type="text"]')
-            const pathFormat = pathFormatInput.value || `{title}/{filename}`
+            const pathFormat = pathFormatInput.value || defaultFormat
             await downloadPost(selectedPost, pathFormat)
         }
         leftControls.appendChild(downloadButton)
@@ -463,7 +465,7 @@
         const pathFormatInput = document.createElement('input')
         pathFormatInput.type = 'text'
         pathFormatInput.placeholder = '下载路径格式'
-        pathFormatInput.value = GM_getValue('pathFormat', `{title}/{filename}`)
+        pathFormatInput.value = GM_getValue('pathFormat', defaultFormat)
         pathFormatInput.style.width = '200px'
         pathFormatInput.style.padding = '5px'
         pathFormatInput.style.fontSize = '14px'
