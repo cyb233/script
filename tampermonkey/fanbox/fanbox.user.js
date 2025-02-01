@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      0.9
+// @version      1.0
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -117,7 +117,19 @@
                             html += `<p><a href="${blockFile.url}" download="${blockFile.name}.${blockFile.extension}">${blockFile.name}.${blockFile.extension}</a></p>`
                         } else if (block.type === 'embed') {
                             const blockEmbed = embed[block.embedId]
-                            html += `<p>${JSON.stringify(block)}</p>`
+                            const serviceProvideMap = {
+                                gist: `https://gist.github.com/${blockEmbed.contentId}`,
+                                google_forms: `https://docs.google.com/forms/d/e/${blockEmbed.contentId}/viewform`,
+                                soundcloud: `https://soundcloud.com/${blockEmbed.contentId}`,
+                                twitter: `https://twitter.com/i/web/status/${blockEmbed.contentId}`,
+                                vimeo: `https://vimeo.com/${blockEmbed.contentId}`,
+                                youtube: `https://www.youtube.com/watch?v=${blockEmbed.contentId}`
+                            }
+                            if (serviceProvideMap[blockEmbed.serviceProvider]) {
+                                html += `<p><a href="${serviceProvideMap[blockEmbed.serviceProvider]}" target="_blank">${blockEmbed.serviceProvider}</a></p>`
+                            } else {
+                                html += `<p>${JSON.stringify(block)}</p>`
+                            }
                         } else if (block.type === 'url_embed') {
                             const blockUrlEmbed = urlEmbed[block.urlEmbedId]
                             if (blockUrlEmbed.type.startsWith('html')) {
@@ -177,6 +189,7 @@
         const downloadTexts = []
         const fileNames = new Set(); // 用于记录已存在的文件名
         let totalDownloadedSize = 0;
+        let isCancelled = false; // 用于标记是否取消下载
         for (const post of selectedPost) {
             let imgs = post.body.images || []
             let files = post.body.files || []
@@ -227,10 +240,13 @@
         console.log(`开始下载 ${downloadFiles.length + downloadTexts.length} 个文件`)
 
         // 创建下载进度提示dialog
-        const downloadProgressDialog = createDownloadProgressDialog(downloadFiles.length + downloadTexts.length);
+        const downloadProgressDialog = createDownloadProgressDialog(downloadFiles.length + downloadTexts.length, () => {
+            isCancelled = true;
+        });
 
         const writer = new zip.ZipWriter(new zip.BlobWriter("application/zip"));
         for (const file of downloadFiles) {
+            if (isCancelled) break; // 如果取消下载，则跳出循环
             const resp = await GM.xmlHttpRequest({
                 url: file.url, responseType: 'blob', onprogress: (event) => {
                     if (event.lengthComputable) {
@@ -259,6 +275,7 @@
             downloadProgressDialog.updateTotalProgress();
         }
         for (const text of downloadTexts) {
+            if (isCancelled) break; // 如果取消下载，则跳出循环
             console.log(`${text.title}:${text.filename} 下载成功，文件大小 ${filesize(text.text.length)}`)
             let filename = text.filename;
             let counter = 1;
@@ -275,6 +292,11 @@
             await writer.add(filename, new zip.TextReader(text.text));
             downloadProgressDialog.updateTotalProgress();
         }
+        if (isCancelled) {
+            console.log('下载已取消');
+            downloadProgressDialog.close();
+            return;
+        }
         console.log(`${downloadFiles.length + downloadTexts.length} 个文件下载完成`)
         console.log('开始生成压缩包', writer)
         const zipFileBlob = await writer.close();
@@ -287,7 +309,7 @@
     }
 
     // 创建下载进度提示dialog
-    function createDownloadProgressDialog(totalFiles) {
+    function createDownloadProgressDialog(totalFiles, onCancel) {
         const dialog = document.createElement('div');
         dialog.style.position = 'fixed';
         dialog.style.top = '50%';
@@ -321,6 +343,22 @@
         totalSize.innerText = `总大小: 0B`;
         totalSize.style.marginBottom = '10px'; // 调整内边距
         dialog.appendChild(totalSize);
+
+        const cancelButton = document.createElement('button');
+        cancelButton.innerText = '取消';
+        cancelButton.style.backgroundColor = '#ff4d4f'; // 修改背景颜色为红色
+        cancelButton.style.color = '#fff'; // 修改文字颜色为白色
+        cancelButton.style.border = 'none';
+        cancelButton.style.borderRadius = '5px';
+        cancelButton.style.cursor = 'pointer';
+        cancelButton.style.padding = '5px 10px';
+        cancelButton.style.transition = 'background-color 0.3s'; // 添加过渡效果
+        cancelButton.onmouseover = () => { cancelButton.style.backgroundColor = '#d93637'; } // 添加悬停效果
+        cancelButton.onmouseout = () => { cancelButton.style.backgroundColor = '#ff4d4f'; } // 恢复背景颜色
+        cancelButton.onclick = () => {
+            if (onCancel) onCancel();
+        };
+        dialog.appendChild(cancelButton);
 
         document.body.appendChild(dialog);
 
