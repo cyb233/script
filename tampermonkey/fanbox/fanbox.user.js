@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      1.2
+// @version      1.3
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -225,6 +225,15 @@
         const fileNames = new Set(); // 用于记录已存在的文件名
         let totalDownloadedSize = 0;
         let isCancelled = false; // 用于标记是否取消下载
+        const startTime = new Date(); // 记录下载开始时间
+
+        function onBeforeUnload(event) {
+            event.preventDefault();
+            event.returnValue = '';
+        }
+
+        unsafeWindow.addEventListener('beforeunload', onBeforeUnload);
+
         for (const post of selectedPost) {
             let imgs = post.body.images || []
             let files = post.body.files || []
@@ -275,76 +284,106 @@
         console.log(`开始下载 ${downloadFiles.length + downloadTexts.length} 个文件`)
 
         // 创建下载进度提示dialog
-        const downloadProgressDialog = createDownloadProgressDialog(downloadFiles.length + downloadTexts.length, () => {
+        const downloadProgressDialog = createDownloadProgressDialog(downloadFiles.length + downloadTexts.length, startTime, () => {
             isCancelled = true;
         });
 
         const writer = new zip.ZipWriter(new zip.BlobWriter("application/zip"));
+        const failedFiles = []; // 用于记录下载失败的文件名和原因
         for (const file of downloadFiles) {
             if (isCancelled) break; // 如果取消下载，则跳出循环
-            const resp = await GM.xmlHttpRequest({
-                url: file.url, responseType: 'blob', onprogress: (event) => {
-                    if (event.lengthComputable) {
-                        downloadProgressDialog.updateFileProgress(event.loaded, event.total);
+            let attempts = 0;
+            while (attempts < 3) {
+                try {
+                    const resp = await GM.xmlHttpRequest({
+                        url: file.url, responseType: 'blob', onprogress: (event) => {
+                            if (isCancelled) throw new Error('下载已取消');
+                            if (event.lengthComputable) {
+                                downloadProgressDialog.updateFileProgress(event.loaded, event.total);
+                            }
+                        },
+                        onerror: (e) => {
+                            console.error(e);
+                            throw e;
+                        }
+                    });
+                    if (!resp.response?.size) {
+                        throw new Error('文件大小为0');
+                    }
+                    totalDownloadedSize += resp.response.size;
+                    downloadProgressDialog.updateTotalSize(totalDownloadedSize);
+                    let filename = file.filename;
+                    let counter = 1;
+                    while (fileNames.has(filename)) {
+                        const extIndex = file.filename.lastIndexOf('.');
+                        const baseName = file.filename.substring(0, extIndex);
+                        const extension = file.filename.substring(extIndex);
+                        filename = `${baseName}(${counter})${extension}`;
+                        counter++;
+                    }
+                    fileNames.add(filename);
+                    console.log(`${file.title}:${filename} 下载成功，文件大小 ${filesize(resp.response.size)}`);
+                    await writer.add(filename, new zip.BlobReader(resp.response));
+                    downloadProgressDialog.updateTotalProgress();
+                    break; // 下载成功，跳出重试循环
+                } catch (e) {
+                    attempts++;
+                    console.error(`${file.title}:${file.filename} 下载失败，重试第 ${attempts} 次`, e);
+                    if (attempts >= 3) {
+                        failedFiles.push({ filename: file.filename, error: e.message });
                     }
                 }
-            });
-            if (resp.response.size === 0) {
-                console.log(`${file.title}:${file.filename} 下载失败`)
-                continue
             }
-            totalDownloadedSize += resp.response.size;
-            downloadProgressDialog.updateTotalSize(totalDownloadedSize);
-            let filename = file.filename;
-            let counter = 1;
-            while (fileNames.has(filename)) {
-                const extIndex = file.filename.lastIndexOf('.');
-                const baseName = file.filename.substring(0, extIndex);
-                const extension = file.filename.substring(extIndex);
-                filename = `${baseName}(${counter})${extension}`;
-                counter++;
-            }
-            fileNames.add(filename);
-            console.log(`${file.title}:${filename} 下载成功，文件大小 ${filesize(resp.response.size)}`)
-            await writer.add(filename, new zip.BlobReader(resp.response));
-            downloadProgressDialog.updateTotalProgress();
         }
         for (const text of downloadTexts) {
             if (isCancelled) break; // 如果取消下载，则跳出循环
-            console.log(`${text.title}:${text.filename} 下载成功，文件大小 ${filesize(text.text.length)}`)
-            let filename = text.filename;
-            let counter = 1;
-            while (fileNames.has(filename)) {
-                const extIndex = text.filename.lastIndexOf('.');
-                const baseName = text.filename.substring(0, extIndex);
-                const extension = text.filename.substring(extIndex);
-                filename = `${baseName}(${counter})${extension}`;
-                counter++;
+            try {
+                console.log(`${text.title}:${text.filename} 下载成功，文件大小 ${filesize(text.text.length)}`);
+                let filename = text.filename;
+                let counter = 1;
+                while (fileNames.has(filename)) {
+                    const extIndex = text.filename.lastIndexOf('.');
+                    const baseName = text.filename.substring(0, extIndex);
+                    const extension = text.filename.substring(extIndex);
+                    filename = `${baseName}(${counter})${extension}`;
+                    counter++;
+                }
+                fileNames.add(filename);
+                totalDownloadedSize += text.text.length;
+                downloadProgressDialog.updateTotalSize(totalDownloadedSize);
+                await writer.add(filename, new zip.TextReader(text.text));
+                downloadProgressDialog.updateTotalProgress();
+            } catch (e) {
+                console.error(`${text.title}:${text.filename} 下载失败`, e);
+                failedFiles.push({ filename: text.filename, error: e.message });
             }
-            fileNames.add(filename);
-            totalDownloadedSize += text.text.length;
-            downloadProgressDialog.updateTotalSize(totalDownloadedSize);
-            await writer.add(filename, new zip.TextReader(text.text));
-            downloadProgressDialog.updateTotalProgress();
         }
         if (isCancelled) {
             console.log('下载已取消');
             downloadProgressDialog.close();
+            unsafeWindow.removeEventListener('beforeunload', onBeforeUnload);
             return;
         }
         console.log(`${downloadFiles.length + downloadTexts.length} 个文件下载完成`)
         console.log('开始生成压缩包', writer)
-        const zipFileBlob = await writer.close();
+        const zipFileBlob = await writer.close().catch(e => console.error(e));
         console.log(`压缩包生成完成，开始下载，压缩包大小:${filesize(zipFileBlob.size)}`)
+        downloadProgressDialog.updateTitle('下载完成');
+        downloadProgressDialog.updateTotalSize(totalDownloadedSize, filesize(zipFileBlob.size));
+        downloadProgressDialog.stopElapsedTime(); // 停止已运行时间更新
+        downloadProgressDialog.updateFailedFiles(failedFiles); // 更新失败文件列表
+        downloadProgressDialog.updateConfirmButton(() => {
+            downloadProgressDialog.close();
+            unsafeWindow.removeEventListener('beforeunload', onBeforeUnload);
+        });
         GM_download({
             url: URL.createObjectURL(zipFileBlob),
             name: `${baseinfo().username}.zip`
-        })
-        downloadProgressDialog.close();
+        });
     }
 
     // 创建下载进度提示dialog
-    function createDownloadProgressDialog(totalFiles, onCancel) {
+    function createDownloadProgressDialog(totalFiles, startTime, onCancel) {
         const dialog = document.createElement('div');
         dialog.style.position = 'fixed';
         dialog.style.top = '50%';
@@ -356,8 +395,10 @@
         dialog.style.zIndex = '1000';
         dialog.style.fontFamily = 'Arial, sans-serif';
         dialog.style.borderRadius = '10px'; // 添加圆角
-        dialog.style.width = '300px'; // 固定宽度
+        dialog.style.width = '50%'; // 调整宽度到50%
+        dialog.style.height = '50%'; // 调整高度到50%
         dialog.style.textAlign = 'center'; // 居中文本
+        dialog.style.overflowY = 'auto'; // 超出时可滚动
 
         const title = document.createElement('h2');
         title.innerText = `下载进度`;
@@ -379,25 +420,87 @@
         totalSize.style.marginBottom = '10px'; // 调整内边距
         dialog.appendChild(totalSize);
 
-        const cancelButton = document.createElement('button');
-        cancelButton.innerText = '取消';
-        cancelButton.style.backgroundColor = '#ff4d4f'; // 修改背景颜色为红色
-        cancelButton.style.color = '#fff'; // 修改文字颜色为白色
-        cancelButton.style.border = 'none';
-        cancelButton.style.borderRadius = '5px';
-        cancelButton.style.cursor = 'pointer';
-        cancelButton.style.padding = '5px 10px';
-        cancelButton.style.transition = 'background-color 0.3s'; // 添加过渡效果
-        cancelButton.onmouseover = () => { cancelButton.style.backgroundColor = '#d93637'; } // 添加悬停效果
-        cancelButton.onmouseout = () => { cancelButton.style.backgroundColor = '#ff4d4f'; } // 恢复背景颜色
-        cancelButton.onclick = () => {
+        const startTimeElement = document.createElement('p');
+        startTimeElement.innerText = `开始时间: ${startTime.toLocaleTimeString()}`;
+        startTimeElement.style.marginBottom = '10px'; // 调整内边距
+        dialog.appendChild(startTimeElement);
+
+        const elapsedTimeElement = document.createElement('p');
+        elapsedTimeElement.innerText = `已运行时间: 0秒`;
+        elapsedTimeElement.style.marginBottom = '10px'; // 调整内边距
+        dialog.appendChild(elapsedTimeElement);
+
+        const confirmButton = document.createElement('button');
+        confirmButton.innerText = '取消';
+        confirmButton.style.backgroundColor = '#ff4d4f'; // 修改背景颜色为红色
+        confirmButton.style.color = '#fff'; // 修改文字颜色为白色
+        confirmButton.style.border = 'none';
+        confirmButton.style.borderRadius = '5px';
+        confirmButton.style.cursor = 'pointer';
+        confirmButton.style.padding = '5px 10px';
+        confirmButton.style.transition = 'background-color 0.3s'; // 添加过渡效果
+        confirmButton.onmouseover = () => { confirmButton.style.backgroundColor = '#d93637'; } // 添加悬停效果
+        confirmButton.onmouseout = () => { confirmButton.style.backgroundColor = '#ff4d4f'; } // 恢复背景颜色
+        confirmButton.onclick = () => {
             if (onCancel) onCancel();
         };
-        dialog.appendChild(cancelButton);
+        dialog.appendChild(confirmButton);
+
+        const failedFilesTitle = document.createElement('h3');
+        failedFilesTitle.innerText = '下载失败的文件';
+        failedFilesTitle.style.marginTop = '20px'; // 调整内边距
+        dialog.appendChild(failedFilesTitle);
+
+        const failedFilesTable = document.createElement('table');
+        failedFilesTable.style.width = '100%';
+        failedFilesTable.style.borderCollapse = 'collapse';
+        failedFilesTable.style.marginBottom = '10px'; // 调整内边距
+
+        const failedFilesHeader = document.createElement('tr');
+        const indexHeader = document.createElement('th');
+        indexHeader.innerText = '序号';
+        indexHeader.style.border = '1px solid #ccc';
+        indexHeader.style.padding = '5px';
+        const filenameHeader = document.createElement('th');
+        filenameHeader.innerText = '文件名';
+        filenameHeader.style.border = '1px solid #ccc';
+        filenameHeader.style.padding = '5px';
+        const errorHeader = document.createElement('th');
+        errorHeader.innerText = '原因';
+        errorHeader.style.border = '1px solid #ccc';
+        errorHeader.style.padding = '5px';
+        failedFilesHeader.appendChild(indexHeader);
+        failedFilesHeader.appendChild(filenameHeader);
+        failedFilesHeader.appendChild(errorHeader);
+        failedFilesTable.appendChild(failedFilesHeader);
+
+        const failedFilesBody = document.createElement('tbody');
+        failedFilesTable.appendChild(failedFilesBody);
+
+        dialog.appendChild(failedFilesTable);
 
         document.body.appendChild(dialog);
 
+        const intervalId = setInterval(() => {
+            const elapsedTime = Math.floor((new Date() - startTime) / 1000);
+            const hours = Math.floor(elapsedTime / 3600);
+            const minutes = Math.floor((elapsedTime % 3600) / 60);
+            const seconds = elapsedTime % 60;
+            let elapsedTimeStr = '';
+            if (hours > 0) {
+                elapsedTimeStr += `${hours}小时`;
+            }
+            if (minutes > 0 || hours > 0) {
+                elapsedTimeStr += `${minutes}分钟`;
+            }
+            elapsedTimeStr += `${seconds}秒`;
+            elapsedTimeElement.innerText = `已运行时间: ${elapsedTimeStr}`;
+        }, 1000);
+
         return {
+            updateTitle: (newTitle) => {
+                title.innerText = newTitle;
+            },
             updateTotalProgress: () => {
                 const currentCount = parseInt(totalProgress.innerText.split('/')[0].split(': ')[1]) + 1;
                 totalProgress.innerText = `总进度: ${currentCount}/${totalFiles}`;
@@ -405,10 +508,54 @@
             updateFileProgress: (loaded, total) => {
                 fileProgress.innerText = `当前文件进度: ${filesize(loaded)}/${filesize(total)}`;
             },
-            updateTotalSize: (size) => {
-                totalSize.innerText = `总大小: ${filesize(size)}`;
+            updateTotalSize: (size, zipSize) => {
+                totalSize.innerText = zipSize ? `总大小: ${filesize(size)} (压缩包大小: ${zipSize})` : `总大小: ${filesize(size)}`;
+            },
+            updateFailedFiles: (failedFiles) => {
+                failedFilesBody.innerHTML = ''; // 清空表格内容
+                if (failedFiles.length > 0) {
+                    failedFiles.forEach((file, index) => {
+                        const row = document.createElement('tr');
+                        const indexCell = document.createElement('td');
+                        indexCell.innerText = index + 1;
+                        indexCell.style.border = '1px solid #ccc';
+                        indexCell.style.padding = '5px';
+                        const filenameCell = document.createElement('td');
+                        filenameCell.innerText = file.filename;
+                        filenameCell.style.border = '1px solid #ccc';
+                        filenameCell.style.padding = '5px';
+                        const errorCell = document.createElement('td');
+                        errorCell.innerText = file.error;
+                        errorCell.style.border = '1px solid #ccc';
+                        errorCell.style.padding = '5px';
+                        row.appendChild(indexCell);
+                        row.appendChild(filenameCell);
+                        row.appendChild(errorCell);
+                        failedFilesBody.appendChild(row);
+                    });
+                } else {
+                    const row = document.createElement('tr');
+                    const cell = document.createElement('td');
+                    cell.colSpan = 3;
+                    cell.innerText = '无';
+                    cell.style.border = '1px solid #ccc';
+                    cell.style.padding = '5px';
+                    row.appendChild(cell);
+                    failedFilesBody.appendChild(row);
+                }
+            },
+            updateConfirmButton: (onConfirm) => {
+                confirmButton.innerText = '确认';
+                confirmButton.style.backgroundColor = '#007BFF'; // 修改背景颜色为蓝色
+                confirmButton.onmouseover = () => { confirmButton.style.backgroundColor = '#0056b3'; } // 添加悬停效果
+                confirmButton.onmouseout = () => { confirmButton.style.backgroundColor = '#007BFF'; } // 恢复背景颜色
+                confirmButton.onclick = onConfirm;
+            },
+            stopElapsedTime: () => {
+                clearInterval(intervalId);
             },
             close: () => {
+                clearInterval(intervalId);
                 document.body.removeChild(dialog);
             }
         };
@@ -554,7 +701,7 @@
             }
             const pathFormatInput = dialog.querySelector('input[type="text"]')
             const pathFormat = pathFormatInput.value || defaultFormat
-            await downloadPost(selectedPost, pathFormat)
+            await downloadPost(selectedPost, pathFormat).catch(e => console.error(e))
         }
         leftControls.appendChild(downloadButton)
 
@@ -732,7 +879,7 @@
             // 创建进度条
             const progressBar = createProgressBar()
             // 获取所有投稿
-            allPost = await getAllPost(progressBar)
+            allPost = await getAllPost(progressBar).catch(e => console.error(e))
         }
         // 创建结果弹窗
         const resultDialog = createResultDialog(allPost)
