@@ -6,7 +6,7 @@
 
 注意，赞助条件不符合的投稿不会显示在结果中，如：你的赞助金额为500日元，投稿解锁金额为1000日元
 
-![image](https://github.com/user-attachments/assets/7ba2bfd2-6de4-4674-8e26-74330265111c)
+![image](https://github.com/user-attachments/assets/3b193805-118d-4c3e-b735-e4cc882e09b0)
 
 注：如投稿数量过多，请耐心等待获取所有投稿信息，已获取数量在左下角
 
