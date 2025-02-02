@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 动态筛选
 // @namespace    Schwi
-// @version      0.3
+// @version      0.4
 // @description  Bilibili 动态筛选，快速找出感兴趣的动态
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -10,6 +10,7 @@
 // @grant        GM_registerMenuCommand
 // @supportURL   https://github.com/cyb233/script
 // @icon         https://www.bilibili.com/favicon.ico
+// @license      GPL-3.0
 // ==/UserScript==
 
 (function () {
@@ -175,6 +176,7 @@
             // 全部: {type: "checkbox", filter: (item, input) => true },
             排除自己: { type: "checkbox", filter: (item, input) => item.modules.module_author.following !== null },
             转发: { type: "checkbox", filter: (item, input) => item.type === 'DYNAMIC_TYPE_FORWARD' },
+            非转发: { type: "checkbox", filter: (item, input) => item.type !== 'DYNAMIC_TYPE_FORWARD' },
             文本: { type: "checkbox", filter: (item, input) => item.baseType === 'DYNAMIC_TYPE_WORD' },
             图文: { type: "checkbox", filter: (item, input) => item.baseType === 'DYNAMIC_TYPE_DRAW' },
             视频: { type: "checkbox", filter: (item, input) => item.baseType === 'DYNAMIC_TYPE_AV' },
