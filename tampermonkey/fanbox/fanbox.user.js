@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      1.3
+// @version      1.4
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -331,6 +331,7 @@
                     console.error(`${file.title}:${file.filename} 下载失败，重试第 ${attempts} 次`, e);
                     if (attempts >= 3) {
                         failedFiles.push({ filename: file.filename, error: e.message });
+                        downloadProgressDialog.updateFailedFiles(failedFiles); // 实时更新失败文件列表
                     }
                 }
             }
@@ -356,6 +357,7 @@
             } catch (e) {
                 console.error(`${text.title}:${text.filename} 下载失败`, e);
                 failedFiles.push({ filename: text.filename, error: e.message });
+                downloadProgressDialog.updateFailedFiles(failedFiles); // 实时更新失败文件列表
             }
         }
         if (isCancelled) {
