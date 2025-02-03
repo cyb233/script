@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      1.4
+// @version      1.5
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -378,9 +378,22 @@
             downloadProgressDialog.close();
             unsafeWindow.removeEventListener('beforeunload', onBeforeUnload);
         });
+        const blobUrl = URL.createObjectURL(zipFileBlob)
+        console.log('blobUrl', blobUrl)
         GM_download({
-            url: URL.createObjectURL(zipFileBlob),
-            name: `${baseinfo().username}.zip`
+            url: blobUrl,
+            name: `${baseinfo().username}.zip`,
+            onload: () => {
+                URL.revokeObjectURL(blobUrl);
+                alert('下载完成，请查看下载目录');
+            },
+            onerror: (e) => {
+                console.error(e);
+                alert('下载失败，请重试');
+            },
+            ontimeout: () => {
+                alert('下载超时，请重试');
+            }
         });
     }
 
@@ -463,14 +476,17 @@
         indexHeader.innerText = '序号';
         indexHeader.style.border = '1px solid #ccc';
         indexHeader.style.padding = '5px';
+        indexHeader.style.width = '10%'; // 设置序号列宽度
         const filenameHeader = document.createElement('th');
         filenameHeader.innerText = '文件名';
         filenameHeader.style.border = '1px solid #ccc';
         filenameHeader.style.padding = '5px';
+        filenameHeader.style.width = '45%'; // 设置文件名列宽度
         const errorHeader = document.createElement('th');
         errorHeader.innerText = '原因';
         errorHeader.style.border = '1px solid #ccc';
         errorHeader.style.padding = '5px';
+        errorHeader.style.width = '45%'; // 设置原因列宽度
         failedFilesHeader.appendChild(indexHeader);
         failedFilesHeader.appendChild(filenameHeader);
         failedFilesHeader.appendChild(errorHeader);
