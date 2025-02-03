@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      1.8
+// @version      1.9
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -53,37 +53,42 @@
         },
         article: { type: 'article', name: '文章' }
     }
-    const baseinfo = async () => {
-        let creatorId = top.window.location.host.split('.')[0]
-        let baseUrl = `https://${creatorId}.fanbox.cc`
-        if (creatorId === 'www') {
-            const pathname = top.window.location.pathname
-            if (!pathname.startsWith('/@')) {
-                alert('请访问用户页再执行脚本')
-                throw new Error('请访问用户页再执行脚本')
+    const baseinfo = (() => {
+        let cachedInfo = null;
+        return async () => {
+            if (cachedInfo) return cachedInfo;
+            
+            let creatorId = top.window.location.host.split('.')[0];
+            let baseUrl = `https://${creatorId}.fanbox.cc`;
+            if (creatorId === 'www') {
+                const pathname = top.window.location.pathname;
+                if (!pathname.startsWith('/@')) {
+                    alert('请访问用户页再执行脚本');
+                    throw new Error('请访问用户页再执行脚本');
+                }
+                creatorId = pathname.split('/@')[1].split('/')[0];
+                baseUrl = `https://www.fanbox.cc/@${creatorId}`;
             }
-            creatorId = pathname.split('/@')[1].split('/')[0]
-            baseUrl = `https://www.fanbox.cc/@${creatorId}`
-        }
-        let nickname = ''
-        if (!nickname) {
+            
             const creator = await fetch(api.creator(creatorId), { credentials: 'include' }).then(response => response.json()).catch(e => console.error(e));
-            nickname = creator.body.user.name
-        }
-        return { creatorId, baseUrl, nickname }
-    }
+            const nickname = creator.body.user.name;
+            
+            cachedInfo = { creatorId, baseUrl, nickname };
+            return cachedInfo;
+        };
+    })();
 
     async function getAllPost(progressBar) {
-        const planData = await fetch(api.plan(baseinfo().creatorId), { credentials: 'include' }).then(response => response.json()).catch(e => console.error(e));
+        const planData = await fetch(api.plan((await baseinfo()).creatorId), { credentials: 'include' }).then(response => response.json()).catch(e => console.error(e));
         const yourPlan = planData.body.filter(plan => plan.paymentMethod)
         const yourFee = yourPlan.length === 0 ? 0 : yourPlan[0].fee
-        const data = await fetch(api.creatorPost(baseinfo().creatorId), { credentials: 'include' }).then(response => response.json()).catch(e => console.error(e));
+        const data = await fetch(api.creatorPost((await baseinfo()).creatorId), { credentials: 'include' }).then(response => response.json()).catch(e => console.error(e));
         let nextId = data.body[0]?.id
         const postArray = []
         let i = 0
         while (nextId) {
             console.log(`请求第${++i}个`)
-            const resp = await fetch(api.plan(nextId), { credentials: 'include' }).then(response => response.json()).catch(e => console.error(e));
+            const resp = await fetch(api.post(nextId), { credentials: 'include' }).then(response => response.json()).catch(e => console.error(e));
             const feeRequired = resp.body.feeRequired || 0
             if (feeRequired <= yourFee) {
                 // 处理post类型
@@ -220,12 +225,12 @@
      * @param {object} item - 文件或图片对象
      * @returns {string} - 格式化后的路径
      */
-    function formatPath(pathFormat, post, item) {
+    async function formatPath(pathFormat, post, item) {
         const illegalChars = /[\\/:*?"<>|]/g;
         const formattedPath = pathFormat
             .replace('{title}', post.title.replace(illegalChars, '_'))
             .replace('{filename}', `${item.name}.${item.extension}`.replace(illegalChars, '_'))
-            .replace('{username}', baseinfo().creatorId.replace(illegalChars, '_'))
+            .replace('{username}', (await baseinfo()).creatorId.replace(illegalChars, '_'))
             .replace('{publishedDatetime}', post.publishedDatetime.replace(illegalChars, '_'))
         return formattedPath;
     }
@@ -253,7 +258,7 @@
 
             for (const img of imgs) {
                 // 根据pathFormat记录路径，用于之后打包为zip
-                const formattedPath = formatPath(pathFormat, post, { name: img.id, extension: img.extension })
+                const formattedPath = await formatPath(pathFormat, post, { name: img.id, extension: img.extension })
                 downloadFiles.push({
                     title: post.title,
                     filename: formattedPath,
@@ -263,7 +268,7 @@
             }
             for (const file of files) {
                 // 根据pathFormat记录路径，用于之后打包为zip
-                const formattedPath = formatPath(pathFormat, post, { name: file.name, extension: file.extension })
+                const formattedPath = await formatPath(pathFormat, post, { name: file.name, extension: file.extension })
                 downloadFiles.push({
                     title: post.title,
                     filename: formattedPath,
@@ -273,7 +278,7 @@
             }
             if (text) {
                 // 根据pathFormat记录路径，用于之后打包为zip
-                const formattedPath = formatPath(pathFormat, post, { name: post.title, extension: 'txt' })
+                const formattedPath = await formatPath(pathFormat, post, { name: post.title, extension: 'txt' })
                 downloadTexts.push({
                     title: post.title,
                     filename: formattedPath,
@@ -283,7 +288,7 @@
             }
             if (html) {
                 // 根据pathFormat记录路径，用于之后打包为zip
-                const formattedPath = formatPath(pathFormat, post, { name: post.title, extension: 'html' })
+                const formattedPath = await formatPath(pathFormat, post, { name: post.title, extension: 'html' })
                 downloadTexts.push({
                     title: post.title,
                     filename: formattedPath,
@@ -389,10 +394,10 @@
             downloadProgressDialog.close();
             unsafeWindow.removeEventListener('beforeunload', onBeforeUnload);
         });
-        downloadProgressDialog.addSaveButton(() => {
-            saveBlob(zipFileBlob, `${baseinfo().nickname}.zip`);
+        downloadProgressDialog.addSaveButton(async () => {
+            saveBlob(zipFileBlob, `${(await baseinfo()).nickname}.zip`);
         });
-        saveBlob(zipFileBlob, `${baseinfo().nickname}.zip`);
+        saveBlob(zipFileBlob, `${(await baseinfo()).nickname}.zip`);
     }
 
     function saveBlob(blob, filename) {
@@ -915,9 +920,9 @@
             viewButton.onmouseout = () => {
                 viewButton.style.backgroundColor = '#007BFF' // 鼠标移开时的颜色
             }
-            viewButton.onclick = (event) => {
+            viewButton.onclick = async (event) => {
                 event.stopPropagation(); // 阻止事件冒泡
-                window.open(`${baseinfo().baseUrl}/posts/${post.id}`, '_blank')
+                window.open(`${await baseinfo().baseUrl}/posts/${post.id}`, '_blank')
             }
             postElement.appendChild(viewButton)
 
