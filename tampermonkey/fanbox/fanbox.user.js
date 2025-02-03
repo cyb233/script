@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      1.7
+// @version      1.8
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -22,6 +22,13 @@
 (function () {
     'use strict';
     if (window.top !== window.self) return
+
+    const api = {
+        creator: (creatorId) => `https://api.fanbox.cc/creator.get?creatorId=${creatorId}`,
+        plan: (creatorId) => `https://api.fanbox.cc/plan.listCreator?creatorId=${creatorId}`,
+        creatorPost: (creatorId, limit = 1) => `https://api.fanbox.cc/post.listCreator?creatorId=${creatorId}&limit=${limit}`,
+        post: (postId) => `https://api.fanbox.cc/post.info?postId=${postId}`
+    }
 
     filesize = filesize.filesize
 
@@ -46,34 +53,37 @@
         },
         article: { type: 'article', name: '文章' }
     }
-    const baseinfo = () => {
-        let username = top.window.location.host.split('.')[0]
-        let baseUrl = `https://${username}.fanbox.cc`
-        if (username === 'www') {
+    const baseinfo = async () => {
+        let creatorId = top.window.location.host.split('.')[0]
+        let baseUrl = `https://${creatorId}.fanbox.cc`
+        if (creatorId === 'www') {
             const pathname = top.window.location.pathname
             if (!pathname.startsWith('/@')) {
                 alert('请访问用户页再执行脚本')
                 throw new Error('请访问用户页再执行脚本')
             }
-            username = pathname.split('/@')[1].split('/')[0]
-            baseUrl = `https://www.fanbox.cc/@${username}`
+            creatorId = pathname.split('/@')[1].split('/')[0]
+            baseUrl = `https://www.fanbox.cc/@${creatorId}`
         }
-        return { username, baseUrl }
+        let nickname = ''
+        if (!nickname) {
+            const creator = await fetch(api.creator(creatorId), { credentials: 'include' }).then(response => response.json()).catch(e => console.error(e));
+            nickname = creator.body.user.name
+        }
+        return { creatorId, baseUrl, nickname }
     }
 
     async function getAllPost(progressBar) {
-        const plan = `https://api.fanbox.cc/plan.listCreator?creatorId=${baseinfo().username}`
-        const planData = await fetch(plan, { credentials: 'include' }).then(response => response.json()).catch(e => console.error(e));
+        const planData = await fetch(api.plan(baseinfo().creatorId), { credentials: 'include' }).then(response => response.json()).catch(e => console.error(e));
         const yourPlan = planData.body.filter(plan => plan.paymentMethod)
         const yourFee = yourPlan.length === 0 ? 0 : yourPlan[0].fee
-        const api = `https://api.fanbox.cc/post.listCreator?creatorId=${baseinfo().username}&limit=1`
-        const data = await fetch(api, { credentials: 'include' }).then(response => response.json()).catch(e => console.error(e));
+        const data = await fetch(api.creatorPost(baseinfo().creatorId), { credentials: 'include' }).then(response => response.json()).catch(e => console.error(e));
         let nextId = data.body[0]?.id
         const postArray = []
         let i = 0
         while (nextId) {
             console.log(`请求第${++i}个`)
-            const resp = await fetch(`https://api.fanbox.cc/post.info?postId=${nextId}`, { credentials: 'include' }).then(response => response.json()).catch(e => console.error(e));
+            const resp = await fetch(api.plan(nextId), { credentials: 'include' }).then(response => response.json()).catch(e => console.error(e));
             const feeRequired = resp.body.feeRequired || 0
             if (feeRequired <= yourFee) {
                 // 处理post类型
@@ -215,7 +225,7 @@
         const formattedPath = pathFormat
             .replace('{title}', post.title.replace(illegalChars, '_'))
             .replace('{filename}', `${item.name}.${item.extension}`.replace(illegalChars, '_'))
-            .replace('{username}', baseinfo().username.replace(illegalChars, '_'))
+            .replace('{username}', baseinfo().creatorId.replace(illegalChars, '_'))
             .replace('{publishedDatetime}', post.publishedDatetime.replace(illegalChars, '_'))
         return formattedPath;
     }
@@ -380,9 +390,9 @@
             unsafeWindow.removeEventListener('beforeunload', onBeforeUnload);
         });
         downloadProgressDialog.addSaveButton(() => {
-            saveBlob(zipFileBlob, `${baseinfo().username}.zip`);
+            saveBlob(zipFileBlob, `${baseinfo().nickname}.zip`);
         });
-        saveBlob(zipFileBlob, `${baseinfo().username}.zip`);
+        saveBlob(zipFileBlob, `${baseinfo().nickname}.zip`);
     }
 
     function saveBlob(blob, filename) {
