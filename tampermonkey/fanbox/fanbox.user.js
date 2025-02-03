@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      2.0
+// @version      2.1
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -57,7 +57,7 @@
         let cachedInfo = null;
         return async () => {
             if (cachedInfo) return cachedInfo;
-            
+
             let creatorId = top.window.location.host.split('.')[0];
             let baseUrl = `https://${creatorId}.fanbox.cc`;
             if (creatorId === 'www') {
@@ -69,10 +69,10 @@
                 creatorId = pathname.split('/@')[1].split('/')[0];
                 baseUrl = `https://www.fanbox.cc/@${creatorId}`;
             }
-            
+
             const creator = await fetch(api.creator(creatorId), { credentials: 'include' }).then(response => response.json()).catch(e => console.error(e));
             const nickname = creator.body.user.name;
-            
+
             cachedInfo = { creatorId, baseUrl, nickname };
             return cachedInfo;
         };
@@ -95,6 +95,10 @@
                 resp.body.body.images = resp.body.body.images || []
                 resp.body.body.files = resp.body.body.files || []
                 resp.body.body.video = resp.body.body.video || {}
+                if (resp.body.coverImageUrl) {
+                    // 封面图片，extension从url中获取
+                    resp.body.body.images.push({ id: 'cover', extension: resp.body.coverImageUrl.split('.').pop(), originalUrl: resp.body.coverImageUrl })
+                }
                 if (resp.body.type === postType.text.type) {
                 } else if (resp.body.type === postType.image.type) {
                 } else if (resp.body.type === postType.file.type) {
@@ -230,7 +234,8 @@
         const formattedPath = pathFormat
             .replace('{title}', post.title.replace(illegalChars, '_'))
             .replace('{filename}', `${item.name}.${item.extension}`.replace(illegalChars, '_'))
-            .replace('{username}', (await baseinfo()).creatorId.replace(illegalChars, '_'))
+            .replace('{creatorId}', (await baseinfo()).creatorId.replace(illegalChars, '_'))
+            .replace('{nickname}', (await baseinfo()).nickname.replace(illegalChars, '_'))
             .replace('{publishedDatetime}', post.publishedDatetime.replace(illegalChars, '_'))
         return formattedPath;
     }
@@ -657,7 +662,7 @@
      * 创建结果弹窗，长宽90%, 顶部标题栏显示`投稿查询结果${选中数量}/${总数量}`，右上角有关闭按钮
      * 弹窗顶部有一个全选按钮，点击后全选所有投稿，有一个下载按钮，点击后下载所有勾选的投稿
      * 点击下载按钮后，会下载所有选中的投稿，下载路径格式为输入框的值，传入downloadPost函数
-     * 弹窗顶部有一个输入框，用于输入下载路径格式，通过GM_setValue和GM_getValue保存到本地，可用参数`{username}`,`{title}`,`{filename}`,`{publishedDatetime}`，用于替换为投稿的用户名、标题、文件名、发布时间
+     * 弹窗顶部有一个输入框，用于输入下载路径格式，通过GM_setValue和GM_getValue保存到本地，可用参数`{creatorId}`,`{nickname}`,`{title}`,`{filename}`,`{publishedDatetime}`，用于替换为投稿的用户名、标题、文件名、发布时间
      * 投稿结果使用grid布局，长宽200px，每个格子顶部正中为标题，第二行为文件和图片数量，剩余空间为正文，正文总是存在并撑满剩余空间，且Y轴可滚动
      * 点击格子可以选中或取消选中，选中的格子会被下载按钮下载
      * 底部有查看详情按钮，链接格式为`/posts/${post.body.id}`
@@ -783,7 +788,7 @@
         rightControls.style.alignItems = 'center'
 
         const pathFormatLabel = document.createElement('label')
-        pathFormatLabel.innerText = '下载路径格式 (可用参数: {username}, {title}, {filename}, {publishedDatetime}):'
+        pathFormatLabel.innerText = '下载路径格式 (可用参数: {creatorId}, {nickname}, {title}, {filename}, {publishedDatetime}):'
         pathFormatLabel.style.display = 'block'
         pathFormatLabel.style.marginBottom = '5px'
 
