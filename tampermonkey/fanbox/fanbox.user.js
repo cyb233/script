@@ -374,12 +374,12 @@
             let attempts = 0;
             while (attempts < 3) {
                 try {
-                    downloadProgressDialog.updateFileProgress(0, 1);
+                    downloadProgressDialog.updateFileProgress(0, 0);
                     const coverBlob = await fetch(cover.url).then(response => response.blob()).catch(e => console.error(e));
-                    downloadProgressDialog.updateFileProgress(1, 1);
                     if (!coverBlob.size) {
                         throw new Error('文件大小为0');
                     }
+                    downloadProgressDialog.updateFileProgress(coverBlob.size, coverBlob.size);
                     totalDownloadedSize += coverBlob.size;
                     downloadProgressDialog.updateTotalSize(totalDownloadedSize);
                     let filename = cover.filename;
