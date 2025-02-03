@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      1.9
+// @version      2.0
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -922,7 +922,7 @@
             }
             viewButton.onclick = async (event) => {
                 event.stopPropagation(); // 阻止事件冒泡
-                window.open(`${await baseinfo().baseUrl}/posts/${post.id}`, '_blank')
+                window.open(`${(await baseinfo()).baseUrl}/posts/${post.id}`, '_blank')
             }
             postElement.appendChild(viewButton)
 
