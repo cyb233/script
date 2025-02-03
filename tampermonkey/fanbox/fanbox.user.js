@@ -10,11 +10,11 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_xmlhttpRequest
-// @grant        GM_download
 // @connect      api.fanbox.cc
 // @connect      downloads.fanbox.cc
 // @require      https://cdn.jsdelivr.net/npm/@zip.js/zip.js@2.7.57/dist/zip.min.js
 // @require      https://cdn.jsdelivr.net/gh/avoidwork/filesize.js@b480b2992a3ac2acb18a030c7b3ce11fe91fb6e0/dist/filesize.min.js
+// @require      https://cdn.jsdelivr.net/npm/streamsaver@2.0.6/StreamSaver.min.js
 // @supportURL   https://github.com/cyb233/script
 // @license      GPL-3.0
 // ==/UserScript==
@@ -229,7 +229,7 @@
 
         function onBeforeUnload(event) {
             event.preventDefault();
-            event.returnValue = '';
+            event.returnValue = '文件可能还没下载完成，确认要离开吗？';
         }
 
         unsafeWindow.addEventListener('beforeunload', onBeforeUnload);
@@ -378,23 +378,35 @@
             downloadProgressDialog.close();
             unsafeWindow.removeEventListener('beforeunload', onBeforeUnload);
         });
-        const blobUrl = URL.createObjectURL(zipFileBlob)
-        console.log('blobUrl', blobUrl)
-        GM_download({
-            url: blobUrl,
-            name: `${baseinfo().username}.zip`,
-            onload: () => {
-                URL.revokeObjectURL(blobUrl);
-                alert('下载完成，请查看下载目录');
-            },
-            onerror: (e) => {
-                console.error(e);
-                alert('下载失败，请重试');
-            },
-            ontimeout: () => {
-                alert('下载超时，请重试');
-            }
+        downloadProgressDialog.addSaveButton(() => {
+            saveBlob(zipFileBlob, `${baseinfo().username}.zip`);
         });
+        saveBlob(zipFileBlob, `${baseinfo().username}.zip`);
+    }
+
+    function saveBlob(blob, filename) {
+        // 使用StreamSaver.js下载
+        const fileStream = streamSaver.createWriteStream(filename, {
+            size: blob.size
+        })
+        const readableStream = blob.stream()
+        // more optimized pipe version
+        // (Safari may have pipeTo but it's useless without the WritableStream)
+        if (window.WritableStream && readableStream.pipeTo) {
+            return readableStream.pipeTo(fileStream)
+                .then(() => alert('下载结束，请查看下载目录'))
+        }
+
+        // Write (pipe) manually
+        window.writer = fileStream.getWriter()
+
+        const reader = readableStream.getReader()
+        const pump = () => reader.read()
+            .then(res => res.done
+                ? writer.close()
+                : writer.write(res.value).then(pump))
+
+        pump()
     }
 
     // 创建下载进度提示dialog
@@ -493,6 +505,14 @@
         failedFilesTable.appendChild(failedFilesHeader);
 
         const failedFilesBody = document.createElement('tbody');
+        const initialRow = document.createElement('tr');
+        const initialCell = document.createElement('td');
+        initialCell.colSpan = 3;
+        initialCell.innerText = '无';
+        initialCell.style.border = '1px solid #ccc';
+        initialCell.style.padding = '5px';
+        initialRow.appendChild(initialCell);
+        failedFilesBody.appendChild(initialRow);
         failedFilesTable.appendChild(failedFilesBody);
 
         dialog.appendChild(failedFilesTable);
@@ -568,6 +588,23 @@
                 confirmButton.onmouseover = () => { confirmButton.style.backgroundColor = '#0056b3'; } // 添加悬停效果
                 confirmButton.onmouseout = () => { confirmButton.style.backgroundColor = '#007BFF'; } // 恢复背景颜色
                 confirmButton.onclick = onConfirm;
+            },
+            addSaveButton: (onSave) => {
+                // 添加保存按钮
+                const saveButton = document.createElement('button');
+                saveButton.innerText = '保存';
+                saveButton.style.backgroundColor = '#28a745'; // 修改背景颜色为绿色
+                saveButton.style.color = '#fff'; // 修改文字颜色为白色
+                saveButton.style.border = 'none';
+                saveButton.style.borderRadius = '5px';
+                saveButton.style.cursor = 'pointer';
+                saveButton.style.padding = '5px 10px';
+                saveButton.style.transition = 'background-color 0.3s'; // 添加过渡效果
+                saveButton.onmouseover = () => { saveButton.style.backgroundColor = '#218838'; } // 添加悬停效果
+                saveButton.onmouseout = () => { saveButton.style.backgroundColor = '#28a745'; } // 恢复背景颜色
+                saveButton.onclick = onSave;
+                // 将保存按钮添加到确认按钮的右侧
+                confirmButton.parentNode.insertBefore(saveButton, confirmButton.nextSibling);
             },
             stopElapsedTime: () => {
                 clearInterval(intervalId);
