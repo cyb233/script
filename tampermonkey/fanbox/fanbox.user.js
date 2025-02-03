@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      1.6
+// @version      1.7
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -26,6 +26,7 @@
     filesize = filesize.filesize
 
     let allPost = []
+    let totalPost = 0
 
     const defaultFormat = `{publishedDatetime}_{title}/{filename}`
 
@@ -187,10 +188,10 @@
                     console.log(`${nextId}:${resp.body.title} 未知类型 ${resp.body.type}`)
                 }
                 postArray.push(resp.body)
-                progressBar.update(postArray.length, i)
             } else {
                 console.log(`${nextId}:${resp.body.title} 赞助等级不足，需要 ${feeRequired} 日元档，您的档位是 ${yourFee} 日元`)
             }
+            progressBar.update(postArray.length, i)
             const prevPost = resp.body.prevPost
             nextId = prevPost?.id
             if (!nextId) {
@@ -199,7 +200,7 @@
         }
         console.log(`共${postArray.length}个作品`, postArray)
         progressBar.close()
-        return postArray
+        return { postArray, total: i }
     }
 
     /**
@@ -646,7 +647,7 @@
      * 点击格子可以选中或取消选中，选中的格子会被下载按钮下载
      * 底部有查看详情按钮，链接格式为`/posts/${post.body.id}`
      */
-    function createResultDialog(allPost) {
+    function createResultDialog(allPost, total) {
         const dialog = document.createElement('div')
         dialog.style.position = 'fixed'
         dialog.style.top = '5%'
@@ -669,7 +670,7 @@
         header.style.fontSize = '18px'; // 增加字体大小
 
         const title = document.createElement('h2')
-        title.innerText = `投稿查询结果 0/${allPost.length}`
+        title.innerText = `投稿查询结果 0/${allPost.length}/${total}`
         title.style.margin = '0'; // 移除默认的标题外边距
 
         header.appendChild(title)
@@ -925,7 +926,7 @@
 
         function updateTitle() {
             const selectedCount = dialog.querySelectorAll('input[type="checkbox"]:checked').length
-            title.innerText = `投稿查询结果 ${selectedCount}/${allPost.length}`
+            title.innerText = `投稿查询结果 ${selectedCount}/${allPost.length}/${total}`
         }
     }
 
@@ -934,10 +935,12 @@
             // 创建进度条
             const progressBar = createProgressBar()
             // 获取所有投稿
-            allPost = await getAllPost(progressBar).catch(e => console.error(e))
+            const { postArray, total } = await getAllPost(progressBar).catch(e => console.error(e))
+            allPost = postArray
+            totalPost = total
         }
         // 创建结果弹窗
-        const resultDialog = createResultDialog(allPost)
+        const resultDialog = createResultDialog(allPost, totalPost)
     }
 
     GM_registerMenuCommand('查询投稿', fmain)
