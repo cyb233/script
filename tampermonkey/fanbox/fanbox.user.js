@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      1.5
+// @version      1.6
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -187,7 +187,7 @@
                     console.log(`${nextId}:${resp.body.title} 未知类型 ${resp.body.type}`)
                 }
                 postArray.push(resp.body)
-                progressBar.update(postArray.length)
+                progressBar.update(postArray.length, i)
             } else {
                 console.log(`${nextId}:${resp.body.title} 赞助等级不足，需要 ${feeRequired} 日元档，您的档位是 ${yourFee} 日元`)
             }
@@ -628,8 +628,8 @@
         progressBar.style.borderRadius = '5px'
         document.body.appendChild(progressBar)
         return {
-            update: (num) => {
-                progressBar.innerText = `已获取 ${num} 个投稿`
+            update: (num, total) => {
+                progressBar.innerText = `已获取 ${num}/${total} 个投稿`
             },
             close: () => {
                 document.body.removeChild(progressBar)
