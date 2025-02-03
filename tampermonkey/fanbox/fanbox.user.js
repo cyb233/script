@@ -592,7 +592,7 @@
             addSaveButton: (onSave) => {
                 // 添加保存按钮
                 const saveButton = document.createElement('button');
-                saveButton.innerText = '保存';
+                saveButton.innerText = '重新保存';
                 saveButton.style.backgroundColor = '#28a745'; // 修改背景颜色为绿色
                 saveButton.style.color = '#fff'; // 修改文字颜色为白色
                 saveButton.style.border = 'none';
