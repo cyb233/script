@@ -10,7 +10,7 @@
 
 ![image](https://github.com/user-attachments/assets/ac135384-b27f-453b-8328-46e7e038e48f)
 
-![image](https://github.com/user-attachments/assets/25096a66-89f3-4a6e-a4ff-01678a173e16)
+![image](https://github.com/user-attachments/assets/ac77da14-f7ba-4831-ae88-14bfe345df30)
 
 注：如投稿数量过多，请耐心等待获取所有投稿信息，已获取数量在左下角
 
