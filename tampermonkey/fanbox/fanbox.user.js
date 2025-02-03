@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      2.1
+// @version      2.2
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -97,7 +97,7 @@
                 resp.body.body.video = resp.body.body.video || {}
                 if (resp.body.coverImageUrl) {
                     // 封面图片，extension从url中获取
-                    resp.body.body.images.push({ id: 'cover', extension: resp.body.coverImageUrl.split('.').pop(), originalUrl: resp.body.coverImageUrl })
+                    resp.body.body.cover = { id: 'cover', extension: resp.body.coverImageUrl.split('.').pop(), originalUrl: resp.body.coverImageUrl }
                 }
                 if (resp.body.type === postType.text.type) {
                 } else if (resp.body.type === postType.image.type) {
@@ -242,6 +242,7 @@
 
     async function downloadPost(selectedPost, pathFormat = defaultFormat) {
         const downloadFiles = []
+        const downloadCovers = []
         const downloadTexts = []
         const fileNames = new Set(); // 用于记录已存在的文件名
         let totalDownloadedSize = 0;
@@ -256,6 +257,7 @@
         unsafeWindow.addEventListener('beforeunload', onBeforeUnload);
 
         for (const post of selectedPost) {
+            let cover = post.body.cover
             let imgs = post.body.images || []
             let files = post.body.files || []
             let text = post.body.text || ''
@@ -281,6 +283,16 @@
                     publishedDatetime: post.publishedDatetime
                 })
             }
+            if (cover) {
+                // 根据pathFormat记录路径，用于之后打包为zip
+                const formattedPath = await formatPath(pathFormat, post, { name: cover.id, extension: cover.extension })
+                downloadCovers.push({
+                    title: post.title,
+                    filename: formattedPath,
+                    url: cover.originalUrl,
+                    publishedDatetime: post.publishedDatetime
+                })
+            }
             if (text) {
                 // 根据pathFormat记录路径，用于之后打包为zip
                 const formattedPath = await formatPath(pathFormat, post, { name: post.title, extension: 'txt' })
@@ -302,10 +314,10 @@
                 })
             }
         }
-        console.log(`开始下载 ${downloadFiles.length + downloadTexts.length} 个文件`)
+        console.log(`开始下载 ${downloadFiles.length + downloadCovers.length + downloadTexts.length} 个文件`)
 
         // 创建下载进度提示dialog
-        const downloadProgressDialog = createDownloadProgressDialog(downloadFiles.length + downloadTexts.length, startTime, () => {
+        const downloadProgressDialog = createDownloadProgressDialog(downloadFiles.length + downloadCovers.length + downloadTexts.length, startTime, () => {
             isCancelled = true;
         });
 
@@ -351,7 +363,44 @@
                     attempts++;
                     console.error(`${file.title}:${file.filename} 下载失败，重试第 ${attempts} 次`, e);
                     if (attempts >= 3) {
-                        failedFiles.push({ filename: file.filename, error: e.message });
+                        failedFiles.push({ filename: file.filename, error: e.message, url: file.url });
+                        downloadProgressDialog.updateFailedFiles(failedFiles); // 实时更新失败文件列表
+                    }
+                }
+            }
+        }
+        for (const cover of downloadCovers) {
+            if (isCancelled) break; // 如果取消下载，则跳出循环
+            let attempts = 0;
+            while (attempts < 3) {
+                try {
+                    downloadProgressDialog.updateFileProgress(0, 1);
+                    const coverBlob = await fetch(cover.url).then(response => response.blob()).catch(e => console.error(e));
+                    downloadProgressDialog.updateFileProgress(1, 1);
+                    if (!coverBlob.size) {
+                        throw new Error('文件大小为0');
+                    }
+                    totalDownloadedSize += coverBlob.size;
+                    downloadProgressDialog.updateTotalSize(totalDownloadedSize);
+                    let filename = cover.filename;
+                    let counter = 1;
+                    while (fileNames.has(filename)) {
+                        const extIndex = cover.filename.lastIndexOf('.');
+                        const baseName = cover.filename.substring(0, extIndex);
+                        const extension = cover.filename.substring(extIndex);
+                        filename = `${baseName}(${counter})${extension}`;
+                        counter++;
+                    }
+                    fileNames.add(filename);
+                    console.log(`${cover.title}:${filename} 下载成功，文件大小 ${filesize(coverBlob.size)}`);
+                    await writer.add(filename, new zip.BlobReader(coverBlob));
+                    downloadProgressDialog.updateTotalProgress();
+                    break; // 下载成功，跳出重试循环
+                } catch (e) {
+                    attempts++;
+                    console.error(`${cover.title}:${cover.filename} 下载失败，重试第 ${attempts} 次`, e);
+                    if (attempts >= 3) {
+                        failedFiles.push({ filename: cover.filename, error: e.message, url: cover.url });
                         downloadProgressDialog.updateFailedFiles(failedFiles); // 实时更新失败文件列表
                     }
                 }
@@ -514,21 +563,27 @@
         filenameHeader.innerText = '文件名';
         filenameHeader.style.border = '1px solid #ccc';
         filenameHeader.style.padding = '5px';
-        filenameHeader.style.width = '45%'; // 设置文件名列宽度
+        filenameHeader.style.width = '35%'; // 设置文件名列宽度
         const errorHeader = document.createElement('th');
         errorHeader.innerText = '原因';
         errorHeader.style.border = '1px solid #ccc';
         errorHeader.style.padding = '5px';
-        errorHeader.style.width = '45%'; // 设置原因列宽度
+        errorHeader.style.width = '35%'; // 设置原因列宽度
+        const urlHeader = document.createElement('th');
+        urlHeader.innerText = '下载URL';
+        urlHeader.style.border = '1px solid #ccc';
+        urlHeader.style.padding = '5px';
+        urlHeader.style.width = '20%'; // 设置下载URL列宽度
         failedFilesHeader.appendChild(indexHeader);
         failedFilesHeader.appendChild(filenameHeader);
         failedFilesHeader.appendChild(errorHeader);
+        failedFilesHeader.appendChild(urlHeader);
         failedFilesTable.appendChild(failedFilesHeader);
 
         const failedFilesBody = document.createElement('tbody');
         const initialRow = document.createElement('tr');
         const initialCell = document.createElement('td');
-        initialCell.colSpan = 3;
+        initialCell.colSpan = 4;
         initialCell.innerText = '无';
         initialCell.style.border = '1px solid #ccc';
         initialCell.style.padding = '5px';
@@ -587,15 +642,24 @@
                         errorCell.innerText = file.error;
                         errorCell.style.border = '1px solid #ccc';
                         errorCell.style.padding = '5px';
+                        const urlCell = document.createElement('td');
+                        const urlLink = document.createElement('a');
+                        urlLink.href = file.url;
+                        urlLink.innerText = '下载';
+                        urlLink.target = '_blank';
+                        urlCell.appendChild(urlLink);
+                        urlCell.style.border = '1px solid #ccc';
+                        urlCell.style.padding = '5px';
                         row.appendChild(indexCell);
                         row.appendChild(filenameCell);
                         row.appendChild(errorCell);
+                        row.appendChild(urlCell);
                         failedFilesBody.appendChild(row);
                     });
                 } else {
                     const row = document.createElement('tr');
                     const cell = document.createElement('td');
-                    cell.colSpan = 3;
+                    cell.colSpan = 4;
                     cell.innerText = '无';
                     cell.style.border = '1px solid #ccc';
                     cell.style.padding = '5px';
@@ -873,6 +937,7 @@
 
             const images = post.body.images || []
             const files = post.body.files || []
+            const cover = post.body.cover ? 1 : 0
             let text = post.body.text || ''
             if (!text && post.body.html) {
                 const html = post.body.html
@@ -882,7 +947,7 @@
             }
 
             const mediaCount = document.createElement('p')
-            mediaCount.innerText = `${images.length} 张图片 | ${files.length} 个文件`
+            mediaCount.innerText = `${images.length} 张图片 | ${files.length} 个文件 | ${cover} 个封面`
             mediaCount.style.margin = '0'
             mediaCount.style.fontSize = '14px'
             mediaCount.style.color = '#555'
