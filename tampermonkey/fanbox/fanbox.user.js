@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      2.4
+// @version      2.5
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -233,12 +233,25 @@
     async function formatPath(pathFormat, post, item) {
         const illegalChars = /[\\/:*?"<>|]/g;
         const formattedPath = pathFormat
+            .replace('{id}', post.id)
             .replace('{title}', post.title.replace(illegalChars, '_'))
             .replace('{filename}', `${item.name}.${item.extension}`.replace(illegalChars, '_'))
             .replace('{creatorId}', (await baseinfo()).creatorId.replace(illegalChars, '_'))
             .replace('{nickname}', (await baseinfo()).nickname.replace(illegalChars, '_'))
-            .replace('{publishedDatetime}', post.publishedDatetime.replace(illegalChars, '_'))
+            .replace('{publishedDate}', formatDateTime(post.publishedDatetime))
+            .replace('{updatedDate}', formatDateTime(post.updatedDatetime))
+            .replace('{publishedDatetime}', formatDateTime(post.publishedDatetime))
+            .replace('{updatedDatetime}', formatDateTime(post.updatedDatetime))
         return formattedPath;
+    }
+
+    function formatDateTime(date) {
+        date = new Date(date);
+        // 年-月-日
+        const year = datetime.getFullYear();
+        const month = datetime.getMonth() + 1;
+        const day = datetime.getDate();
+        return `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
     }
 
     async function downloadPost(selectedPost, pathFormat = defaultFormat) {
@@ -727,7 +740,7 @@
      * 创建结果弹窗，长宽90%, 顶部标题栏显示`投稿查询结果${选中数量}/${总数量}`，右上角有关闭按钮
      * 弹窗顶部有一个全选按钮，点击后全选所有投稿，有一个下载按钮，点击后下载所有勾选的投稿
      * 点击下载按钮后，会下载所有选中的投稿，下载路径格式为输入框的值，传入downloadPost函数
-     * 弹窗顶部有一个输入框，用于输入下载路径格式，通过GM_setValue和GM_getValue保存到本地，可用参数`{creatorId}`,`{nickname}`,`{title}`,`{filename}`,`{publishedDatetime}`，用于替换为投稿的用户名、标题、文件名、发布时间
+     * 弹窗顶部有一个输入框，用于输入下载路径格式，通过GM_setValue和GM_getValue保存到本地，可用参数`{postId}`, `{creatorId}`,`{nickname}`,`{title}`,`{filename}`,`{publishedDate}`, `{updatedDate}`，用于替换为投稿的用户名、标题、文件名、发布时间
      * 投稿结果使用grid布局，长宽200px，每个格子顶部正中为标题，第二行为文件和图片数量，剩余空间为正文，正文总是存在并撑满剩余空间，且Y轴可滚动
      * 点击格子可以选中或取消选中，选中的格子会被下载按钮下载
      * 底部有查看详情按钮，链接格式为`/posts/${post.body.id}`
@@ -853,7 +866,7 @@
         rightControls.style.alignItems = 'center'
 
         const pathFormatLabel = document.createElement('label')
-        pathFormatLabel.innerText = '下载路径格式 (可用参数: {creatorId}, {nickname}, {title}, {filename}, {publishedDatetime}):'
+        pathFormatLabel.innerText = '下载路径格式 (可用参数: {postId}, {creatorId}, {nickname}, {title}, {filename}, {publishedDate}, {updatedDate}):'
         pathFormatLabel.style.display = 'block'
         pathFormatLabel.style.marginBottom = '5px'
 
