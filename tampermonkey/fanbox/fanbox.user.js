@@ -30,7 +30,7 @@
         post: (postId) => `https://api.fanbox.cc/post.info?postId=${postId}`
     }
 
-    filesize = (size) => filesize.filesize(size, { base: 2 })
+    const getSize = (size) => filesize.filesize(size, { base: 2 })
 
     let allPost = []
     let totalPost = 0
@@ -53,10 +53,11 @@
         },
         article: { type: 'article', name: '文章' }
     }
-    const baseinfo = (() => {
+
+    const baseinfo = ((useCache = true) => {
         let cachedInfo = null;
         return async () => {
-            if (cachedInfo) return cachedInfo;
+            if (cachedInfo && useCache) return cachedInfo;
 
             let creatorId = top.window.location.host.split('.')[0];
             let baseUrl = `https://${creatorId}.fanbox.cc`;
@@ -355,7 +356,7 @@
                         counter++;
                     }
                     fileNames.add(filename);
-                    console.log(`${file.title}:${filename} 下载成功，文件大小 ${filesize(resp.response.size)}`);
+                    console.log(`${file.title}:${filename} 下载成功，文件大小 ${getSize(resp.response.size)}`);
                     await writer.add(filename, new zip.BlobReader(resp.response));
                     downloadProgressDialog.updateTotalProgress();
                     break; // 下载成功，跳出重试循环
@@ -392,7 +393,7 @@
                         counter++;
                     }
                     fileNames.add(filename);
-                    console.log(`${cover.title}:${filename} 下载成功，文件大小 ${filesize(coverBlob.size)}`);
+                    console.log(`${cover.title}:${filename} 下载成功，文件大小 ${getSize(coverBlob.size)}`);
                     await writer.add(filename, new zip.BlobReader(coverBlob));
                     downloadProgressDialog.updateTotalProgress();
                     break; // 下载成功，跳出重试循环
@@ -409,7 +410,7 @@
         for (const text of downloadTexts) {
             if (isCancelled) break; // 如果取消下载，则跳出循环
             try {
-                console.log(`${text.title}:${text.filename} 下载成功，文件大小 ${filesize(text.text.length)}`);
+                console.log(`${text.title}:${text.filename} 下载成功，文件大小 ${getSize(text.text.length)}`);
                 let filename = text.filename;
                 let counter = 1;
                 while (fileNames.has(filename)) {
@@ -439,9 +440,9 @@
         console.log(`${downloadFiles.length + downloadTexts.length} 个文件下载完成`)
         console.log('开始生成压缩包', writer)
         const zipFileBlob = await writer.close().catch(e => console.error(e));
-        console.log(`压缩包生成完成，开始下载，压缩包大小:${filesize(zipFileBlob.size)}`)
+        console.log(`压缩包生成完成，开始下载，压缩包大小:${getSize(zipFileBlob.size)}`)
         downloadProgressDialog.updateTitle('下载完成');
-        downloadProgressDialog.updateTotalSize(totalDownloadedSize, filesize(zipFileBlob.size));
+        downloadProgressDialog.updateTotalSize(totalDownloadedSize, getSize(zipFileBlob.size));
         downloadProgressDialog.stopElapsedTime(); // 停止已运行时间更新
         downloadProgressDialog.updateFailedFiles(failedFiles); // 更新失败文件列表
         downloadProgressDialog.updateConfirmButton(() => {
@@ -620,10 +621,10 @@
                 totalProgress.innerText = `总进度: ${currentCount}/${totalFiles}`;
             },
             updateFileProgress: (loaded, total) => {
-                fileProgress.innerText = `当前文件进度: ${filesize(loaded)}/${filesize(total)}`;
+                fileProgress.innerText = `当前文件进度: ${getSize(loaded)}/${getSize(total)}`;
             },
             updateTotalSize: (size, zipSize) => {
-                totalSize.innerText = zipSize ? `总大小: ${filesize(size)} (压缩包大小: ${zipSize})` : `总大小: ${filesize(size)}`;
+                totalSize.innerText = zipSize ? `总大小: ${getSize(size)} (压缩包大小: ${zipSize})` : `总大小: ${getSize(size)}`;
             },
             updateFailedFiles: (failedFiles) => {
                 failedFilesBody.innerHTML = ''; // 清空表格内容
@@ -1016,7 +1017,7 @@
     }
 
     async function fmain() {
-        if (allPost.length === 0) {
+        if (allPost.length === 0 || (await baseinfo(true)).creatorId !== (await baseinfo(false)).creatorId) {
             // 创建进度条
             const progressBar = createProgressBar()
             // 获取所有投稿
