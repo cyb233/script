@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      2.3
+// @version      2.4
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -30,7 +30,7 @@
         post: (postId) => `https://api.fanbox.cc/post.info?postId=${postId}`
     }
 
-    filesize = filesize.filesize
+    filesize = (size) => filesize.filesize(size, { base: 2 })
 
     let allPost = []
     let totalPost = 0
