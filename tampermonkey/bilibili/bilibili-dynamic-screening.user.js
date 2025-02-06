@@ -17,7 +17,7 @@
     'use strict';
 
     // 检查脚本是否运行在顶层窗口
-    if (window.top !== window) {
+    if (window.top !== window.self) {
         console.log("脚本不应运行于 iframe");
         return;
     }
