@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 动态筛选
 // @namespace    Schwi
-// @version      0.4
+// @version      0.5
 // @description  Bilibili 动态筛选，快速找出感兴趣的动态
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -24,38 +24,38 @@
 
     // 只写了一部分 https://github.com/SocialSisterYi/bilibili-API-collect/blob/master/docs/dynamic/dynamic_enum.md
     const DYNAMIC_TYPE = {
-        DYNAMIC_TYPE_FORWARD: "转发",
-        DYNAMIC_TYPE_WORD: "文本",
-        DYNAMIC_TYPE_DRAW: "图文",
-        DYNAMIC_TYPE_AV: "视频",
-        DYNAMIC_TYPE_ARTICLE: "专栏",
-        DYNAMIC_TYPE_LIVE_RCMD: "直播",
-        DYNAMIC_TYPE_LIVE: "直播", // 被转发
-        DYNAMIC_TYPE_UGC_SEASON: "合集",
-        DYNAMIC_TYPE_PGC_UNION: "番剧影视",
-        DYNAMIC_TYPE_COMMON_SQUARE: "卡片", // 充电专属问答，收藏集等
-        DYNAMIC_TYPE_NONE: "源动态已被作者删除",
-    }
+        DYNAMIC_TYPE_FORWARD: { key: "DYNAMIC_TYPE_FORWARD", name: "转发" },
+        DYNAMIC_TYPE_WORD: { key: "DYNAMIC_TYPE_WORD", name: "文本" },
+        DYNAMIC_TYPE_DRAW: { key: "DYNAMIC_TYPE_DRAW", name: "图文" },
+        DYNAMIC_TYPE_AV: { key: "DYNAMIC_TYPE_AV", name: "视频" },
+        DYNAMIC_TYPE_ARTICLE: { key: "DYNAMIC_TYPE_ARTICLE", name: "专栏" },
+        DYNAMIC_TYPE_LIVE_RCMD: { key: "DYNAMIC_TYPE_LIVE_RCMD", name: "直播" },
+        DYNAMIC_TYPE_LIVE: { key: "DYNAMIC_TYPE_LIVE", name: "直播" }, // 被转发
+        DYNAMIC_TYPE_UGC_SEASON: { key: "DYNAMIC_TYPE_UGC_SEASON", name: "合集" },
+        DYNAMIC_TYPE_PGC_UNION: { key: "DYNAMIC_TYPE_PGC_UNION", name: "番剧影视" },
+        DYNAMIC_TYPE_COMMON_SQUARE: { key: "DYNAMIC_TYPE_COMMON_SQUARE", name: "卡片" }, // 充电专属问答，收藏集等
+        DYNAMIC_TYPE_NONE: { key: "DYNAMIC_TYPE_NONE", name: "源动态已被作者删除" },
+    };
 
     const MAJOR_TYPE = {
-        MAJOR_TYPE_NONE: "源动态已被作者删除",
-        MAJOR_TYPE_OPUS: "动态",
-        MAJOR_TYPE_PGC: "番剧影视",
-    }
+        MAJOR_TYPE_NONE: { key: "MAJOR_TYPE_NONE", name: "源动态已被作者删除" },
+        MAJOR_TYPE_OPUS: { key: "MAJOR_TYPE_OPUS", name: "动态" },
+        MAJOR_TYPE_PGC: { key: "MAJOR_TYPE_PGC", name: "番剧影视" },
+    };
 
     const RICH_TEXT_NODE_TYPE = {
-        RICH_TEXT_NODE_TYPE_LOTTERY: "互动抽奖",
-        RICH_TEXT_NODE_TYPE_TEXT: "文本",
-    }
+        RICH_TEXT_NODE_TYPE_LOTTERY: { key: "RICH_TEXT_NODE_TYPE_LOTTERY", name: "互动抽奖" },
+        RICH_TEXT_NODE_TYPE_TEXT: { key: "RICH_TEXT_NODE_TYPE_TEXT", name: "文本" },
+    };
 
     const ADDITIONAL_TYPE = {
-        ADDITIONAL_TYPE_RESERVE: "保留附加类型",
-    }
+        ADDITIONAL_TYPE_RESERVE: { key: "ADDITIONAL_TYPE_RESERVE", name: "保留附加类型" },
+    };
 
     const STYPE = {
-        1: "视频更新预告",
-        2: "直播预告",
-    }
+        1: { key: 1, name: "视频更新预告" },
+        2: { key: 2, name: "直播预告" },
+    };
 
     // 添加全局变量
     let dynamicList = [];
@@ -175,28 +175,38 @@
         const filters = {
             // 全部: {type: "checkbox", filter: (item, input) => true },
             排除自己: { type: "checkbox", filter: (item, input) => item.modules.module_author.following !== null },
-            转发: { type: "checkbox", filter: (item, input) => item.type === 'DYNAMIC_TYPE_FORWARD' },
-            非转发: { type: "checkbox", filter: (item, input) => item.type !== 'DYNAMIC_TYPE_FORWARD' },
-            文本: { type: "checkbox", filter: (item, input) => item.baseType === 'DYNAMIC_TYPE_WORD' },
-            图文: { type: "checkbox", filter: (item, input) => item.baseType === 'DYNAMIC_TYPE_DRAW' },
-            视频: { type: "checkbox", filter: (item, input) => item.baseType === 'DYNAMIC_TYPE_AV' },
-            专栏: { type: "checkbox", filter: (item, input) => item.baseType === 'DYNAMIC_TYPE_ARTICLE' },
-            直播: { type: "checkbox", filter: (item, input) => item.baseType === 'DYNAMIC_TYPE_LIVE_RCMD' || item.baseType === 'DYNAMIC_TYPE_LIVE' },
-            合集: { type: "checkbox", filter: (item, input) => item.baseType === 'DYNAMIC_TYPE_UGC_SEASON' },
-            番剧影视: { type: "checkbox", filter: (item, input) => item.baseType === 'DYNAMIC_TYPE_PGC_UNION' },
-            卡片: { type: "checkbox", filter: (item, input) => item.baseType === 'DYNAMIC_TYPE_COMMON_SQUARE' },
-            视频更新预告: { type: "checkbox", filter: (item, input) => (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item).modules.module_dynamic.additional?.reserve?.stype === 1 },
-            直播预告: { type: "checkbox", filter: (item, input) => (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item).modules.module_dynamic.additional?.reserve?.stype === 2 },
-            有奖预约: { type: "checkbox", filter: (item, input) => (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item).modules.module_dynamic.additional?.reserve?.desc3?.text },
+            转发: { type: "checkbox", filter: (item, input) => item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key },
+            非转发: { type: "checkbox", filter: (item, input) => item.type !== DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key },
+            文本: { type: "checkbox", filter: (item, input) => item.baseType === DYNAMIC_TYPE.DYNAMIC_TYPE_WORD.key },
+            图文: { type: "checkbox", filter: (item, input) => item.baseType === DYNAMIC_TYPE.DYNAMIC_TYPE_DRAW.key },
+            视频: { type: "checkbox", filter: (item, input) => item.baseType === DYNAMIC_TYPE.DYNAMIC_TYPE_AV.key },
+            专栏: { type: "checkbox", filter: (item, input) => item.baseType === DYNAMIC_TYPE.DYNAMIC_TYPE_ARTICLE.key },
+            直播: { type: "checkbox", filter: (item, input) => item.baseType === DYNAMIC_TYPE.DYNAMIC_TYPE_LIVE_RCMD.key || item.baseType === DYNAMIC_TYPE.DYNAMIC_TYPE_LIVE.key },
+            合集: { type: "checkbox", filter: (item, input) => item.baseType === DYNAMIC_TYPE.DYNAMIC_TYPE_UGC_SEASON.key },
+            番剧影视: { type: "checkbox", filter: (item, input) => item.baseType === DYNAMIC_TYPE.DYNAMIC_TYPE_PGC_UNION.key },
+            卡片: { type: "checkbox", filter: (item, input) => item.baseType === DYNAMIC_TYPE.DYNAMIC_TYPE_COMMON_SQUARE.key },
+            视频更新预告: { type: "checkbox", filter: (item, input) => (item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? item.orig : item).modules.module_dynamic.additional?.reserve?.stype === STYPE.STYPE_1.key },
+            直播预告: { type: "checkbox", filter: (item, input) => (item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? item.orig : item).modules.module_dynamic.additional?.reserve?.stype === STYPE.STYPE_2.key },
+            有奖预约: { type: "checkbox", filter: (item, input) => (item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? item.orig : item).modules.module_dynamic.additional?.reserve?.desc3?.text },
             互动抽奖: {
                 type: "checkbox", filter: (item, input) =>
-                item.modules.module_dynamic.major?.opus?.summary?.rich_text_nodes?.some(n => n?.type === 'RICH_TEXT_NODE_TYPE_LOTTERY') || item.modules.module_dynamic.desc?.rich_text_nodes?.some(n => n?.type === 'RICH_TEXT_NODE_TYPE_LOTTERY') ||
-                item.orig?.modules?.module_dynamic?.major?.opus?.summary?.rich_text_nodes?.some(n => n?.type === 'RICH_TEXT_NODE_TYPE_LOTTERY') || item.orig?.modules?.module_dynamic?.desc?.rich_text_nodes?.some(n => n?.type === 'RICH_TEXT_NODE_TYPE_LOTTERY') },
+                    item.modules.module_dynamic.major?.opus?.summary?.rich_text_nodes?.some(n => n?.type === RICH_TEXT_NODE_TYPE.RICH_TEXT_NODE_TYPE_LOTTERY.key) || item.modules.module_dynamic.desc?.rich_text_nodes?.some(n => n?.type === RICH_TEXT_NODE_TYPE.RICH_TEXT_NODE_TYPE_LOTTERY.key) ||
+                    item.orig?.modules?.module_dynamic?.major?.opus?.summary?.rich_text_nodes?.some(n => n?.type === RICH_TEXT_NODE_TYPE.RICH_TEXT_NODE_TYPE_LOTTERY.key) || item.orig?.modules?.module_dynamic?.desc?.rich_text_nodes?.some(n => n?.type === RICH_TEXT_NODE_TYPE.RICH_TEXT_NODE_TYPE_LOTTERY.key)
+            },
             搜索: {
-                type: "text", filter: (item, input) =>
-                (item.modules.module_author.name + item.modules.module_author.mid + (item.modules.module_dynamic.desc?.text || '')
-                 +
-                 (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig.modules.module_author.name + item.orig.modules.module_author.mid + (item.orig.modules.module_dynamic.desc?.text || '') : '')).toLocaleUpperCase().includes(input.toLocaleUpperCase())
+                type: "text",
+                filter: (item, input) => {
+                    const searchText = input.toLocaleUpperCase();
+                    const authorName = item.modules.module_author.name.toLocaleUpperCase();
+                    const authorMid = item.modules.module_author.mid.toString();
+                    const descText = (item.modules.module_dynamic.desc?.text || '').toLocaleUpperCase();
+                    const forwardAuthorName = item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? item.orig.modules.module_author.name.toLocaleUpperCase() : '';
+                    const forwardAuthorMid = item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? item.orig.modules.module_author.mid.toString() : '';
+                    const forwardDescText = item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? (item.orig.modules.module_dynamic.desc?.text || '').toLocaleUpperCase() : '';
+
+                    return authorName.includes(searchText) || authorMid.includes(searchText) || descText.includes(searchText) ||
+                        forwardAuthorName.includes(searchText) || forwardAuthorMid.includes(searchText) || forwardDescText.includes(searchText);
+                }
             },
         };
 
@@ -227,10 +237,14 @@
             }
             const filteredList = dynamicList.filter(item => checkedFilters.every(f => f.value ? f.filter(item, f.value) : true));
             const items = gridContainer.children;
-            for (let index = 0; index < items.length; index++) {
-                const item = items[index];
-                item.style.display = filteredList.some(filteredItem => filteredItem.id_str === dynamicList[index].id_str) ? 'flex' : 'none';
-            }
+            const filteredSet = new Set(filteredList.map(item => item.id_str));
+
+            requestAnimationFrame(() => {
+                for (let index = 0; index < items.length; index++) {
+                    const item = items[index];
+                    item.style.display = filteredSet.has(dynamicList[index].id_str) ? 'flex' : 'none';
+                }
+            });
 
             // 更新标题显示筛选后的条数和总条数
             titleElement.textContent = `动态结果（${filteredList.length}/${dynamicList.length}）`;
@@ -252,21 +266,35 @@
             let label = document.createElement('label');
             label.htmlFor = key;
             label.textContent = key;
+            label.style.display = 'flex'; // 确保 label 和 input 在同一行
+            label.style.alignItems = 'center'; // 垂直居中对齐
+            label.style.marginRight = '5px';
+
+            let container = document.createElement('div');
+            container.style.display = 'flex';
+            container.style.alignItems = 'center';
+            container.style.marginRight = '10px';
 
             if (['checkbox', 'radio'].includes(filter.type)) {
-                (function(dynamicList, filter, input) {
+                (function (dynamicList, filter, input) {
                     input.addEventListener('change', () => deal(dynamicList));
                 })(dynamicList, filter, input);
-                filterButtonsContainer.appendChild(input);
-                filterButtonsContainer.appendChild(label);
+                container.appendChild(input);
+                container.appendChild(label);
             } else {
-                (function(dynamicList, filter, input) {
-                    input.addEventListener('input', () => deal(dynamicList));
+                let timeout;
+                (function (dynamicList, filter, input) {
+                    input.addEventListener('input', () => {
+                        clearTimeout(timeout);
+                        timeout = setTimeout(() => deal(dynamicList), 1000); // 增加延迟处理
+                    });
                 })(dynamicList, filter, input);
-                filterButtonsContainer.appendChild(label);
-                filterButtonsContainer.appendChild(input);
+                container.appendChild(label);
+                container.appendChild(input);
             }
-        };
+
+            filterButtonsContainer.appendChild(container);
+        }
 
         const getDescText = (dynamic, isForward) => {
             let descText = dynamic.modules.module_dynamic.desc?.text || ''
@@ -278,17 +306,25 @@
             return descText
         }
 
-        for (let dynamic of dynamicList) {
-            const isForward = dynamic.type === 'DYNAMIC_TYPE_FORWARD';
+        const createDynamicItem = (dynamic) => {
+            const isForward = dynamic.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key;
             const baseDynamic = isForward ? dynamic.orig : dynamic;
             const type = baseDynamic.type;
             const authorName = dynamic.modules.module_author.name;
-            const authorUid = dynamic.modules.module_author.mid;
-            const url = `https://t.bilibili.com/${dynamic.id_str}`;
-            const spaceUrl = `https://space.bilibili.com/${authorUid}`;
+            const mid = dynamic.modules.module_author.mid;
+            const dynamicUrl = `https://t.bilibili.com/${dynamic.id_str}`;
+            const jumpUrl = (mid, dynamicType) => {
+                if (dynamicType === DYNAMIC_TYPE.DYNAMIC_TYPE_UGC_SEASON.key) {
+                    return `https://www.bilibili.com/video/av${mid}/`
+                }
+                if (dynamicType === DYNAMIC_TYPE.DYNAMIC_TYPE_PGC_UNION.key) {
+                    return `https://bangumi.bilibili.com/anime/${mid}`
+                }
+                return `https://space.bilibili.com/${mid}`
+            }
 
             let backgroundImage = '';
-            if (type === 'DYNAMIC_TYPE_DRAW') {
+            if (type === DYNAMIC_TYPE.DYNAMIC_TYPE_DRAW.key) {
                 backgroundImage = baseDynamic.modules.module_dynamic.major.draw.items[0].src;
             }
 
@@ -298,14 +334,45 @@
             dynamicItem.style.borderRadius = "10px";
             dynamicItem.style.overflow = "hidden";
             dynamicItem.style.height = "300px";
-            dynamicItem.style.backgroundImage = `url(${backgroundImage})`;
-            dynamicItem.style.backgroundSize = "cover";
-            dynamicItem.style.backgroundPosition = "center";
             dynamicItem.style.display = "flex";
             dynamicItem.style.flexDirection = "column";
             dynamicItem.style.justifyContent = "flex-start"; // 修改为 flex-start 以使内容从顶部开始
             dynamicItem.style.padding = "10px";
             dynamicItem.style.color = "#fff";
+            dynamicItem.style.transition = "transform 0.3s, background-color 0.3s"; // 添加过渡效果
+
+            dynamicItem.onmouseover = () => {
+                dynamicItem.style.transform = "scale(1.05)"; // 略微放大
+                cardTitle.style.background = "rgba(0, 0, 0, 0.3)";
+                publishTime.style.background = "rgba(0, 0, 0, 0.3)";
+                typeComment.style.background = "rgba(0, 0, 0, 0.3)";
+                describe.style.background = "rgba(0, 0, 0, 0.3)";
+                viewDetailsButton.style.backgroundColor = "rgba(0, 0, 0, 0.3)";
+            };
+
+            dynamicItem.onmouseout = () => {
+                dynamicItem.style.transform = "scale(1)"; // 恢复原始大小
+                cardTitle.style.background = "rgba(0, 0, 0, 0.5)";
+                publishTime.style.background = "rgba(0, 0, 0, 0.5)";
+                typeComment.style.background = "rgba(0, 0, 0, 0.5)";
+                describe.style.background = "rgba(0, 0, 0, 0.5)";
+                viewDetailsButton.style.backgroundColor = "rgba(0, 0, 0, 0.6)";
+            };
+
+            // 背景图片
+            if (backgroundImage) {
+                const img = document.createElement('img');
+                img.src = backgroundImage;
+                img.loading = "lazy";
+                img.style.position = "absolute";
+                img.style.top = "0";
+                img.style.left = "0";
+                img.style.width = "100%";
+                img.style.height = "100%";
+                img.style.objectFit = "cover";
+                img.style.zIndex = "-1";
+                dynamicItem.appendChild(img);
+            }
 
             // 标题
             const cardTitle = document.createElement("div");
@@ -320,14 +387,16 @@
 
             // 创建 authorName 和原作者的 a 标签
             const authorLink = document.createElement('a');
-            authorLink.href = spaceUrl;
+            authorLink.href = jumpUrl(mid, type);
             authorLink.target = "_blank";
             authorLink.textContent = authorName;
 
             let originalAuthorLink
             if (isForward) {
                 originalAuthorLink = document.createElement('a');
-                originalAuthorLink.href = `https://space.bilibili.com/${dynamic.orig.modules.module_author.mid}`;
+                const originalMid = dynamic.orig.modules.module_author.mid;
+                const originalType = dynamic.orig.type;
+                originalAuthorLink.href = jumpUrl(originalMid, originalType);
                 originalAuthorLink.target = "_blank";
                 originalAuthorLink.textContent = dynamic.orig.modules.module_author.name;
             }
@@ -357,7 +426,7 @@
             typeComment.style.padding = "5px";
             typeComment.style.marginBottom = "5px";
             typeComment.style.textAlign = "center";
-            typeComment.textContent = `类型: ${DYNAMIC_TYPE[dynamic.type]} ${isForward ? `(${DYNAMIC_TYPE[dynamic.orig.type]})` : ''} ${(filters['有奖预约'].filter(dynamic) || filters['互动抽奖'].filter(dynamic)) ? '🎁' : ''}`;
+            typeComment.textContent = `类型: ${DYNAMIC_TYPE[dynamic.type].name} ${isForward ? `(${DYNAMIC_TYPE[dynamic.orig.type].name})` : ''} ${(filters['有奖预约'].filter(dynamic) || filters['互动抽奖'].filter(dynamic)) ? '🎁' : ''}`;
 
             // 正文
             const describe = document.createElement("div");
@@ -375,7 +444,7 @@
             describe.innerHTML = getDescText(dynamic, isForward); // 修改为 innerHTML 以支持 HTML 标签
 
             const viewDetailsButton = document.createElement("a");
-            viewDetailsButton.href = url;
+            viewDetailsButton.href = dynamicUrl;
             viewDetailsButton.target = "_blank";
             viewDetailsButton.textContent = "查看详情";
             viewDetailsButton.style.backgroundColor = "rgba(0, 0, 0, 0.6)";
@@ -391,6 +460,11 @@
             dynamicItem.appendChild(publishTime); // 添加发布时间
             dynamicItem.appendChild(viewDetailsButton);
 
+            return dynamicItem;
+        };
+
+        for (let dynamic of dynamicList) {
+            const dynamicItem = createDynamicItem(dynamic);
             gridContainer.appendChild(dynamicItem);
         }
 
@@ -425,7 +499,7 @@
                     shouldContinue = false; // 设置标志位为 false 以结束循环
                 }
                 item.baseType = item.type;
-                if (item.type === 'DYNAMIC_TYPE_FORWARD') {
+                if (item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key) {
                     item.baseType = item.orig.type;
                 }
 
