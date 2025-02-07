@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 动态筛选
 // @namespace    Schwi
-// @version      0.7
+// @version      0.8
 // @description  Bilibili 动态筛选，快速找出感兴趣的动态
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -545,8 +545,11 @@
             const items = data.data.items;
 
             for (let item of items) {
-                if (item.modules.module_author.pub_ts > 0 && item.modules.module_author.pub_ts < startTime) {
-                    shouldContinue = false; // 设置标志位为 false 以结束循环
+                if (item.type !== DYNAMIC_TYPE.DYNAMIC_TYPE_LIVE_RCMD.key) {
+                    // 直播动态可能不按时间顺序出现，不能用来判断时间要求
+                    if (item.modules.module_author.pub_ts > 0 && item.modules.module_author.pub_ts < startTime) {
+                        shouldContinue = false; // 设置标志位为 false 以结束循环
+                    }
                 }
                 item.baseType = item.type;
                 if (item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key) {
