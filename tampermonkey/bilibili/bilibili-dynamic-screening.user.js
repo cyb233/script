@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 动态筛选
 // @namespace    Schwi
-// @version      0.5
+// @version      0.6
 // @description  Bilibili 动态筛选，快速找出感兴趣的动态
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -22,34 +22,83 @@
         return;
     }
 
-    // 只写了一部分 https://github.com/SocialSisterYi/bilibili-API-collect/blob/master/docs/dynamic/dynamic_enum.md
+    // https://github.com/SocialSisterYi/bilibili-API-collect/blob/master/docs/dynamic/dynamic_enum.md
     const DYNAMIC_TYPE = {
+        DYNAMIC_TYPE_NONE: { key: "DYNAMIC_TYPE_NONE", name: "动态失效" },
         DYNAMIC_TYPE_FORWARD: { key: "DYNAMIC_TYPE_FORWARD", name: "转发" },
+        DYNAMIC_TYPE_AV: { key: "DYNAMIC_TYPE_AV", name: "视频" },
+        DYNAMIC_TYPE_PGC: { key: "DYNAMIC_TYPE_PGC", name: "剧集" },
+        DYNAMIC_TYPE_COURSES: { key: "DYNAMIC_TYPE_COURSES", name: "课程" },
         DYNAMIC_TYPE_WORD: { key: "DYNAMIC_TYPE_WORD", name: "文本" },
         DYNAMIC_TYPE_DRAW: { key: "DYNAMIC_TYPE_DRAW", name: "图文" },
-        DYNAMIC_TYPE_AV: { key: "DYNAMIC_TYPE_AV", name: "视频" },
         DYNAMIC_TYPE_ARTICLE: { key: "DYNAMIC_TYPE_ARTICLE", name: "专栏" },
-        DYNAMIC_TYPE_LIVE_RCMD: { key: "DYNAMIC_TYPE_LIVE_RCMD", name: "直播" },
-        DYNAMIC_TYPE_LIVE: { key: "DYNAMIC_TYPE_LIVE", name: "直播" }, // 被转发
+        DYNAMIC_TYPE_MUSIC: { key: "DYNAMIC_TYPE_MUSIC", name: "音乐" },
+        DYNAMIC_TYPE_COMMON_SQUARE: { key: "DYNAMIC_TYPE_COMMON_SQUARE", name: "卡片" },
+        DYNAMIC_TYPE_COMMON_VERTICAL: { key: "DYNAMIC_TYPE_COMMON_VERTICAL", name: "竖屏" },
+        DYNAMIC_TYPE_LIVE: { key: "DYNAMIC_TYPE_LIVE", name: "直播" },
+        DYNAMIC_TYPE_MEDIALIST: { key: "DYNAMIC_TYPE_MEDIALIST", name: "收藏夹" },
+        DYNAMIC_TYPE_COURSES_SEASON: { key: "DYNAMIC_TYPE_COURSES_SEASON", name: "课程合集" },
+        DYNAMIC_TYPE_COURSES_BATCH: { key: "DYNAMIC_TYPE_COURSES_BATCH", name: "课程批次" },
+        DYNAMIC_TYPE_AD: { key: "DYNAMIC_TYPE_AD", name: "广告" },
+        DYNAMIC_TYPE_APPLET: { key: "DYNAMIC_TYPE_APPLET", name: "小程序" },
+        DYNAMIC_TYPE_SUBSCRIPTION: { key: "DYNAMIC_TYPE_SUBSCRIPTION", name: "订阅" },
+        DYNAMIC_TYPE_LIVE_RCMD: { key: "DYNAMIC_TYPE_LIVE_RCMD", name: "直播推荐" },
+        DYNAMIC_TYPE_BANNER: { key: "DYNAMIC_TYPE_BANNER", name: "横幅" },
         DYNAMIC_TYPE_UGC_SEASON: { key: "DYNAMIC_TYPE_UGC_SEASON", name: "合集" },
-        DYNAMIC_TYPE_PGC_UNION: { key: "DYNAMIC_TYPE_PGC_UNION", name: "番剧影视" },
-        DYNAMIC_TYPE_COMMON_SQUARE: { key: "DYNAMIC_TYPE_COMMON_SQUARE", name: "卡片" }, // 充电专属问答，收藏集等
-        DYNAMIC_TYPE_NONE: { key: "DYNAMIC_TYPE_NONE", name: "源动态已被作者删除" },
+        DYNAMIC_TYPE_SUBSCRIPTION_NEW: { key: "DYNAMIC_TYPE_SUBSCRIPTION_NEW", name: "新订阅" },
     };
 
     const MAJOR_TYPE = {
-        MAJOR_TYPE_NONE: { key: "MAJOR_TYPE_NONE", name: "源动态已被作者删除" },
+        MAJOR_TYPE_NONE: { key: "MAJOR_TYPE_NONE", name: "动态失效" },
         MAJOR_TYPE_OPUS: { key: "MAJOR_TYPE_OPUS", name: "动态" },
+        MAJOR_TYPE_ARCHIVE: { key: "MAJOR_TYPE_ARCHIVE", name: "视频" },
         MAJOR_TYPE_PGC: { key: "MAJOR_TYPE_PGC", name: "番剧影视" },
+        MAJOR_TYPE_COURSES: { key: "MAJOR_TYPE_COURSES", name: "课程" },
+        MAJOR_TYPE_DRAW: { key: "MAJOR_TYPE_DRAW", name: "图文" },
+        MAJOR_TYPE_ARTICLE: { key: "MAJOR_TYPE_ARTICLE", name: "专栏" },
+        MAJOR_TYPE_MUSIC: { key: "MAJOR_TYPE_MUSIC", name: "音乐" },
+        MAJOR_TYPE_COMMON: { key: "MAJOR_TYPE_COMMON", name: "卡片" },
+        MAJOR_TYPE_LIVE: { key: "MAJOR_TYPE_LIVE", name: "直播" },
+        MAJOR_TYPE_MEDIALIST: { key: "MAJOR_TYPE_MEDIALIST", name: "收藏夹" },
+        MAJOR_TYPE_APPLET: { key: "MAJOR_TYPE_APPLET", name: "小程序" },
+        MAJOR_TYPE_SUBSCRIPTION: { key: "MAJOR_TYPE_SUBSCRIPTION", name: "订阅" },
+        MAJOR_TYPE_LIVE_RCMD: { key: "MAJOR_TYPE_LIVE_RCMD", name: "直播推荐" },
+        MAJOR_TYPE_UGC_SEASON: { key: "MAJOR_TYPE_UGC_SEASON", name: "合集" },
+        MAJOR_TYPE_SUBSCRIPTION_NEW: { key: "MAJOR_TYPE_SUBSCRIPTION_NEW", name: "新订阅" },
     };
 
     const RICH_TEXT_NODE_TYPE = {
-        RICH_TEXT_NODE_TYPE_LOTTERY: { key: "RICH_TEXT_NODE_TYPE_LOTTERY", name: "互动抽奖" },
+        RICH_TEXT_NODE_TYPE_NONE: { key: "RICH_TEXT_NODE_TYPE_NONE", name: "无效节点" },
         RICH_TEXT_NODE_TYPE_TEXT: { key: "RICH_TEXT_NODE_TYPE_TEXT", name: "文本" },
+        RICH_TEXT_NODE_TYPE_AT: { key: "RICH_TEXT_NODE_TYPE_AT", name: "@用户" },
+        RICH_TEXT_NODE_TYPE_LOTTERY: { key: "RICH_TEXT_NODE_TYPE_LOTTERY", name: "互动抽奖" },
+        RICH_TEXT_NODE_TYPE_VOTE: { key: "RICH_TEXT_NODE_TYPE_VOTE", name: "投票" },
+        RICH_TEXT_NODE_TYPE_TOPIC: { key: "RICH_TEXT_NODE_TYPE_TOPIC", name: "话题" },
+        RICH_TEXT_NODE_TYPE_GOODS: { key: "RICH_TEXT_NODE_TYPE_GOODS", name: "商品链接" },
+        RICH_TEXT_NODE_TYPE_BV: { key: "RICH_TEXT_NODE_TYPE_BV", name: "视频链接" },
+        RICH_TEXT_NODE_TYPE_AV: { key: "RICH_TEXT_NODE_TYPE_AV", name: "视频" },
+        RICH_TEXT_NODE_TYPE_EMOJI: { key: "RICH_TEXT_NODE_TYPE_EMOJI", name: "表情" },
+        RICH_TEXT_NODE_TYPE_USER: { key: "RICH_TEXT_NODE_TYPE_USER", name: "用户" },
+        RICH_TEXT_NODE_TYPE_CV: { key: "RICH_TEXT_NODE_TYPE_CV", name: "专栏" },
+        RICH_TEXT_NODE_TYPE_VC: { key: "RICH_TEXT_NODE_TYPE_VC", name: "音频" },
+        RICH_TEXT_NODE_TYPE_WEB: { key: "RICH_TEXT_NODE_TYPE_WEB", name: "网页链接" },
+        RICH_TEXT_NODE_TYPE_TAOBAO: { key: "RICH_TEXT_NODE_TYPE_TAOBAO", name: "淘宝链接" },
+        RICH_TEXT_NODE_TYPE_MAIL: { key: "RICH_TEXT_NODE_TYPE_MAIL", name: "邮箱地址" },
+        RICH_TEXT_NODE_TYPE_OGV_SEASON: { key: "RICH_TEXT_NODE_TYPE_OGV_SEASON", name: "剧集信息" },
+        RICH_TEXT_NODE_TYPE_OGV_EP: { key: "RICH_TEXT_NODE_TYPE_OGV_EP", name: "剧集" },
+        RICH_TEXT_NODE_TYPE_SEARCH_WORD: { key: "RICH_TEXT_NODE_TYPE_SEARCH_WORD", name: "搜索词" },
     };
 
     const ADDITIONAL_TYPE = {
-        ADDITIONAL_TYPE_RESERVE: { key: "ADDITIONAL_TYPE_RESERVE", name: "保留附加类型" },
+        ADDITIONAL_TYPE_NONE: { key: "ADDITIONAL_TYPE_NONE", name: "无附加类型" },
+        ADDITIONAL_TYPE_PGC: { key: "ADDITIONAL_TYPE_PGC", name: "番剧影视" },
+        ADDITIONAL_TYPE_GOODS: { key: "ADDITIONAL_TYPE_GOODS", name: "商品信息" },
+        ADDITIONAL_TYPE_VOTE: { key: "ADDITIONAL_TYPE_VOTE", name: "投票" },
+        ADDITIONAL_TYPE_COMMON: { key: "ADDITIONAL_TYPE_COMMON", name: "一般类型" },
+        ADDITIONAL_TYPE_MATCH: { key: "ADDITIONAL_TYPE_MATCH", name: "比赛" },
+        ADDITIONAL_TYPE_UP_RCMD: { key: "ADDITIONAL_TYPE_UP_RCMD", name: "UP主推荐" },
+        ADDITIONAL_TYPE_UGC: { key: "ADDITIONAL_TYPE_UGC", name: "视频跳转" },
+        ADDITIONAL_TYPE_RESERVE: { key: "ADDITIONAL_TYPE_RESERVE", name: "直播预约" },
     };
 
     const STYPE = {
@@ -426,7 +475,7 @@
             typeComment.style.padding = "5px";
             typeComment.style.marginBottom = "5px";
             typeComment.style.textAlign = "center";
-            typeComment.textContent = `类型: ${DYNAMIC_TYPE[dynamic.type].name} ${isForward ? `(${DYNAMIC_TYPE[dynamic.orig.type].name})` : ''} ${(filters['有奖预约'].filter(dynamic) || filters['互动抽奖'].filter(dynamic)) ? '🎁' : ''}`;
+            typeComment.textContent = `类型: ${DYNAMIC_TYPE[dynamic.type]?.name || dynamic.type} ${isForward ? `(${DYNAMIC_TYPE[dynamic.orig.type]?.name || dynamic.orig.type})` : ''} ${(filters['有奖预约'].filter(dynamic) || filters['互动抽奖'].filter(dynamic)) ? '🎁' : ''}`;
 
             // 正文
             const describe = document.createElement("div");
