@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 动态筛选
 // @namespace    Schwi
-// @version      0.8
+// @version      0.9
 // @description  Bilibili 动态筛选，快速找出感兴趣的动态
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -240,8 +240,18 @@
             有奖预约: { type: "checkbox", filter: (item, input) => (item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? item.orig : item).modules.module_dynamic.additional?.reserve?.desc3?.text },
             互动抽奖: {
                 type: "checkbox", filter: (item, input) =>
-                    item.modules.module_dynamic.major?.opus?.summary?.rich_text_nodes?.some(n => n?.type === RICH_TEXT_NODE_TYPE.RICH_TEXT_NODE_TYPE_LOTTERY.key) || item.modules.module_dynamic.desc?.rich_text_nodes?.some(n => n?.type === RICH_TEXT_NODE_TYPE.RICH_TEXT_NODE_TYPE_LOTTERY.key) ||
-                    item.orig?.modules?.module_dynamic?.major?.opus?.summary?.rich_text_nodes?.some(n => n?.type === RICH_TEXT_NODE_TYPE.RICH_TEXT_NODE_TYPE_LOTTERY.key) || item.orig?.modules?.module_dynamic?.desc?.rich_text_nodes?.some(n => n?.type === RICH_TEXT_NODE_TYPE.RICH_TEXT_NODE_TYPE_LOTTERY.key)
+                    item.modules.module_dynamic.major?.opus?.summary?.rich_text_nodes?.some(n => n?.type === RICH_TEXT_NODE_TYPE.RICH_TEXT_NODE_TYPE_LOTTERY.key) || item.modules.module_dynamic.desc?.rich_text_nodes?.some(n => n?.type === RICH_TEXT_NODE_TYPE.RICH_TEXT_NODE_TYPE_LOTTERY.key)
+                    ||
+                    (
+                        item.orig?.modules?.module_dynamic?.major?.opus?.summary?.rich_text_nodes?.some(n => n?.type === RICH_TEXT_NODE_TYPE.RICH_TEXT_NODE_TYPE_LOTTERY.key) || item.orig?.modules?.module_dynamic?.desc?.rich_text_nodes?.some(n => n?.type === RICH_TEXT_NODE_TYPE.RICH_TEXT_NODE_TYPE_LOTTERY.key)
+                        &&
+                        // 如果是转发自己的动态，判断是否为开奖动态(匹配"恭喜xxx中奖，已私信通知，详情请点击抽奖查看。"格式)
+                        !(
+                            dynamic.orig.modules.module_author.mid === dynamic.modules.module_author.mid
+                            &&
+                            /^恭喜.*中奖，已私信通知，详情请点击抽奖查看。$/.test(dynamic.modules.module_dynamic.desc?.text)
+                        )
+                    )
             },
             搜索: {
                 type: "text",
