@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 动态筛选
 // @namespace    Schwi
-// @version      0.9
+// @version      1.0
 // @description  Bilibili 动态筛选，快速找出感兴趣的动态
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -24,29 +24,29 @@
 
     // https://github.com/SocialSisterYi/bilibili-API-collect/blob/master/docs/dynamic/dynamic_enum.md
     const DYNAMIC_TYPE = {
-        DYNAMIC_TYPE_NONE: { key: "DYNAMIC_TYPE_NONE", name: "动态失效" },
-        DYNAMIC_TYPE_FORWARD: { key: "DYNAMIC_TYPE_FORWARD", name: "转发" },
-        DYNAMIC_TYPE_AV: { key: "DYNAMIC_TYPE_AV", name: "视频" },
-        DYNAMIC_TYPE_PGC: { key: "DYNAMIC_TYPE_PGC", name: "剧集" },
-        DYNAMIC_TYPE_COURSES: { key: "DYNAMIC_TYPE_COURSES", name: "课程" },
-        DYNAMIC_TYPE_WORD: { key: "DYNAMIC_TYPE_WORD", name: "文本" },
-        DYNAMIC_TYPE_DRAW: { key: "DYNAMIC_TYPE_DRAW", name: "图文" },
-        DYNAMIC_TYPE_ARTICLE: { key: "DYNAMIC_TYPE_ARTICLE", name: "专栏" },
-        DYNAMIC_TYPE_MUSIC: { key: "DYNAMIC_TYPE_MUSIC", name: "音乐" },
-        DYNAMIC_TYPE_COMMON_SQUARE: { key: "DYNAMIC_TYPE_COMMON_SQUARE", name: "卡片" }, // 充电专属问答，收藏集等
-        DYNAMIC_TYPE_COMMON_VERTICAL: { key: "DYNAMIC_TYPE_COMMON_VERTICAL", name: "竖屏" },
-        DYNAMIC_TYPE_LIVE: { key: "DYNAMIC_TYPE_LIVE", name: "直播" },
-        DYNAMIC_TYPE_MEDIALIST: { key: "DYNAMIC_TYPE_MEDIALIST", name: "收藏夹" },
-        DYNAMIC_TYPE_COURSES_SEASON: { key: "DYNAMIC_TYPE_COURSES_SEASON", name: "课程合集" },
-        DYNAMIC_TYPE_COURSES_BATCH: { key: "DYNAMIC_TYPE_COURSES_BATCH", name: "课程批次" },
-        DYNAMIC_TYPE_AD: { key: "DYNAMIC_TYPE_AD", name: "广告" },
-        DYNAMIC_TYPE_APPLET: { key: "DYNAMIC_TYPE_APPLET", name: "小程序" },
-        DYNAMIC_TYPE_SUBSCRIPTION: { key: "DYNAMIC_TYPE_SUBSCRIPTION", name: "订阅" },
-        DYNAMIC_TYPE_LIVE_RCMD: { key: "DYNAMIC_TYPE_LIVE_RCMD", name: "直播" }, // 被转发
-        DYNAMIC_TYPE_BANNER: { key: "DYNAMIC_TYPE_BANNER", name: "横幅" },
-        DYNAMIC_TYPE_UGC_SEASON: { key: "DYNAMIC_TYPE_UGC_SEASON", name: "合集" },
-        DYNAMIC_TYPE_PGC_UNION: { key: "DYNAMIC_TYPE_PGC_UNION", name: "番剧影视" },
-        DYNAMIC_TYPE_SUBSCRIPTION_NEW: { key: "DYNAMIC_TYPE_SUBSCRIPTION_NEW", name: "新订阅" },
+        DYNAMIC_TYPE_NONE: { key: "DYNAMIC_TYPE_NONE", name: "动态失效", filter: false },
+        DYNAMIC_TYPE_FORWARD: { key: "DYNAMIC_TYPE_FORWARD", name: "转发", filter: false },
+        DYNAMIC_TYPE_AV: { key: "DYNAMIC_TYPE_AV", name: "视频", filter: true },
+        DYNAMIC_TYPE_PGC: { key: "DYNAMIC_TYPE_PGC", name: "剧集", filter: true },
+        DYNAMIC_TYPE_COURSES: { key: "DYNAMIC_TYPE_COURSES", name: "课程", filter: true },
+        DYNAMIC_TYPE_WORD: { key: "DYNAMIC_TYPE_WORD", name: "文本", filter: true },
+        DYNAMIC_TYPE_DRAW: { key: "DYNAMIC_TYPE_DRAW", name: "图文", filter: true },
+        DYNAMIC_TYPE_ARTICLE: { key: "DYNAMIC_TYPE_ARTICLE", name: "专栏", filter: true },
+        DYNAMIC_TYPE_MUSIC: { key: "DYNAMIC_TYPE_MUSIC", name: "音乐", filter: true },
+        DYNAMIC_TYPE_COMMON_SQUARE: { key: "DYNAMIC_TYPE_COMMON_SQUARE", name: "卡片", filter: true }, // 充电专属问答，收藏集等
+        DYNAMIC_TYPE_COMMON_VERTICAL: { key: "DYNAMIC_TYPE_COMMON_VERTICAL", name: "竖屏", filter: true },
+        DYNAMIC_TYPE_LIVE: { key: "DYNAMIC_TYPE_LIVE", name: "直播", filter: true },
+        DYNAMIC_TYPE_MEDIALIST: { key: "DYNAMIC_TYPE_MEDIALIST", name: "收藏夹", filter: true },
+        DYNAMIC_TYPE_COURSES_SEASON: { key: "DYNAMIC_TYPE_COURSES_SEASON", name: "课程合集", filter: true },
+        DYNAMIC_TYPE_COURSES_BATCH: { key: "DYNAMIC_TYPE_COURSES_BATCH", name: "课程批次", filter: true },
+        DYNAMIC_TYPE_AD: { key: "DYNAMIC_TYPE_AD", name: "广告", filter: true },
+        DYNAMIC_TYPE_APPLET: { key: "DYNAMIC_TYPE_APPLET", name: "小程序", filter: true },
+        DYNAMIC_TYPE_SUBSCRIPTION: { key: "DYNAMIC_TYPE_SUBSCRIPTION", name: "订阅", filter: true },
+        DYNAMIC_TYPE_LIVE_RCMD: { key: "DYNAMIC_TYPE_LIVE_RCMD", name: "直播", filter: true }, // 被转发
+        DYNAMIC_TYPE_BANNER: { key: "DYNAMIC_TYPE_BANNER", name: "横幅", filter: true },
+        DYNAMIC_TYPE_UGC_SEASON: { key: "DYNAMIC_TYPE_UGC_SEASON", name: "合集", filter: true },
+        DYNAMIC_TYPE_PGC_UNION: { key: "DYNAMIC_TYPE_PGC_UNION", name: "番剧影视", filter: true },
+        DYNAMIC_TYPE_SUBSCRIPTION_NEW: { key: "DYNAMIC_TYPE_SUBSCRIPTION_NEW", name: "新订阅", filter: true },
     };
 
     const MAJOR_TYPE = {
@@ -222,21 +222,11 @@
         gridContainer.style.padding = '10px';
 
         // 筛选按钮数据结构
-        const filters = {
+        const filters1 = {
             // 全部: {type: "checkbox", filter: (item, input) => true },
             排除自己: { type: "checkbox", filter: (item, input) => item.modules.module_author.following !== null },
             转发: { type: "checkbox", filter: (item, input) => item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key },
             非转发: { type: "checkbox", filter: (item, input) => item.type !== DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key },
-            文本: { type: "checkbox", filter: (item, input) => item.baseType === DYNAMIC_TYPE.DYNAMIC_TYPE_WORD.key },
-            图文: { type: "checkbox", filter: (item, input) => item.baseType === DYNAMIC_TYPE.DYNAMIC_TYPE_DRAW.key },
-            视频: { type: "checkbox", filter: (item, input) => item.baseType === DYNAMIC_TYPE.DYNAMIC_TYPE_AV.key },
-            专栏: { type: "checkbox", filter: (item, input) => item.baseType === DYNAMIC_TYPE.DYNAMIC_TYPE_ARTICLE.key },
-            直播: { type: "checkbox", filter: (item, input) => item.baseType === DYNAMIC_TYPE.DYNAMIC_TYPE_LIVE_RCMD.key || item.baseType === DYNAMIC_TYPE.DYNAMIC_TYPE_LIVE.key },
-            合集: { type: "checkbox", filter: (item, input) => item.baseType === DYNAMIC_TYPE.DYNAMIC_TYPE_UGC_SEASON.key },
-            番剧影视: { type: "checkbox", filter: (item, input) => item.baseType === DYNAMIC_TYPE.DYNAMIC_TYPE_PGC_UNION.key },
-            卡片: { type: "checkbox", filter: (item, input) => item.baseType === DYNAMIC_TYPE.DYNAMIC_TYPE_COMMON_SQUARE.key },
-            视频更新预告: { type: "checkbox", filter: (item, input) => (item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? item.orig : item).modules.module_dynamic.additional?.reserve?.stype === STYPE[1].key },
-            直播预告: { type: "checkbox", filter: (item, input) => (item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? item.orig : item).modules.module_dynamic.additional?.reserve?.stype === STYPE[2].key },
             有奖预约: { type: "checkbox", filter: (item, input) => (item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? item.orig : item).modules.module_dynamic.additional?.reserve?.desc3?.text },
             互动抽奖: {
                 type: "checkbox", filter: (item, input) =>
@@ -247,9 +237,9 @@
                         &&
                         // 如果是转发自己的动态，判断是否为开奖动态(匹配"恭喜xxx中奖，已私信通知，详情请点击抽奖查看。"格式)
                         !(
-                            dynamic.orig.modules.module_author.mid === dynamic.modules.module_author.mid
+                            item.orig.modules.module_author.mid === item.modules.module_author.mid
                             &&
-                            /^恭喜.*中奖，已私信通知，详情请点击抽奖查看。$/.test(dynamic.modules.module_dynamic.desc?.text)
+                            /^恭喜.*中奖，已私信通知，详情请点击抽奖查看。$/.test(item.modules.module_dynamic.desc?.text)
                         )
                     )
             },
@@ -270,19 +260,37 @@
             },
         };
 
-        // 生成筛选按钮
-        let filterButtonsContainer = document.createElement('div');
-        filterButtonsContainer.style.marginBottom = '10px';
-        filterButtonsContainer.style.display = 'flex'; // 添加 flex 布局
-        filterButtonsContainer.style.flexWrap = 'wrap'; // 添加换行
-        filterButtonsContainer.style.gap = '10px'; // 添加间距
-        filterButtonsContainer.style.padding = '10px';
-        filterButtonsContainer.style.alignItems = 'center'; // 添加垂直居中对齐
+        const filters2 = {};
+        // 遍历 DYNAMIC_TYPE 生成 filters
+        Object.values(DYNAMIC_TYPE).forEach(type => {
+            if (type.filter) { // 根据 filter 判断是否纳入过滤条件
+                if (!filters2[type.name]) {
+                    filters2[type.name] = { type: "checkbox", filter: (item, input) => item.baseType === type.key };
+                } else {
+                    const existingFilter = filters2[type.name].filter;
+                    filters2[type.name].filter = (item, input) => existingFilter(item, input) || item.baseType === type.key;
+                }
+            }
+        });
 
         const deal = (dynamicList) => {
             let checkedFilters = [];
-            for (let key in filters) {
-                const f = filters[key];
+            for (let key in filters1) {
+                const f = filters1[key];
+                const filter = filterButtonsContainer.querySelector(`#${key}`);
+                let checkedFilter;
+                switch (f.type) {
+                    case 'checkbox':
+                        checkedFilter = { ...f, value: filter.checked };
+                        break;
+                    case 'text':
+                        checkedFilter = { ...f, value: filter.value };
+                        break;
+                }
+                checkedFilters.push(checkedFilter);
+            }
+            for (let key in filters2) {
+                const f = filters2[key];
                 const filter = filterButtonsContainer.querySelector(`#${key}`);
                 let checkedFilter;
                 switch (f.type) {
@@ -310,51 +318,73 @@
             titleElement.textContent = `动态结果（${filteredList.length}/${dynamicList.length}）`;
         };
 
-        for (let key in filters) {
-            let filter = filters[key];
-            let input = document.createElement('input');
-            input.type = filter.type;
-            input.id = key;
-            input.style.marginRight = '5px';
-            // 添加边框样式
-            if (filter.type === 'text') {
-                input.style.border = '1px solid #ccc';
-                input.style.padding = '5px';
-                input.style.borderRadius = '5px';
+        // 封装生成筛选按钮的函数
+        const createFilterButtons = (filters, dynamicList) => {
+            let mainContainer = document.createElement('div');
+            mainContainer.style.display = 'flex';
+            mainContainer.style.flexWrap = 'wrap'; // 修改为换行布局
+            mainContainer.style.width = '100%';
+
+            for (let key in filters) {
+                let filter = filters[key];
+                let input = document.createElement('input');
+                input.type = filter.type;
+                input.id = key;
+                input.style.marginRight = '5px';
+                // 添加边框样式
+                if (filter.type === 'text') {
+                    input.style.border = '1px solid #ccc';
+                    input.style.padding = '5px';
+                    input.style.borderRadius = '5px';
+                }
+
+                let label = document.createElement('label');
+                label.htmlFor = key;
+                label.textContent = key;
+                label.style.display = 'flex'; // 确保 label 和 input 在同一行
+                label.style.alignItems = 'center'; // 垂直居中对齐
+                label.style.marginRight = '5px';
+
+                let container = document.createElement('div');
+                container.style.display = 'flex';
+                container.style.alignItems = 'center';
+                container.style.marginRight = '10px';
+
+                if (['checkbox', 'radio'].includes(filter.type)) {
+                    (function (dynamicList, filter, input) {
+                        input.addEventListener('change', () => deal(dynamicList));
+                    })(dynamicList, filter, input);
+                    container.appendChild(input);
+                    container.appendChild(label);
+                } else {
+                    let timeout;
+                    (function (dynamicList, filter, input) {
+                        input.addEventListener('input', () => {
+                            clearTimeout(timeout);
+                            timeout = setTimeout(() => deal(dynamicList), 1000); // 增加延迟处理
+                        });
+                    })(dynamicList, filter, input);
+                    container.appendChild(label);
+                    container.appendChild(input);
+                }
+
+                mainContainer.appendChild(container);
             }
 
-            let label = document.createElement('label');
-            label.htmlFor = key;
-            label.textContent = key;
-            label.style.display = 'flex'; // 确保 label 和 input 在同一行
-            label.style.alignItems = 'center'; // 垂直居中对齐
-            label.style.marginRight = '5px';
+            return mainContainer;
+        };
 
-            let container = document.createElement('div');
-            container.style.display = 'flex';
-            container.style.alignItems = 'center';
-            container.style.marginRight = '10px';
+        // 生成筛选按钮
+        let filterButtonsContainer = document.createElement('div');
+        filterButtonsContainer.style.marginBottom = '10px';
+        filterButtonsContainer.style.display = 'flex'; // 添加 flex 布局
+        filterButtonsContainer.style.flexWrap = 'wrap'; // 添加换行
+        filterButtonsContainer.style.gap = '10px'; // 添加间距
+        filterButtonsContainer.style.padding = '10px';
+        filterButtonsContainer.style.alignItems = 'center'; // 添加垂直居中对齐
 
-            if (['checkbox', 'radio'].includes(filter.type)) {
-                (function (dynamicList, filter, input) {
-                    input.addEventListener('change', () => deal(dynamicList));
-                })(dynamicList, filter, input);
-                container.appendChild(input);
-                container.appendChild(label);
-            } else {
-                let timeout;
-                (function (dynamicList, filter, input) {
-                    input.addEventListener('input', () => {
-                        clearTimeout(timeout);
-                        timeout = setTimeout(() => deal(dynamicList), 1000); // 增加延迟处理
-                    });
-                })(dynamicList, filter, input);
-                container.appendChild(label);
-                container.appendChild(input);
-            }
-
-            filterButtonsContainer.appendChild(container);
-        }
+        filterButtonsContainer.appendChild(createFilterButtons(filters1, dynamicList));
+        filterButtonsContainer.appendChild(createFilterButtons(filters2, dynamicList));
 
         const getDescText = (dynamic, isForward) => {
             let descText = dynamic.modules.module_dynamic.desc?.text || ''
@@ -486,7 +516,7 @@
             typeComment.style.padding = "5px";
             typeComment.style.marginBottom = "5px";
             typeComment.style.textAlign = "center";
-            typeComment.textContent = `类型: ${DYNAMIC_TYPE[dynamic.type]?.name || dynamic.type} ${isForward ? `(${DYNAMIC_TYPE[dynamic.orig.type]?.name || dynamic.orig.type})` : ''} ${(filters['有奖预约'].filter(dynamic) || filters['互动抽奖'].filter(dynamic)) ? '🎁' : ''}`;
+            typeComment.textContent = `类型: ${DYNAMIC_TYPE[dynamic.type]?.name || dynamic.type} ${isForward ? `(${DYNAMIC_TYPE[dynamic.orig.type]?.name || dynamic.orig.type})` : ''} ${(filters1['有奖预约'].filter(dynamic) || filters1['互动抽奖'].filter(dynamic)) ? '🎁' : ''}`;
 
             // 正文
             const describe = document.createElement("div");
