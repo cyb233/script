@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 动态筛选
 // @namespace    Schwi
-// @version      0.6
+// @version      0.7
 // @description  Bilibili 动态筛选，快速找出感兴趣的动态
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -33,7 +33,7 @@
         DYNAMIC_TYPE_DRAW: { key: "DYNAMIC_TYPE_DRAW", name: "图文" },
         DYNAMIC_TYPE_ARTICLE: { key: "DYNAMIC_TYPE_ARTICLE", name: "专栏" },
         DYNAMIC_TYPE_MUSIC: { key: "DYNAMIC_TYPE_MUSIC", name: "音乐" },
-        DYNAMIC_TYPE_COMMON_SQUARE: { key: "DYNAMIC_TYPE_COMMON_SQUARE", name: "卡片" },
+        DYNAMIC_TYPE_COMMON_SQUARE: { key: "DYNAMIC_TYPE_COMMON_SQUARE", name: "卡片" }, // 充电专属问答，收藏集等
         DYNAMIC_TYPE_COMMON_VERTICAL: { key: "DYNAMIC_TYPE_COMMON_VERTICAL", name: "竖屏" },
         DYNAMIC_TYPE_LIVE: { key: "DYNAMIC_TYPE_LIVE", name: "直播" },
         DYNAMIC_TYPE_MEDIALIST: { key: "DYNAMIC_TYPE_MEDIALIST", name: "收藏夹" },
@@ -42,9 +42,10 @@
         DYNAMIC_TYPE_AD: { key: "DYNAMIC_TYPE_AD", name: "广告" },
         DYNAMIC_TYPE_APPLET: { key: "DYNAMIC_TYPE_APPLET", name: "小程序" },
         DYNAMIC_TYPE_SUBSCRIPTION: { key: "DYNAMIC_TYPE_SUBSCRIPTION", name: "订阅" },
-        DYNAMIC_TYPE_LIVE_RCMD: { key: "DYNAMIC_TYPE_LIVE_RCMD", name: "直播推荐" },
+        DYNAMIC_TYPE_LIVE_RCMD: { key: "DYNAMIC_TYPE_LIVE_RCMD", name: "直播" }, // 被转发
         DYNAMIC_TYPE_BANNER: { key: "DYNAMIC_TYPE_BANNER", name: "横幅" },
         DYNAMIC_TYPE_UGC_SEASON: { key: "DYNAMIC_TYPE_UGC_SEASON", name: "合集" },
+        DYNAMIC_TYPE_PGC_UNION: { key: "DYNAMIC_TYPE_PGC_UNION", name: "番剧影视" },
         DYNAMIC_TYPE_SUBSCRIPTION_NEW: { key: "DYNAMIC_TYPE_SUBSCRIPTION_NEW", name: "新订阅" },
     };
 
@@ -234,8 +235,8 @@
             合集: { type: "checkbox", filter: (item, input) => item.baseType === DYNAMIC_TYPE.DYNAMIC_TYPE_UGC_SEASON.key },
             番剧影视: { type: "checkbox", filter: (item, input) => item.baseType === DYNAMIC_TYPE.DYNAMIC_TYPE_PGC_UNION.key },
             卡片: { type: "checkbox", filter: (item, input) => item.baseType === DYNAMIC_TYPE.DYNAMIC_TYPE_COMMON_SQUARE.key },
-            视频更新预告: { type: "checkbox", filter: (item, input) => (item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? item.orig : item).modules.module_dynamic.additional?.reserve?.stype === STYPE.STYPE_1.key },
-            直播预告: { type: "checkbox", filter: (item, input) => (item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? item.orig : item).modules.module_dynamic.additional?.reserve?.stype === STYPE.STYPE_2.key },
+            视频更新预告: { type: "checkbox", filter: (item, input) => (item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? item.orig : item).modules.module_dynamic.additional?.reserve?.stype === STYPE[1].key },
+            直播预告: { type: "checkbox", filter: (item, input) => (item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? item.orig : item).modules.module_dynamic.additional?.reserve?.stype === STYPE[2].key },
             有奖预约: { type: "checkbox", filter: (item, input) => (item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? item.orig : item).modules.module_dynamic.additional?.reserve?.desc3?.text },
             互动抽奖: {
                 type: "checkbox", filter: (item, input) =>
