@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 动态筛选
 // @namespace    Schwi
-// @version      1.4
+// @version      1.5
 // @description  Bilibili 动态筛选，快速找出感兴趣的动态
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -626,13 +626,14 @@
         let renderedCount = 0;
 
         const renderBatch = () => {
-            for (let i = 0; i < batchSize && renderedCount < dynamicList.length; i++, renderedCount++) {
-                const dynamicItem = createDynamicItem(dynamicList[renderedCount]);
-                dynamicItem.style.display = dynamicList[renderedCount].display ? 'flex' : 'none'; // 根据 display 属性显示或隐藏
+            const renderList = dynamicList.filter(item => item.display);
+            for (let i = 0; i < batchSize && renderedCount < renderList.length; i++, renderedCount++) {
+                const dynamicItem = createDynamicItem(renderList[renderedCount]);
+                dynamicItem.style.display = renderList[renderedCount].display ? 'flex' : 'none'; // 根据 display 属性显示或隐藏
                 gridContainer.appendChild(dynamicItem);
             }
             // 检查是否还需要继续渲染
-            if (renderedCount < dynamicList.length) {
+            if (renderedCount < renderList.length) {
                 observer.observe(gridContainer.lastElementChild); // 观察最后一个 dynamicItem
             } else {
                 observer.disconnect(); // 如果所有动态都已渲染，停止观察
