@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 动态筛选
 // @namespace    Schwi
-// @version      1.1
+// @version      1.2
 // @description  Bilibili 动态筛选，快速找出感兴趣的动态
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -175,10 +175,13 @@
     function showTimeSelector(callback) {
         let yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
+        let today = new Date();
 
         let dialogContent = `<div style='padding:20px; display: flex; flex-direction: column; align-items: center;'>
-            <label for='dynamicDate' style='font-size: 16px; margin-bottom: 10px;'>选择时间：</label>
-            <input type='date' id='dynamicDate' value='${yesterday.getFullYear()}-${(yesterday.getMonth() + 1) < 10 ? '0' + (yesterday.getMonth() + 1) : (yesterday.getMonth() + 1)}-${yesterday.getDate() < 10 ? '0' + yesterday.getDate() : yesterday.getDate()}' style='margin-bottom: 20px; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 5px;'>
+            <label for='startDate' style='font-size: 16px; margin-bottom: 10px;'>开始时间：</label>
+            <input type='date' id='startDate' value='${yesterday.getFullYear()}-${(yesterday.getMonth() + 1) < 10 ? '0' + (yesterday.getMonth() + 1) : (yesterday.getMonth() + 1)}-${yesterday.getDate() < 10 ? '0' + yesterday.getDate() : yesterday.getDate()}' style='margin-bottom: 20px; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 5px;'>
+            <label for='endDate' style='font-size: 16px; margin-bottom: 10px;'>结束时间：</label>
+            <input type='date' id='endDate' value='${today.getFullYear()}-${(today.getMonth() + 1) < 10 ? '0' + (today.getMonth() + 1) : (today.getMonth() + 1)}-${today.getDate() < 10 ? '0' + today.getDate() : today.getDate()}' style='margin-bottom: 20px; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 5px;'>
             <button id='startTask' style='padding: 10px 20px; font-size: 16px; background-color: #00a1d6; color: white; border: none; border-radius: 5px; cursor: pointer; transition: background-color 0.3s;'>开始</button>
         </div>`;
 
@@ -186,9 +189,10 @@
         dialog.style.display = 'block';
 
         contentArea.querySelector('#startTask').onclick = () => {
-            const selectedDate = new Date(contentArea.querySelector('#dynamicDate').value).getTime() / 1000;
+            const startDate = new Date(contentArea.querySelector('#startDate').value + ' 00:00:00').getTime() / 1000;
+            const endDate = new Date(contentArea.querySelector('#endDate').value + ' 00:00:00').getTime() / 1000;
             dialog.style.display = 'none';
-            callback(selectedDate);
+            callback(startDate, endDate);
         };
     }
 
@@ -582,13 +586,13 @@
     }
 
     // 主任务函数
-    async function collectDynamic(startTime) {
+    async function collectDynamic(startTime, endTime) {
         let offset = '';
         dynamicList = [];
         collectedCount = 0;
         let shouldContinue = true; // 引入标志位
 
-        let { dialog, contentArea } = createDialog('progressDialog', '任务进度', `<p>已收集动态数：<span id='collectedCount'>0</span></p>`);
+        let { dialog, contentArea } = createDialog('progressDialog', '任务进度', `<p>已收集动态数：<span id='collectedCount'>0</span>/<span id='totalCount'>0</span></p>`);
         dialog.style.display = 'block';
 
         // 添加样式优化
@@ -597,11 +601,15 @@
         dialog.querySelector('p').style.fontWeight = 'bold';
         dialog.querySelector('p').style.marginTop = '20px';
 
+        let shouldInclude = false;
         while (shouldContinue) { // 使用标志位控制循环
             const api = `https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all?type=all&offset=${offset}`;
             const data = await apiRequest(api);
             const items = data.data.items;
 
+            if (!shouldInclude) {
+                shouldInclude = items.some(item => item.modules.module_author.pub_ts > 0 && item.modules.module_author.pub_ts < (endTime + 24 * 60 * 60));
+            }
             for (let item of items) {
                 if (item.type !== DYNAMIC_TYPE.DYNAMIC_TYPE_LIVE_RCMD.key) {
                     // 直播动态可能不按时间顺序出现，不能用来判断时间要求
@@ -613,10 +621,12 @@
                 if (item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key) {
                     item.baseType = item.orig.type;
                 }
-
-                dynamicList.push(item);
+                if (shouldInclude) {
+                    dynamicList.push(item);
+                }
                 collectedCount++;
-                contentArea.querySelector('#collectedCount').textContent = collectedCount;
+                contentArea.querySelector('#collectedCount').textContent = dynamicList.length;
+                contentArea.querySelector('#totalCount').textContent = collectedCount;
             }
             offset = items[items.length - 1].id_str;
 
@@ -624,6 +634,8 @@
                 if (!data.data.has_more) shouldContinue = false; // 没有更多数据时结束循环
             }
         }
+        console.log(`${dynamicList.length}/${collectedCount}`);
+        console.log(`${new Date(dynamicList[dynamicList.length - 1].modules.module_author.pub_ts * 1000).toLocaleString()} ~ ${new Date(dynamicList[0].modules.module_author.pub_ts * 1000).toLocaleString()}`);
         console.log(dynamicList);
         console.log(new Set(dynamicList.map(item => item.type).filter(item => item)));
         console.log(new Set(dynamicList.map(item => item.orig?.type).filter(item => item)));
