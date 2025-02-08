@@ -1,13 +1,14 @@
 // ==UserScript==
 // @name         Bilibili 动态筛选
 // @namespace    Schwi
-// @version      1.2
+// @version      1.3
 // @description  Bilibili 动态筛选，快速找出感兴趣的动态
 // @author       Schwi
 // @match        *://*.bilibili.com/*
 // @connect      api.bilibili.com
 // @grant        GM_xmlhttpRequest
 // @grant        GM_registerMenuCommand
+// @grant        GM_getValue
 // @supportURL   https://github.com/cyb233/script
 // @icon         https://www.bilibili.com/favicon.ico
 // @license      GPL-3.0
@@ -124,8 +125,8 @@
         dialog.style.border = '1px solid #ccc';
         dialog.style.boxShadow = '0 0 10px rgba(0,0,0,0.5)';
         dialog.style.zIndex = '9999';
-        dialog.style.overflow = 'auto';
         dialog.style.display = 'none';
+        dialog.style.overflow = 'hidden'; // 添加 overflow: hidden
 
         let header = document.createElement('div');
         header.style.display = 'flex';
@@ -217,13 +218,15 @@
 
     // 显示结果 dialog
     function showResultsDialog() {
-        const { dialog, titleElement } = createDialog('resultsDialog', `动态结果（${dynamicList.length}/${dynamicList.length}）`, '');
+        const { dialog, titleElement } = createDialog('resultsDialog', `动态结果（${dynamicList.length}/${dynamicList.length}） ${new Date(dynamicList[dynamicList.length - 1].modules.module_author.pub_ts * 1000).toLocaleString()} ~ ${new Date(dynamicList[0].modules.module_author.pub_ts * 1000).toLocaleString()}`, '');
 
         let gridContainer = document.createElement('div');
         gridContainer.style.display = 'grid';
         gridContainer.style.gridTemplateColumns = 'repeat(auto-fill,minmax(200px,1fr))';
         gridContainer.style.gap = '10px';
         gridContainer.style.padding = '10px';
+        gridContainer.style.height = 'calc(90% - 50px)'; // 设置高度以启用滚动
+        gridContainer.style.overflowY = 'auto'; // 启用垂直滚动
 
         // 筛选按钮数据结构
         const filters1 = {
@@ -293,6 +296,8 @@
                 }
             }
         });
+        // 用户自定义筛选条件
+        const customFilters = GM_getValue('customFilters', null);
 
         const deal = (dynamicList) => {
             let checkedFilters = [];
@@ -324,20 +329,34 @@
                 }
                 checkedFilters.push(checkedFilter);
             }
-            const filteredList = dynamicList.filter(item => checkedFilters.every(f => f.value ? f.filter(item, f.value) : true));
-            const items = gridContainer.children;
-            const filteredSet = new Set(filteredList.map(item => item.id_str));
-            console.log(filteredList);
-
-            requestAnimationFrame(() => {
-                for (let index = 0; index < items.length; index++) {
-                    const item = items[index];
-                    item.style.display = filteredSet.has(dynamicList[index].id_str) ? 'flex' : 'none';
+            // 添加自定义筛选条件
+            if (customFilters) {
+                for (let key in customFilters) {
+                    const f = customFilters[key];
+                    const filter = filterButtonsContainer.querySelector(`#${key}`);
+                    let checkedFilter;
+                    switch (f.type) {
+                        case 'checkbox':
+                            checkedFilter = { ...f, value: filter.checked };
+                            break;
+                        case 'text':
+                            checkedFilter = { ...f, value: filter.value };
+                            break;
+                    }
+                    checkedFilters.push(checkedFilter);
                 }
+            }
+            dynamicList.forEach(item => {
+                item.display = checkedFilters.every(f => f.value ? f.filter(item, f.value) : true);
             });
 
             // 更新标题显示筛选后的条数和总条数
-            titleElement.textContent = `动态结果（${filteredList.length}/${dynamicList.length}）`;
+            titleElement.textContent = `动态结果（${dynamicList.filter(item => item.display).length}/${dynamicList.length}）`;
+
+            // 重新初始化 IntersectionObserver
+            observer.disconnect();
+            renderedCount = 0;
+            renderBatch();
         };
 
         // 封装生成筛选按钮的函数
@@ -407,6 +426,11 @@
 
         filterButtonsContainer.appendChild(createFilterButtons(filters1, dynamicList));
         filterButtonsContainer.appendChild(createFilterButtons(filters2, dynamicList));
+
+        // 添加自定义筛选按钮
+        if (customFilters) {
+            filterButtonsContainer.appendChild(createFilterButtons(customFilters, dynamicList));
+        }
 
         const getDescText = (dynamic, isForward) => {
             let descText = dynamic.modules.module_dynamic.desc?.text || ''
@@ -575,10 +599,35 @@
             return dynamicItem;
         };
 
-        for (let dynamic of dynamicList) {
-            const dynamicItem = createDynamicItem(dynamic);
-            gridContainer.appendChild(dynamicItem);
-        }
+        // 分批渲染
+        const batchSize = 50; // 每次渲染的动态数量
+        let renderedCount = 0;
+
+        const renderBatch = () => {
+            // 清空 gridContainer 的内容
+            gridContainer.innerHTML = '';
+
+            for (let i = 0; i < batchSize && renderedCount < dynamicList.length; i++, renderedCount++) {
+                const dynamicItem = createDynamicItem(dynamicList[renderedCount]);
+                dynamicItem.style.display = dynamicList[renderedCount].display ? 'flex' : 'none'; // 根据 display 属性显示或隐藏
+                gridContainer.appendChild(dynamicItem);
+            }
+            // 检查是否还需要继续渲染
+            if (renderedCount < dynamicList.length) {
+                observer.observe(gridContainer.lastElementChild); // 观察最后一个 dynamicItem
+            } else {
+                observer.disconnect(); // 如果所有动态都已渲染，停止观察
+            }
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting) {
+                observer.unobserve(entries[0].target); // 取消对当前目标的观察
+                renderBatch();
+            }
+        });
+
+        renderBatch(); // 初始渲染一批
 
         dialog.appendChild(filterButtonsContainer);
         dialog.appendChild(gridContainer);
@@ -621,6 +670,7 @@
                 if (item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key) {
                     item.baseType = item.orig.type;
                 }
+                item.display = true;
                 if (shouldInclude) {
                     dynamicList.push(item);
                 }
