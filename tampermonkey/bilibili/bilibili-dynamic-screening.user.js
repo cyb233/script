@@ -24,9 +24,25 @@
         return;
     }
 
-    // 初始化 自定义筛选规则
-    // 示例值：{全部: {type: "checkbox", filter: (item, input) => true }, ...}
-    GM_setValue('customFilters', GM_getValue('customFilters', null))
+    // 将字符串转换回函数
+    const serializeFilters = (filters) => {
+        if (!filters) return null;
+        for (const key in filters) {
+            filters[key].filter = filters[key].filter.toString();
+        }
+        return filters;
+    }
+    // 将字符串转换回函数
+    const deserializeFilters = (filters) => {
+        if (!filters) return null;
+        for (const key in filters) {
+            filters[key].filter = new Function('return ' + filters[key].filter)();
+        }
+        return filters;
+    }
+
+    // 初始化 自定义筛选规则，示例值：{全部: {type: "checkbox", filter: "(item, input) => true" }, ...}
+    GM_setValue('customFilters', serializeFilters(deserializeFilters(GM_getValue('customFilters', null))));
 
     // https://github.com/SocialSisterYi/bilibili-API-collect/blob/master/docs/dynamic/dynamic_enum.md
     const DYNAMIC_TYPE = {
@@ -302,7 +318,7 @@
             }
         });
         // 用户自定义筛选条件
-        const customFilters = GM_getValue('customFilters', null);
+        const customFilters = deserializeFilters(GM_getValue('customFilters', null));
 
         const deal = (dynamicList) => {
             let checkedFilters = [];
