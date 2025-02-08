@@ -8,6 +8,7 @@
 // @connect      api.bilibili.com
 // @grant        GM_xmlhttpRequest
 // @grant        GM_registerMenuCommand
+// @grant        GM_setValue
 // @grant        GM_getValue
 // @supportURL   https://github.com/cyb233/script
 // @icon         https://www.bilibili.com/favicon.ico
@@ -22,6 +23,10 @@
         console.log("脚本不应运行于 iframe");
         return;
     }
+
+    // 初始化 自定义筛选规则
+    // 示例值：{全部: {type: "checkbox", filter: (item, input) => true }, ...}
+    GM_setValue('customFilters', GM_getValue('customFilters', null))
 
     // https://github.com/SocialSisterYi/bilibili-API-collect/blob/master/docs/dynamic/dynamic_enum.md
     const DYNAMIC_TYPE = {
@@ -330,7 +335,7 @@
                 checkedFilters.push(checkedFilter);
             }
             // 添加自定义筛选条件
-            if (customFilters) {
+            if (customFilters && Object.keys(customFilters).length > 0) {
                 for (let key in customFilters) {
                     const f = customFilters[key];
                     const filter = filterButtonsContainer.querySelector(`#${key}`);
@@ -428,7 +433,7 @@
         filterButtonsContainer.appendChild(createFilterButtons(filters2, dynamicList));
 
         // 添加自定义筛选按钮
-        if (customFilters) {
+        if (customFilters && Object.keys(customFilters).length > 0) {
             filterButtonsContainer.appendChild(createFilterButtons(customFilters, dynamicList));
         }
 
