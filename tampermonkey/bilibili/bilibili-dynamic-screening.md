@@ -3,8 +3,11 @@
 
 ![image](https://github.com/user-attachments/assets/d769a529-99b0-4980-8f21-bfda88e27616)
 
-注意：受限于B站Api，只能从新向后获取，且获取的总动态不宜过多，否则可能导致处理时卡顿
+注意：受限于B站Api，只能从最新动态向以前获取，此外获取的总动态量过多时可能导致处理时卡顿
 
 效果如图所示：
 
-![image](https://github.com/user-attachments/assets/10c7bfb7-bc97-401c-85b6-5422112b0cfb)
+![image](https://github.com/user-attachments/assets/3a98e480-1ff8-4489-8dc4-7207686eb9ce)
+
+![image](https://github.com/user-attachments/assets/a6fe01c0-5597-491c-b749-80610d076128)
+
