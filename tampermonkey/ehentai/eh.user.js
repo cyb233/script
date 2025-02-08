@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         e站收藏统计
 // @namespace    Schwi
-// @version      1.0
+// @version      1.1
 // @description  获取e站所有收藏，以及对所有标签进行排序以找到你最爱的标签，可按namespace分组，支持翻译
 // @author       Schwi
 // @match        *://e-hentai.org/*
@@ -87,8 +87,8 @@
             const db = JSON.parse(response);
             return myFavList.map(fav => {
                 let newFav = { ...fav };
-                if (newFav.reclass in db.data[0].data) {
-                    newFav.reclass = db.data[0].data[newFav.reclass].name;
+                if (newFav.reclass.toLowerCase().replace(' ','') in db.data[1].data) {
+                    newFav.reclass = db.data[1].data[newFav.reclass.toLowerCase().replace(' ','')].name;
                 }
                 newFav.tags = newFav.tags.map(fullTag => {
                     let namespace = fullTag.split(":")[0];
@@ -215,6 +215,7 @@
             closeButton.style.border = 'none';
             closeButton.style.borderRadius = '5px';
             closeButton.style.padding = '5px 10px';
+            closeButton.style.cursor = 'pointer';
             closeButton.onclick = () => resultDiv.remove();
             resultDiv.appendChild(closeButton);
         }
@@ -254,7 +255,7 @@
             return table;
         };
 
-        const createGroupedTable = (data) => {
+        const createGroupedTable = (data, headers) => {
             const table = document.createElement('table');
             table.border = '1';
             table.style.width = '100%';
@@ -262,14 +263,13 @@
             table.style.textAlign = 'center';
 
             const headerRow = document.createElement('tr');
-            ['Namespace', '序号', 'Tag', 'Count'].forEach(header => {
+            headers.forEach(header => {
                 const th = document.createElement('th');
                 th.innerText = header;
                 headerRow.appendChild(th);
             });
             table.appendChild(headerRow);
 
-            let index = 1;
             for (let namespace in data) {
                 const tags = Object.entries(data[namespace]);
                 tags.forEach((tag, tagIndex) => {
@@ -303,8 +303,14 @@
         };
 
         const buttonContainer = document.createElement('div');
-        buttonContainer.style.textAlign = 'center';
+        buttonContainer.style.display = 'flex';
+        buttonContainer.style.justifyContent = 'space-between';
+        buttonContainer.style.marginTop = '20px';
         buttonContainer.style.marginBottom = '10px';
+
+        const saveRawBtnContainer = document.createElement('div');
+        saveRawBtnContainer.style.flex = '1';
+        saveRawBtnContainer.style.textAlign = 'center';
 
         const saveRawBtn = document.createElement('button');
         saveRawBtn.id = 'saveRawBtn';
@@ -314,9 +320,12 @@
         saveRawBtn.style.border = 'none';
         saveRawBtn.style.borderRadius = '5px';
         saveRawBtn.style.padding = '10px 20px';
-        saveRawBtn.style.marginRight = '10px';
         saveRawBtn.style.cursor = 'pointer';
-        buttonContainer.appendChild(saveRawBtn);
+        saveRawBtnContainer.appendChild(saveRawBtn);
+
+        const saveTranslatedBtnContainer = document.createElement('div');
+        saveTranslatedBtnContainer.style.flex = '1';
+        saveTranslatedBtnContainer.style.textAlign = 'center';
 
         const saveTranslatedBtn = document.createElement('button');
         saveTranslatedBtn.id = 'saveTranslatedBtn';
@@ -327,7 +336,10 @@
         saveTranslatedBtn.style.borderRadius = '5px';
         saveTranslatedBtn.style.padding = '10px 20px';
         saveTranslatedBtn.style.cursor = 'pointer';
-        buttonContainer.appendChild(saveTranslatedBtn);
+        saveTranslatedBtnContainer.appendChild(saveTranslatedBtn);
+
+        buttonContainer.appendChild(saveRawBtnContainer);
+        buttonContainer.appendChild(saveTranslatedBtnContainer);
 
         resultDiv.appendChild(buttonContainer);
 
@@ -347,17 +359,17 @@
         const rawReclassTitle = document.createElement('h4');
         rawReclassTitle.innerText = 'Reclass List';
         rawResultDiv.appendChild(rawReclassTitle);
-        rawResultDiv.appendChild(createTable(Object.entries(result.raw.reclassList), ['序号', 'Key', 'Value']));
+        rawResultDiv.appendChild(createTable(Object.entries(result.raw.reclassList), ['Index', 'Reclass', 'Count']));
 
         const rawTagTitle = document.createElement('h4');
         rawTagTitle.innerText = 'Tag List';
         rawResultDiv.appendChild(rawTagTitle);
-        rawResultDiv.appendChild(createTable(Object.entries(result.raw.tagList), ['序号', 'Key', 'Value']));
+        rawResultDiv.appendChild(createTable(Object.entries(result.raw.tagList), ['Index', 'Tag', 'Count']));
 
         const rawGroupedTagTitle = document.createElement('h4');
         rawGroupedTagTitle.innerText = 'Grouped Tag List';
         rawResultDiv.appendChild(rawGroupedTagTitle);
-        rawResultDiv.appendChild(createGroupedTable(result.raw.groupedTagList));
+        rawResultDiv.appendChild(createGroupedTable(result.raw.groupedTagList, ['Namespace', 'Index', 'Tag', 'Count']));
 
         resultContainer.appendChild(rawResultDiv);
 
@@ -371,19 +383,19 @@
         translatedResultDiv.appendChild(translatedResultTitle);
 
         const translatedReclassTitle = document.createElement('h4');
-        translatedReclassTitle.innerText = 'Reclass List';
+        translatedReclassTitle.innerText = '分类列表';
         translatedResultDiv.appendChild(translatedReclassTitle);
-        translatedResultDiv.appendChild(createTable(Object.entries(result.translate.reclassList), ['序号', 'Key', 'Value']));
+        translatedResultDiv.appendChild(createTable(Object.entries(result.translate.reclassList), ['序号', '分类', '数量']));
 
         const translatedTagTitle = document.createElement('h4');
-        translatedTagTitle.innerText = 'Tag List';
+        translatedTagTitle.innerText = '标签列表';
         translatedResultDiv.appendChild(translatedTagTitle);
-        translatedResultDiv.appendChild(createTable(Object.entries(result.translate.tagList), ['序号', 'Key', 'Value']));
+        translatedResultDiv.appendChild(createTable(Object.entries(result.translate.tagList), ['序号', '标签', '数量']));
 
         const translatedGroupedTagTitle = document.createElement('h4');
-        translatedGroupedTagTitle.innerText = 'Grouped Tag List';
+        translatedGroupedTagTitle.innerText = '分组标签列表';
         translatedResultDiv.appendChild(translatedGroupedTagTitle);
-        translatedResultDiv.appendChild(createGroupedTable(result.translate.groupedTagList));
+        translatedResultDiv.appendChild(createGroupedTable(result.translate.groupedTagList, ['命名空间', '序号', '标签', '数量']));
 
         resultContainer.appendChild(translatedResultDiv);
 
