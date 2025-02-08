@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 动态筛选
 // @namespace    Schwi
-// @version      1.3
+// @version      1.4
 // @description  Bilibili 动态筛选，快速找出感兴趣的动态
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -377,6 +377,7 @@
             // 重新初始化 IntersectionObserver
             observer.disconnect();
             renderedCount = 0;
+            gridContainer.innerHTML = ''; // 清空 gridContainer 的内容
             renderBatch();
         };
 
@@ -625,9 +626,6 @@
         let renderedCount = 0;
 
         const renderBatch = () => {
-            // 清空 gridContainer 的内容
-            gridContainer.innerHTML = '';
-
             for (let i = 0; i < batchSize && renderedCount < dynamicList.length; i++, renderedCount++) {
                 const dynamicItem = createDynamicItem(dynamicList[renderedCount]);
                 dynamicItem.style.display = dynamicList[renderedCount].display ? 'flex' : 'none'; // 根据 display 属性显示或隐藏
