@@ -7,6 +7,7 @@
 // @match        https://live.bilibili.com/*
 // @icon         https://live.bilibili.com/favicon.ico
 // @grant        unsafeWindow
+// @noframes
 // ==/UserScript==
 
 (function() {

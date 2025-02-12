@@ -10,6 +10,7 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_xmlhttpRequest
+// @noframes
 // @connect      api.fanbox.cc
 // @connect      downloads.fanbox.cc
 // @require      https://cdn.jsdelivr.net/npm/@zip.js/zip.js@2.7.57/dist/zip.min.js
@@ -21,7 +22,6 @@
 
 (function () {
     'use strict';
-    if (window.top !== window.self) return
 
     const api = {
         creator: (creatorId) => `https://api.fanbox.cc/creator.get?creatorId=${creatorId}`,

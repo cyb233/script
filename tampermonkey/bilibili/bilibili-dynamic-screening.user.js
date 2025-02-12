@@ -10,6 +10,7 @@
 // @grant        GM_registerMenuCommand
 // @grant        GM_setValue
 // @grant        GM_getValue
+// @noframes
 // @supportURL   https://github.com/cyb233/script
 // @icon         https://www.bilibili.com/favicon.ico
 // @license      GPL-3.0
@@ -17,12 +18,6 @@
 
 (function () {
     'use strict';
-
-    // 检查脚本是否运行在顶层窗口
-    if (window.top !== window.self) {
-        console.log("脚本不应运行于 iframe");
-        return;
-    }
 
     // 将字符串转换回函数
     const serializeFilters = (filters) => {

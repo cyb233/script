@@ -9,17 +9,13 @@
 // @require      https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js
 // @icon         https://e-hentai.org/favicon.ico
 // @grant        GM_registerMenuCommand
+// @noframes
 // @license      GPL-3.0
 // ==/UserScript==
 
 (function () {
     'use strict';
     // 在 https://e-hentai.org/ 或 https://exhentai.org/ 任意页面运行即可
-    // 检查脚本是否运行在顶层窗口
-    if (window.top !== window.self) {
-        console.log("脚本不应运行于 iframe");
-        return;
-    }
 
     // 是否翻译标签(需下载翻译文本)
     const config = {

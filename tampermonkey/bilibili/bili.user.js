@@ -7,6 +7,7 @@
 // @match        https://space.bilibili.com/*/bangumi
 // @icon         https://www.bilibili.com/favicon.ico
 // @grant        none
+// @noframes
 // @license      GPL-3.0
 // ==/UserScript==
 

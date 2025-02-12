@@ -8,18 +8,13 @@
 // @connect      api.bilibili.com
 // @grant        GM_xmlhttpRequest
 // @grant        GM_registerMenuCommand
+// @noframes
 // @supportURL   https://github.com/cyb233/script
 // @license      GPL-3.0
 // ==/UserScript==
 
 (function () {
     "use strict";
-
-    // 检查脚本是否已经运行
-    if (window.top !== window) {
-        console.log("脚本不应运行于iframe");
-        return;
-    }
 
     const REDEEM_ITEM_TYPE = {
         Card: 1,
