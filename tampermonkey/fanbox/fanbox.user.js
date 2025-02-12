@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      2.5
+// @version      2.6
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -34,6 +34,7 @@
 
     let allPost = []
     let totalPost = 0
+    let planCount = {}
 
     const defaultFormat = `{publishedDatetime}_{title}/{filename}`
 
@@ -83,6 +84,42 @@
         const planData = await fetch(api.plan((await baseinfo()).creatorId), { credentials: 'include' }).then(response => response.json()).catch(e => console.error(e));
         const yourPlan = planData.body.filter(plan => plan.paymentMethod)
         const yourFee = yourPlan.length === 0 ? 0 : yourPlan[0].fee
+        const planPostCount = {
+            "-1": {
+                id: -1,
+                title: '合计',
+                fee: -1,
+                description: null,
+                hasAdultContent: planData.body.some(plan => plan.hasAdultContent),
+                coverImageUrl: null,
+                visible: null,
+                count: 0
+            },
+            0: {
+                id: 0,
+                title: '公开',
+                fee: 0,
+                description: null,
+                hasAdultContent: false,
+                coverImageUrl: null,
+                visible: true,
+                count: 0
+            }
+        }
+        planData.body.reduce((acc, plan) => {
+            acc[plan.fee] = {
+                id: plan.id,
+                title: plan.title,
+                fee: plan.fee,
+                description: plan.description,
+                hasAdultContent: plan.hasAdultContent,
+                coverImageUrl: plan.coverImageUrl,
+                visible: yourFee >= plan.fee,
+                count: 0
+            };
+            return acc;
+        }, planPostCount);
+
         const data = await fetch(api.creatorPost((await baseinfo()).creatorId), { credentials: 'include' }).then(response => response.json()).catch(e => console.error(e));
         let nextId = data.body[0]?.id
         const postArray = []
@@ -91,6 +128,8 @@
             console.log(`请求第${++i}个`)
             const resp = await fetch(api.post(nextId), { credentials: 'include' }).then(response => response.json()).catch(e => console.error(e));
             const feeRequired = resp.body.feeRequired || 0
+            planPostCount[feeRequired].count++;
+            planPostCount["-1"].count++;
             if (feeRequired <= yourFee) {
                 // 处理post类型
                 resp.body.body.images = resp.body.body.images || []
@@ -220,7 +259,7 @@
         }
         console.log(`共${postArray.length}个作品`, postArray)
         progressBar.close()
-        return { postArray, total: i }
+        return { postArray, planPostCount }
     }
 
     /**
@@ -718,6 +757,7 @@
     // 创建获取投稿进度条，长宽90%，实时显示postArray的长度
     function createProgressBar() {
         const progressBar = document.createElement('div')
+        progressBar.innerText = `已获取 0/0 个投稿`
         progressBar.style.position = 'fixed'
         progressBar.style.bottom = '10px'
         progressBar.style.left = '10px'
@@ -745,7 +785,8 @@
      * 点击格子可以选中或取消选中，选中的格子会被下载按钮下载
      * 底部有查看详情按钮，链接格式为`/posts/${post.body.id}`
      */
-    function createResultDialog(allPost, total) {
+    function createResultDialog(allPost, planPostCount) {
+        const total = planPostCount["-1"].count
         const dialog = document.createElement('div')
         dialog.style.position = 'fixed'
         dialog.style.top = '5%'
@@ -773,8 +814,31 @@
 
         header.appendChild(title)
 
-        const closeButton = document.createElement('button')
-        closeButton.innerText = '关闭'
+        const buttonGroup = document.createElement('div');
+        buttonGroup.style.display = 'flex';
+        buttonGroup.style.gap = '10px'; // 按钮之间的间距
+
+        const refreshButton = document.createElement('button');
+        refreshButton.innerText = '重新获取';
+        refreshButton.style.backgroundColor = '#007BFF'; // 修改背景颜色为蓝色
+        refreshButton.style.color = '#fff'; // 修改文字颜色为白色
+        refreshButton.style.border = 'none';
+        refreshButton.style.borderRadius = '5px';
+        refreshButton.style.cursor = 'pointer';
+        refreshButton.style.padding = '5px 10px';
+        refreshButton.style.transition = 'background-color 0.3s'; // 添加过渡效果
+        refreshButton.onmouseover = () => { refreshButton.style.backgroundColor = '#0056b3'; } // 添加悬停效果
+        refreshButton.onmouseout = () => { refreshButton.style.backgroundColor = '#007BFF'; } // 恢复背景颜色
+        refreshButton.onclick = () => {
+            document.body.removeChild(dialog);
+            allPost = [];
+            planCount = {};
+            fmain();
+        };
+        buttonGroup.appendChild(refreshButton);
+
+        const closeButton = document.createElement('button');
+        closeButton.innerText = '关闭';
         closeButton.style.backgroundColor = '#ff4d4f'; // 修改背景颜色为红色
         closeButton.style.color = '#fff'; // 修改文字颜色为白色
         closeButton.style.border = 'none';
@@ -785,11 +849,24 @@
         closeButton.onmouseover = () => { closeButton.style.backgroundColor = '#d93637'; } // 添加悬停效果
         closeButton.onmouseout = () => { closeButton.style.backgroundColor = '#ff4d4f'; } // 恢复背景颜色
         closeButton.onclick = () => {
-            document.body.removeChild(dialog)
-        }
-        header.appendChild(closeButton)
+            document.body.removeChild(dialog);
+        };
+        buttonGroup.appendChild(closeButton);
+
+        header.appendChild(buttonGroup);
 
         dialog.appendChild(header)
+
+        const planSummary = document.createElement('p');
+        planSummary.innerHTML = '各档位投稿数量: ' + Object.entries(planPostCount).sort(([a], [b]) => a - b).map(([fee, plan]) => {
+            if (fee === "-1") {
+                return `${plan.title}: ${plan.count} 个`;
+            }
+            const color = plan.visible ? 'green' : 'red';
+            return `<span style="color: ${color};">${plan.title} 档位(${plan.fee} 日元): ${plan.count} 个</span>`;
+        }).join(' | ');
+        planSummary.style.marginBottom = '20px'; // 调整内边距
+        dialog.appendChild(planSummary);
 
         const controls = document.createElement('div')
         controls.style.display = 'flex'
@@ -1034,12 +1111,12 @@
             // 创建进度条
             const progressBar = createProgressBar()
             // 获取所有投稿
-            const { postArray, total } = await getAllPost(progressBar).catch(e => console.error(e))
+            const { postArray, planPostCount } = await getAllPost(progressBar).catch(e => console.error(e))
             allPost = postArray
-            totalPost = total
+            planCount = planPostCount
         }
         // 创建结果弹窗
-        const resultDialog = createResultDialog(allPost, totalPost)
+        const resultDialog = createResultDialog(allPost, planCount)
     }
 
     GM_registerMenuCommand('查询投稿', fmain)
