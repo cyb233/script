@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      2.9
+// @version      3.0
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -409,7 +409,7 @@
                             if (event.lengthComputable) {
                                 downloadProgressDialog.updateFileProgress(event.loaded, event.total);
                                 const elapsedTime = (new Date() - startTime) / 1000;
-                                const speed = totalDownloadedSize / elapsedTime;
+                                const speed = (totalDownloadedSize + event.loaded) / elapsedTime;
                                 downloadProgressDialog.updateSpeed(speed);
                             }
                         },
