@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      2.7
+// @version      2.8
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -714,6 +714,7 @@
                         urlLink.href = file.url;
                         urlLink.innerText = '下载';
                         urlLink.target = '_blank';
+                        urlLink.download = file.filename; // 增加下载文件名属性
                         urlCell.appendChild(urlLink);
                         urlCell.style.border = '1px solid #ccc';
                         urlCell.style.padding = '5px';
