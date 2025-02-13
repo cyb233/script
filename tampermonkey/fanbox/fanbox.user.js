@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      2.6
+// @version      2.7
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -85,14 +85,24 @@
         const yourPlan = planData.body.filter(plan => plan.paymentMethod)
         const yourFee = yourPlan.length === 0 ? 0 : yourPlan[0].fee
         const planPostCount = {
-            "-1": {
-                id: -1,
+            "-2": {
+                id: -2,
                 title: '合计',
-                fee: -1,
+                fee: -2,
                 description: null,
                 hasAdultContent: planData.body.some(plan => plan.hasAdultContent),
                 coverImageUrl: null,
                 visible: null,
+                count: 0
+            },
+            "-1": {
+                id: -1,
+                title: '可见',
+                fee: -1,
+                description: null,
+                hasAdultContent: planData.body.filter(plan => yourFee >= plan.fee).some(plan => plan.hasAdultContent),
+                coverImageUrl: null,
+                visible: true,
                 count: 0
             },
             0: {
@@ -129,18 +139,22 @@
             const resp = await fetch(api.post(nextId), { credentials: 'include' }).then(response => response.json()).catch(e => console.error(e));
             const feeRequired = resp.body.feeRequired || 0
             planPostCount[feeRequired].count++;
-            planPostCount["-1"].count++;
+            planPostCount["-2"].count++;
             if (feeRequired <= yourFee) {
+                planPostCount["-1"].count++
                 // 处理post类型
                 resp.body.body.images = resp.body.body.images || []
                 resp.body.body.files = resp.body.body.files || []
                 resp.body.body.video = resp.body.body.video || {}
                 if (resp.body.coverImageUrl) {
                     // 封面图片，extension从url中获取
-                    resp.body.body.cover = { id: 'cover', extension: resp.body.coverImageUrl.split('.').pop(), originalUrl: resp.body.coverImageUrl }
+                    resp.body.body.cover = { id: '0_cover', extension: resp.body.coverImageUrl.split('.').pop(), originalUrl: resp.body.coverImageUrl }
                 }
                 if (resp.body.type === postType.text.type) {
                 } else if (resp.body.type === postType.image.type) {
+                    resp.body.body.images.forEach((image, index) => {
+                        image.id = `${index + 1}_${resp.body.id}`
+                    })
                 } else if (resp.body.type === postType.file.type) {
                 } else if (resp.body.type === postType.video.type) {
                     const url = postType.video.getFullUrl(resp.body.body.video)
@@ -786,7 +800,7 @@
      * 底部有查看详情按钮，链接格式为`/posts/${post.body.id}`
      */
     function createResultDialog(allPost, planPostCount) {
-        const total = planPostCount["-1"].count
+        const total = planPostCount["-2"].count
         const dialog = document.createElement('div')
         dialog.style.position = 'fixed'
         dialog.style.top = '5%'
@@ -859,10 +873,13 @@
 
         const planSummary = document.createElement('p');
         planSummary.innerHTML = '各档位投稿数量: ' + Object.entries(planPostCount).sort(([a], [b]) => a - b).map(([fee, plan]) => {
-            if (fee === "-1") {
+            if (fee === "-2") {
                 return `${plan.title}: ${plan.count} 个`;
             }
             const color = plan.visible ? 'green' : 'red';
+            if (fee === "-1") {
+                return `<span style="color: ${color};">${plan.title}: ${plan.count} 个</span>`;
+            }
             return `<span style="color: ${color};">${plan.title} 档位(${plan.fee} 日元): ${plan.count} 个</span>`;
         }).join(' | ');
         planSummary.style.marginBottom = '20px'; // 调整内边距
