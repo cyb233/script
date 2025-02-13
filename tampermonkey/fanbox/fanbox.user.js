@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      2.8
+// @version      2.9
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -380,6 +380,14 @@
                     publishedDatetime: post.publishedDatetime
                 })
             }
+            const urlFileContent = `[InternetShortcut]\nURL=${(await baseinfo()).baseUrl}/posts/${post.id}}`;
+            const formattedUrlPath = await formatPath(pathFormat, post, { name: post.title, extension: 'url' });
+            downloadTexts.push({
+                title: post.title,
+                filename: formattedUrlPath,
+                text: urlFileContent,
+                publishedDatetime: post.publishedDatetime
+            });
         }
         console.log(`开始下载 ${downloadFiles.length + downloadCovers.length + downloadTexts.length} 个文件`)
 
@@ -400,6 +408,9 @@
                             if (isCancelled) throw new Error('下载已取消');
                             if (event.lengthComputable) {
                                 downloadProgressDialog.updateFileProgress(event.loaded, event.total);
+                                const elapsedTime = (new Date() - startTime) / 1000;
+                                const speed = totalDownloadedSize / elapsedTime;
+                                downloadProgressDialog.updateSpeed(speed);
                             }
                         },
                         onerror: (e) => {
@@ -594,6 +605,11 @@
         elapsedTimeElement.style.marginBottom = '10px'; // 调整内边距
         dialog.appendChild(elapsedTimeElement);
 
+        const speedElement = document.createElement('p');
+        speedElement.innerText = `下载速度: 0B/s`;
+        speedElement.style.marginBottom = '10px'; // 调整内边距
+        dialog.appendChild(speedElement);
+
         const confirmButton = document.createElement('button');
         confirmButton.innerText = '取消';
         confirmButton.style.backgroundColor = '#ff4d4f'; // 修改背景颜色为红色
@@ -691,6 +707,12 @@
             },
             updateTotalSize: (size, zipSize) => {
                 totalSize.innerText = zipSize ? `总大小: ${getSize(size)} (压缩包大小: ${zipSize})` : `总大小: ${getSize(size)}`;
+                const elapsedTime = (new Date() - startTime) / 1000;
+                const speed = size / elapsedTime;
+                speedElement.innerText = `下载速度: ${getSize(speed)}/s`;
+            },
+            updateSpeed: (speed) => {
+                speedElement.innerText = `下载速度: ${getSize(speed)}/s`;
             },
             updateFailedFiles: (failedFiles) => {
                 failedFilesBody.innerHTML = ''; // 清空表格内容
