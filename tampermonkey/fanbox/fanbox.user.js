@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      3.5
+// @version      3.6
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -290,7 +290,7 @@
     async function formatPath(pathFormat, post, item) {
         const illegalChars = /[\\/:*?"<>|]/g;
         const formattedPath = pathFormat
-            .replace('{id}', post.id)
+            .replace('{postId}', post.id)
             .replace('{title}', post.title.replace(illegalChars, '_'))
             .replace('{filename}', `${item.name}.${item.extension}`.replace(illegalChars, '_'))
             .replace('{creatorId}', (await baseinfo()).creatorId.replace(illegalChars, '_'))
