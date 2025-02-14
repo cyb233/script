@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      3.3
+// @version      3.4
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -153,7 +153,7 @@
                 if (resp.body.type === postType.text.type) {
                 } else if (resp.body.type === postType.image.type) {
                     resp.body.body.images.forEach((image, index) => {
-                        const paddedIndex = String(index + 1).padStart(resp.body.body.images.length, '0');
+                        const paddedIndex = String(index + 1).padStart(String(resp.body.body.images.length).length, '0');
                         image.id = `${paddedIndex}_${image.id}`;
                     })
                 } else if (resp.body.type === postType.file.type) {
@@ -251,11 +251,11 @@
                         }
                     }
                     html += `</body></html>`
-                    let index = resp.body.body.images.length + 1;
-                    const totalLength = index + Object.keys(image).length;
+                    let index = resp.body.body.images.length;
+                    const totalLength = String(index + Object.keys(image).length).length;
                     for (const key in image) {
-                        const paddedIndex = String(index).padStart(totalLength, '0');
-                        resp.body.body.images.push({...image[key], id: `${paddedIndex}_${image[key].id}`});
+                        const paddedIndex = String(index + 1).padStart(totalLength, '0');
+                        resp.body.body.images.push({ ...image[key], id: `${paddedIndex}_${image[key].id}` });
                         index++;
                     }
                     for (const key in file) {
@@ -871,11 +871,10 @@
         refreshButton.style.transition = 'background-color 0.3s'; // 添加过渡效果
         refreshButton.onmouseover = () => { refreshButton.style.backgroundColor = '#0056b3'; } // 添加悬停效果
         refreshButton.onmouseout = () => { refreshButton.style.backgroundColor = '#007BFF'; } // 恢复背景颜色
-        refreshButton.onclick = () => {
+        refreshButton.onclick = async () => {
             document.body.removeChild(dialog);
-            allPost = [];
-            planCount = {};
-            fmain();
+            allPost.length = 0;
+            await fmain();
         };
         buttonGroup.appendChild(refreshButton);
 
