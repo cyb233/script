@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      3.1
+// @version      3.2
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -153,7 +153,8 @@
                 if (resp.body.type === postType.text.type) {
                 } else if (resp.body.type === postType.image.type) {
                     resp.body.body.images.forEach((image, index) => {
-                        image.id = `${index + 1}_${resp.body.id}`
+                        const paddedIndex = String(index + 1).padStart(resp.body.body.images.length, '0');
+                        image.id = `${paddedIndex}_${image.id}`;
                     })
                 } else if (resp.body.type === postType.file.type) {
                 } else if (resp.body.type === postType.video.type) {
@@ -250,8 +251,12 @@
                         }
                     }
                     html += `</body></html>`
+                    let index = resp.body.body.images.length
+                    const totalLength = index + Object.keys(image).length;
                     for (const key in image) {
-                        resp.body.body.images.push(image[key])
+                        const paddedIndex = String(index).padStart(totalLength, '0');
+                        resp.body.body.images.push({...image[key], id: `${paddedIndex}_${image[key].id}`});
+                        index++;
                     }
                     for (const key in file) {
                         resp.body.body.files.push(file[key])
