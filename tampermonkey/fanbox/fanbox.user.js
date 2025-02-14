@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      3.0
+// @version      3.1
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -380,7 +380,7 @@
                     publishedDatetime: post.publishedDatetime
                 })
             }
-            const urlFileContent = `[InternetShortcut]\nURL=${(await baseinfo()).baseUrl}/posts/${post.id}}`;
+            const urlFileContent = `[InternetShortcut]\nURL=${(await baseinfo()).baseUrl}/posts/${post.id}`;
             const formattedUrlPath = await formatPath(pathFormat, post, { name: post.title, extension: 'url' });
             downloadTexts.push({
                 title: post.title,
