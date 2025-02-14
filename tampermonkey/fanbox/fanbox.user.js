@@ -251,7 +251,7 @@
                         }
                     }
                     html += `</body></html>`
-                    let index = resp.body.body.images.length
+                    let index = resp.body.body.images.length + 1;
                     const totalLength = index + Object.keys(image).length;
                     for (const key in image) {
                         const paddedIndex = String(index).padStart(totalLength, '0');
