@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      3.4
+// @version      3.5
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -33,10 +33,9 @@
     const getSize = (size) => filesize.filesize(size, { base: 2 })
 
     let allPost = []
-    let totalPost = 0
     let planCount = {}
 
-    const defaultFormat = `{publishedDatetime}_{title}/{filename}`
+    const defaultFormat = `{postId}_{title}/{filename}`
 
     const postType = {
         text: { type: 'text', name: '文本' },
@@ -1002,8 +1001,30 @@
             GM_setValue('pathFormat', pathFormatInput.value)
         }
 
+        const resetButton = document.createElement('button');
+        resetButton.innerText = '重置';
+        resetButton.style.backgroundColor = '#007BFF'; // 背景颜色
+        resetButton.style.color = 'white'; // 文字颜色
+        resetButton.style.border = 'none'; // 去掉边框
+        resetButton.style.borderRadius = '5px'; // 圆角
+        resetButton.style.cursor = 'pointer';
+        resetButton.style.padding = '5px 10px';
+        resetButton.style.transition = 'background-color 0.3s'; // 过渡效果
+        resetButton.style.marginLeft = '10px'; // 添加左侧外边距
+        resetButton.onmouseover = () => {
+            resetButton.style.backgroundColor = '#0056b3'; // 鼠标悬停时的颜色
+        };
+        resetButton.onmouseout = () => {
+            resetButton.style.backgroundColor = '#007BFF'; // 鼠标移开时的颜色
+        };
+        resetButton.onclick = () => {
+            pathFormatInput.value = defaultFormat;
+            GM_setValue('pathFormat', defaultFormat);
+        };
+
         rightControls.appendChild(pathFormatLabel)
         rightControls.appendChild(pathFormatInput)
+        rightControls.appendChild(resetButton)
 
         controls.appendChild(rightControls)
 
