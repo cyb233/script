@@ -1,11 +1,12 @@
 // ==UserScript==
 // @name         Bilibili 动态筛选
 // @namespace    Schwi
-// @version      1.5
+// @version      1.6
 // @description  Bilibili 动态筛选，快速找出感兴趣的动态
 // @author       Schwi
 // @match        *://*.bilibili.com/*
 // @connect      api.bilibili.com
+// @connect      api.vc.bilibili.com
 // @grant        GM_xmlhttpRequest
 // @grant        GM_registerMenuCommand
 // @grant        GM_setValue
@@ -128,6 +129,46 @@
     let dynamicList = [];
     let collectedCount = 0;
 
+    // 筛选按钮数据结构
+    const filters1 = {
+        // 全部: {type: "checkbox", filter: (item, input) => true },
+        只看自己: { type: "checkbox", filter: (item, input) => item.modules.module_author.following === null },
+        排除自己: { type: "checkbox", filter: (item, input) => !filters1['只看自己'].filter(item, input) },
+        只看转发: { type: "checkbox", filter: (item, input) => item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key },
+        排除转发: { type: "checkbox", filter: (item, input) => !filters1['只看转发'].filter(item, input) },
+        视频更新预告: { type: "checkbox", filter: (item, input) => (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item).modules.module_dynamic.additional?.reserve?.stype === 1 },
+        直播预告: { type: "checkbox", filter: (item, input) => (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item).modules.module_dynamic.additional?.reserve?.stype === 2 },
+        有奖预约: { type: "checkbox", filter: (item, input) => filters1['直播预告'].filter(item, input) && (item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? item.orig : item).modules.module_dynamic.additional?.reserve?.desc3?.text },
+        互动抽奖: {
+            type: "checkbox", filter: (item, input) =>
+                (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item)?.modules?.module_dynamic?.major?.opus?.summary?.rich_text_nodes?.some(n => n?.type === RICH_TEXT_NODE_TYPE.RICH_TEXT_NODE_TYPE_LOTTERY.key)
+                ||
+                (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item)?.modules?.module_dynamic?.desc?.rich_text_nodes?.some(n => n?.type === RICH_TEXT_NODE_TYPE.RICH_TEXT_NODE_TYPE_LOTTERY.key)
+        },
+        只看已开奖: {
+            type: "checkbox", filter: (item, input) => item.reserveInfo?.lottery_result
+        },
+        排除已开奖: { type: "checkbox", filter: (item, input) => item.reserveInfo && !item.reserveInfo.lottery_result },
+        搜索: {
+            type: "text",
+            filter: (item, input) => {
+                const searchText = input.toLocaleUpperCase();
+                const authorName = item.modules.module_author.name.toLocaleUpperCase();
+                const authorMid = item.modules.module_author.mid.toString();
+                const descText = (item.modules.module_dynamic.desc?.text || '').toLocaleUpperCase();
+                const forwardAuthorName = item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? item.orig.modules.module_author.name.toLocaleUpperCase() : '';
+                const forwardAuthorMid = item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? item.orig.modules.module_author.mid.toString() : '';
+                const forwardDescText = item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? (item.orig.modules.module_dynamic.desc?.text || '').toLocaleUpperCase() : '';
+
+                return authorName.includes(searchText) || authorMid.includes(searchText) || descText.includes(searchText) ||
+                    forwardAuthorName.includes(searchText) || forwardAuthorMid.includes(searchText) || forwardDescText.includes(searchText);
+            }
+        },
+    };
+
+    const filters2 = {};
+    let customFilters;
+
     // 工具函数：创建 dialog
     function createDialog(id, title, content) {
         let dialog = document.createElement('div');
@@ -244,63 +285,6 @@
         gridContainer.style.height = 'calc(90% - 50px)'; // 设置高度以启用滚动
         gridContainer.style.overflowY = 'auto'; // 启用垂直滚动
 
-        // 筛选按钮数据结构
-        const filters1 = {
-            // 全部: {type: "checkbox", filter: (item, input) => true },
-            只看自己: { type: "checkbox", filter: (item, input) => item.modules.module_author.following === null },
-            排除自己: { type: "checkbox", filter: (item, input) => !filters1['只看自己'].filter(item, input) },
-            只看转发: { type: "checkbox", filter: (item, input) => item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key },
-            排除转发: { type: "checkbox", filter: (item, input) => !filters1['只看转发'].filter(item, input) },
-            视频更新预告: { type: "checkbox", filter: (item, input) => (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item).modules.module_dynamic.additional?.reserve?.stype === 1 },
-            直播预告: { type: "checkbox", filter: (item, input) => (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item).modules.module_dynamic.additional?.reserve?.stype === 2 },
-            有奖预约: { type: "checkbox", filter: (item, input) => filters1['直播预告'].filter(item, input) && (item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? item.orig : item).modules.module_dynamic.additional?.reserve?.desc3?.text },
-            互动抽奖: {
-                type: "checkbox", filter: (item, input) =>
-                    item.modules.module_dynamic.major?.opus?.summary?.rich_text_nodes?.some(n => n?.type === RICH_TEXT_NODE_TYPE.RICH_TEXT_NODE_TYPE_LOTTERY.key) || item.modules.module_dynamic.desc?.rich_text_nodes?.some(n => n?.type === RICH_TEXT_NODE_TYPE.RICH_TEXT_NODE_TYPE_LOTTERY.key)
-                    ||
-                    item.orig?.modules?.module_dynamic?.major?.opus?.summary?.rich_text_nodes?.some(n => n?.type === RICH_TEXT_NODE_TYPE.RICH_TEXT_NODE_TYPE_LOTTERY.key) || item.orig?.modules?.module_dynamic?.desc?.rich_text_nodes?.some(n => n?.type === RICH_TEXT_NODE_TYPE.RICH_TEXT_NODE_TYPE_LOTTERY.key)
-            },
-            只看已开奖: {
-                type: "checkbox", filter: (item, input) =>
-                    // 直播有奖预约开奖 或 互动抽奖开奖
-                    // 如果是直播有奖预约，则判断预约按钮是否为"预约"
-                    (
-                        filters1['有奖预约'].filter(item, input)
-                        &&
-                        (item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? item.orig : item).modules.module_dynamic.additional?.reserve?.button?.uncheck?.text !== "预约"
-                    )
-                    ||
-                    // 如果是互动抽奖，排除已开奖的互动抽奖动态
-                    (
-                        filters1['互动抽奖'].filter(item, input)
-                        &&
-                        // 如果是转发自己的动态，判断是否为开奖动态(匹配"恭喜xxx中奖，已私信通知，详情请点击抽奖查看。"格式)
-                        item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key
-                        &&
-                        item.orig.modules.module_author.mid === item.modules.module_author.mid
-                        &&
-                        /^恭喜.*中奖，已私信通知，详情请点击抽奖查看。$/.test(item.modules.module_dynamic.desc?.text)
-                    )
-            },
-            排除已开奖: { type: "checkbox", filter: (item, input) => !filters1['只看已开奖'].filter(item, input) },
-            搜索: {
-                type: "text",
-                filter: (item, input) => {
-                    const searchText = input.toLocaleUpperCase();
-                    const authorName = item.modules.module_author.name.toLocaleUpperCase();
-                    const authorMid = item.modules.module_author.mid.toString();
-                    const descText = (item.modules.module_dynamic.desc?.text || '').toLocaleUpperCase();
-                    const forwardAuthorName = item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? item.orig.modules.module_author.name.toLocaleUpperCase() : '';
-                    const forwardAuthorMid = item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? item.orig.modules.module_author.mid.toString() : '';
-                    const forwardDescText = item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? (item.orig.modules.module_dynamic.desc?.text || '').toLocaleUpperCase() : '';
-
-                    return authorName.includes(searchText) || authorMid.includes(searchText) || descText.includes(searchText) ||
-                        forwardAuthorName.includes(searchText) || forwardAuthorMid.includes(searchText) || forwardDescText.includes(searchText);
-                }
-            },
-        };
-
-        const filters2 = {};
         // 遍历 DYNAMIC_TYPE 生成 filters
         Object.values(DYNAMIC_TYPE).forEach(type => {
             if (type.filter) { // 根据 filter 判断是否纳入过滤条件
@@ -313,7 +297,7 @@
             }
         });
         // 用户自定义筛选条件
-        const customFilters = deserializeFilters(GM_getValue('customFilters', null));
+        customFilters = deserializeFilters(GM_getValue('customFilters', null));
 
         const deal = (dynamicList) => {
             let checkedFilters = [];
@@ -365,9 +349,10 @@
             dynamicList.forEach(item => {
                 item.display = checkedFilters.every(f => f.value ? f.filter(item, f.value) : true);
             });
+            console.log(checkedFilters, dynamicList.filter(item => item.display));
 
             // 更新标题显示筛选后的条数和总条数
-            titleElement.textContent = `动态结果（${dynamicList.filter(item => item.display).length}/${dynamicList.length}）`;
+            titleElement.textContent = `动态结果（${dynamicList.filter(item => item.display).length}/${dynamicList.length}） ${new Date(dynamicList[dynamicList.length - 1].modules.module_author.pub_ts * 1000).toLocaleString()} ~ ${new Date(dynamicList[0].modules.module_author.pub_ts * 1000).toLocaleString()}`;
 
             // 重新初始化 IntersectionObserver
             observer.disconnect();
@@ -686,6 +671,24 @@
                     item.baseType = item.orig.type;
                 }
                 item.display = true;
+
+                // 如果是直播预约动态，获取预约信息
+                let reserveInfo = null;
+                if (filters1['直播预告'].filter(item)) {
+                    const rid = (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item).modules.module_dynamic?.additional?.reserve?.rid;
+                    if (rid) {
+                        reserveInfo = (await apiRequest(`https://api.vc.bilibili.com/lottery_svr/v1/lottery_svr/lottery_notice?business_id=${rid}&business_type=10`)).data;
+                    }
+                }
+                // 如果是互动抽奖动态，获取预约信息
+                if (filters1['互动抽奖'].filter(item)) {
+                    const rid = (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item).id_str
+                    if (rid) {
+                        reserveInfo = (await apiRequest(`https://api.vc.bilibili.com/lottery_svr/v1/lottery_svr/lottery_notice?business_id=${rid}&business_type=1`)).data;
+                    }
+                }
+                item.reserveInfo = reserveInfo;
+
                 if (shouldInclude) {
                     dynamicList.push(item);
                 }
