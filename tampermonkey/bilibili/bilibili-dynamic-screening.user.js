@@ -1,13 +1,13 @@
 // ==UserScript==
 // @name         Bilibili 动态筛选
 // @namespace    Schwi
-// @version      1.6
+// @version      1.7
 // @description  Bilibili 动态筛选，快速找出感兴趣的动态
 // @author       Schwi
 // @match        *://*.bilibili.com/*
 // @connect      api.bilibili.com
 // @connect      api.vc.bilibili.com
-// @grant        GM_xmlhttpRequest
+// @grant        GM.xmlHttpRequest
 // @grant        GM_registerMenuCommand
 // @grant        GM_setValue
 // @grant        GM_getValue
@@ -128,17 +128,26 @@
     // 添加全局变量
     let dynamicList = [];
     let collectedCount = 0;
+    let userData = null;
+
+    // 获取用户UID
+    const getUserData = async () => {
+        if (!userData) {
+            userData = (await apiRequest('https://api.bilibili.com/x/space/v2/myinfo')).data
+        }
+        return userData
+    };
 
     // 筛选按钮数据结构
-    const filters1 = {
+    const defaultFilters = {
         // 全部: {type: "checkbox", filter: (item, input) => true },
-        只看自己: { type: "checkbox", filter: (item, input) => item.modules.module_author.following === null },
-        排除自己: { type: "checkbox", filter: (item, input) => !filters1['只看自己'].filter(item, input) },
+        只看自己: { type: "checkbox", filter: (item, input) => item.modules.module_author.mid === userData.profile.mid },
+        排除自己: { type: "checkbox", filter: (item, input) => !defaultFilters['只看自己'].filter(item, input) },
         只看转发: { type: "checkbox", filter: (item, input) => item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key },
-        排除转发: { type: "checkbox", filter: (item, input) => !filters1['只看转发'].filter(item, input) },
+        排除转发: { type: "checkbox", filter: (item, input) => !defaultFilters['只看转发'].filter(item, input) },
         视频更新预告: { type: "checkbox", filter: (item, input) => (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item).modules.module_dynamic.additional?.reserve?.stype === 1 },
         直播预告: { type: "checkbox", filter: (item, input) => (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item).modules.module_dynamic.additional?.reserve?.stype === 2 },
-        有奖预约: { type: "checkbox", filter: (item, input) => filters1['直播预告'].filter(item, input) && (item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? item.orig : item).modules.module_dynamic.additional?.reserve?.desc3?.text },
+        有奖预约: { type: "checkbox", filter: (item, input) => defaultFilters['直播预告'].filter(item, input) && (item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? item.orig : item).modules.module_dynamic.additional?.reserve?.desc3?.text },
         互动抽奖: {
             type: "checkbox", filter: (item, input) =>
                 (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item)?.modules?.module_dynamic?.major?.opus?.summary?.rich_text_nodes?.some(n => n?.type === RICH_TEXT_NODE_TYPE.RICH_TEXT_NODE_TYPE_LOTTERY.key)
@@ -166,7 +175,7 @@
         },
     };
 
-    const filters2 = {};
+    const typeFilters = {};
     let customFilters;
 
     // 工具函数：创建 dialog
@@ -230,7 +239,7 @@
     }
 
     // 创建并显示时间选择器 dialog
-    function showTimeSelector(callback) {
+    function showTimeSelector(callback, isSelf) {
         let yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
         let today = new Date();
@@ -250,27 +259,26 @@
             const startDate = new Date(contentArea.querySelector('#startDate').value + ' 00:00:00').getTime() / 1000;
             const endDate = new Date(contentArea.querySelector('#endDate').value + ' 00:00:00').getTime() / 1000;
             dialog.style.display = 'none';
-            callback(startDate, endDate);
+            callback(startDate, endDate, isSelf);
         };
     }
 
     // API 请求函数
-    function apiRequest(url) {
-        return new Promise((resolve, reject) => {
-            GM_xmlhttpRequest({
-                method: 'GET',
-                url: url,
-                onload: response => {
-                    try {
-                        const data = JSON.parse(response.responseText);
-                        resolve(data);
-                    } catch (e) {
-                        reject(e);
-                    }
-                },
-                onerror: reject
-            });
-        });
+    async function apiRequest(url, retry = 3) {
+        for (let attempt = 1; attempt <= retry; attempt++) {
+            try {
+                const response = await GM.xmlHttpRequest({
+                    method: 'GET',
+                    url: url,
+                });
+                const data = JSON.parse(response.responseText);
+                return data;
+            } catch (e) {
+                if (attempt === retry) {
+                    throw e;
+                }
+            }
+        }
     }
 
     // 显示结果 dialog
@@ -284,15 +292,16 @@
         gridContainer.style.padding = '10px';
         gridContainer.style.height = 'calc(90% - 50px)'; // 设置高度以启用滚动
         gridContainer.style.overflowY = 'auto'; // 启用垂直滚动
+        gridContainer.style.alignContent = 'flex-start';
 
         // 遍历 DYNAMIC_TYPE 生成 filters
         Object.values(DYNAMIC_TYPE).forEach(type => {
             if (type.filter) { // 根据 filter 判断是否纳入过滤条件
-                if (!filters2[type.name]) {
-                    filters2[type.name] = { type: "checkbox", filter: (item, input) => item.baseType === type.key };
+                if (!typeFilters[type.name]) {
+                    typeFilters[type.name] = { type: "checkbox", filter: (item, input) => item.baseType === type.key };
                 } else {
-                    const existingFilter = filters2[type.name].filter;
-                    filters2[type.name].filter = (item, input) => existingFilter(item, input) || item.baseType === type.key;
+                    const existingFilter = typeFilters[type.name].filter;
+                    typeFilters[type.name].filter = (item, input) => existingFilter(item, input) || item.baseType === type.key;
                 }
             }
         });
@@ -301,8 +310,8 @@
 
         const deal = (dynamicList) => {
             let checkedFilters = [];
-            for (let key in filters1) {
-                const f = filters1[key];
+            for (let key in defaultFilters) {
+                const f = defaultFilters[key];
                 const filter = filterButtonsContainer.querySelector(`#${key}`);
                 let checkedFilter;
                 switch (f.type) {
@@ -315,8 +324,8 @@
                 }
                 checkedFilters.push(checkedFilter);
             }
-            for (let key in filters2) {
-                const f = filters2[key];
+            for (let key in typeFilters) {
+                const f = typeFilters[key];
                 const filter = filterButtonsContainer.querySelector(`#${key}`);
                 let checkedFilter;
                 switch (f.type) {
@@ -426,8 +435,8 @@
         filterButtonsContainer.style.padding = '10px';
         filterButtonsContainer.style.alignItems = 'center'; // 添加垂直居中对齐
 
-        filterButtonsContainer.appendChild(createFilterButtons(filters1, dynamicList));
-        filterButtonsContainer.appendChild(createFilterButtons(filters2, dynamicList));
+        filterButtonsContainer.appendChild(createFilterButtons(defaultFilters, dynamicList));
+        filterButtonsContainer.appendChild(createFilterButtons(typeFilters, dynamicList));
 
         // 添加自定义筛选按钮
         if (customFilters && Object.keys(customFilters).length > 0) {
@@ -564,7 +573,7 @@
             typeComment.style.padding = "5px";
             typeComment.style.marginBottom = "5px";
             typeComment.style.textAlign = "center";
-            typeComment.textContent = `类型: ${DYNAMIC_TYPE[dynamic.type]?.name || dynamic.type} ${isForward ? `(${DYNAMIC_TYPE[dynamic.orig.type]?.name || dynamic.orig.type})` : ''} ${(filters1['有奖预约'].filter(dynamic) || filters1['互动抽奖'].filter(dynamic)) ? '🎁' : ''}`;
+            typeComment.textContent = `类型: ${DYNAMIC_TYPE[dynamic.type]?.name || dynamic.type} ${isForward ? `(${DYNAMIC_TYPE[dynamic.orig.type]?.name || dynamic.orig.type})` : ''} ${(defaultFilters['有奖预约'].filter(dynamic) || defaultFilters['互动抽奖'].filter(dynamic)) ? '🎁' : ''}`;
 
             // 正文
             const describe = document.createElement("div");
@@ -635,13 +644,13 @@
     }
 
     // 主任务函数
-    async function collectDynamic(startTime, endTime) {
+    async function collectDynamic(startTime, endTime, isSelf = false) {
         let offset = '';
         dynamicList = [];
         collectedCount = 0;
         let shouldContinue = true; // 引入标志位
 
-        let { dialog, contentArea } = createDialog('progressDialog', '任务进度', `<p>已收集动态数：<span id='collectedCount'>0</span>/<span id='totalCount'>0</span></p>`);
+        let { dialog, contentArea } = createDialog('progressDialog', '任务进度', `<p>已收集动态数：<span id='collectedCount'>0</span>/<span id='totalCount'>0</span></p><p>已获取最早动态时间：<span id='earliestTime'>N/A</span></p>`);
         dialog.style.display = 'block';
 
         // 添加样式优化
@@ -650,56 +659,72 @@
         dialog.querySelector('p').style.fontWeight = 'bold';
         dialog.querySelector('p').style.marginTop = '20px';
 
+        await getUserData()
+
         let shouldInclude = false;
         while (shouldContinue) { // 使用标志位控制循环
-            const api = `https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all?type=all&offset=${offset}`;
-            const data = await apiRequest(api);
-            const items = data.data.items;
+            const api = isSelf ?
+                `https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?host_mid=${userData.profile.mid}&offset=${offset}` :
+                `https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all?type=all&offset=${offset}`;
 
-            if (!shouldInclude) {
-                shouldInclude = items.some(item => item.modules.module_author.pub_ts > 0 && item.modules.module_author.pub_ts < (endTime + 24 * 60 * 60));
-            }
-            for (let item of items) {
-                if (item.type !== DYNAMIC_TYPE.DYNAMIC_TYPE_LIVE_RCMD.key) {
-                    // 直播动态可能不按时间顺序出现，不能用来判断时间要求
-                    if (item.modules.module_author.pub_ts > 0 && item.modules.module_author.pub_ts < startTime) {
-                        shouldContinue = false; // 设置标志位为 false 以结束循环
+            try {
+                const data = await apiRequest(api);
+                const items = data?.data?.items;
+
+                // 如果出错等原因导致没有，直接跳过
+                if (!items) {
+                    continue;
+                }
+
+                if (!shouldInclude) {
+                    shouldInclude = items.some(item => item.modules.module_author.pub_ts > 0 && item.modules.module_author.pub_ts < (endTime + 24 * 60 * 60));
+                }
+                for (let item of items) {
+                    if (item.type !== DYNAMIC_TYPE.DYNAMIC_TYPE_LIVE_RCMD.key) {
+                        // 直播动态可能不按时间顺序出现，不能用来判断时间要求
+                        if (item.modules.module_author.pub_ts > 0 && item.modules.module_author.pub_ts < startTime) {
+                            shouldContinue = false; // 设置标志位为 false 以结束循环
+                        }
                     }
-                }
-                item.baseType = item.type;
-                if (item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key) {
-                    item.baseType = item.orig.type;
-                }
-                item.display = true;
-
-                // 如果是直播预约动态，获取预约信息
-                let reserveInfo = null;
-                if (filters1['直播预告'].filter(item)) {
-                    const rid = (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item).modules.module_dynamic?.additional?.reserve?.rid;
-                    if (rid) {
-                        reserveInfo = (await apiRequest(`https://api.vc.bilibili.com/lottery_svr/v1/lottery_svr/lottery_notice?business_id=${rid}&business_type=10`)).data;
+                    item.baseType = item.type;
+                    if (item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key) {
+                        item.baseType = item.orig.type;
                     }
-                }
-                // 如果是互动抽奖动态，获取预约信息
-                if (filters1['互动抽奖'].filter(item)) {
-                    const rid = (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item).id_str
-                    if (rid) {
-                        reserveInfo = (await apiRequest(`https://api.vc.bilibili.com/lottery_svr/v1/lottery_svr/lottery_notice?business_id=${rid}&business_type=1`)).data;
+                    item.display = true;
+
+                    // 如果是直播预约动态，获取预约信息
+                    let reserveInfo = null;
+                    if (defaultFilters['直播预告'].filter(item)) {
+                        const rid = (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item).modules.module_dynamic?.additional?.reserve?.rid;
+                        if (rid) {
+                            reserveInfo = (await apiRequest(`https://api.vc.bilibili.com/lottery_svr/v1/lottery_svr/lottery_notice?business_id=${rid}&business_type=10`)).data;
+                        }
                     }
-                }
-                item.reserveInfo = reserveInfo;
+                    // 如果是互动抽奖动态，获取预约信息
+                    if (defaultFilters['互动抽奖'].filter(item)) {
+                        const rid = (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item).id_str
+                        if (rid) {
+                            reserveInfo = (await apiRequest(`https://api.vc.bilibili.com/lottery_svr/v1/lottery_svr/lottery_notice?business_id=${rid}&business_type=1`)).data;
+                        }
+                    }
+                    item.reserveInfo = reserveInfo;
 
-                if (shouldInclude) {
-                    dynamicList.push(item);
+                    if (shouldInclude) {
+                        dynamicList.push(item);
+                    }
+                    collectedCount++;
+                    contentArea.querySelector('#collectedCount').textContent = dynamicList.length;
+                    contentArea.querySelector('#totalCount').textContent = collectedCount;
+                    contentArea.querySelector('#earliestTime').textContent = new Date(dynamicList[dynamicList.length - 1].modules.module_author.pub_ts * 1000).toLocaleString();
                 }
-                collectedCount++;
-                contentArea.querySelector('#collectedCount').textContent = dynamicList.length;
-                contentArea.querySelector('#totalCount').textContent = collectedCount;
-            }
-            offset = items[items.length - 1].id_str;
+                offset = items[items.length - 1].id_str;
 
-            if (shouldContinue) { // 检查标志位
-                if (!data.data.has_more) shouldContinue = false; // 没有更多数据时结束循环
+                if (shouldContinue) { // 检查标志位
+                    if (!data.data.has_more) shouldContinue = false; // 没有更多数据时结束循环
+                }
+            } catch (e) {
+                console.error(`Error fetching data: ${e.message}`);
+                continue; // 出错时继续
             }
         }
         console.log(`${dynamicList.length}/${collectedCount}`);
@@ -715,5 +740,8 @@
     // 注册菜单项
     GM_registerMenuCommand("检查动态", () => {
         showTimeSelector(collectDynamic);
+    });
+    GM_registerMenuCommand("只看自己动态", async () => {
+        showTimeSelector(collectDynamic, true);
     });
 })();
