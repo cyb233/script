@@ -25,16 +25,6 @@ $runPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 # 检查输入是文件夹还是单张图片
 if (Test-Path "$inputPath\*") {
-    # 输入是文件夹
-    $isDir = $true
-    $basePath = $inputPath
-} else {
-    # 输入是单张图片
-    $isDir = $false
-    $basePath = Split-Path -Parent $inputPath
-}
-
-if ($isDir) {
     Write-Host "输入目录：$inputPath"
     # 获取图片列表并生成文件列表
     $imageFiles = Get-ChildItem -Path $inputPath\* -Include *.jpg, *.jpeg, *.png -File
