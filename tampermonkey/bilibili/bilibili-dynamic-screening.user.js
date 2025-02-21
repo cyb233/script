@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 动态筛选
 // @namespace    Schwi
-// @version      1.8
+// @version      1.9
 // @description  Bilibili 动态筛选，快速找出感兴趣的动态
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -160,8 +160,8 @@
                 ||
                 (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item)?.modules?.module_dynamic?.desc?.rich_text_nodes?.some(n => n?.type === RICH_TEXT_NODE_TYPE.RICH_TEXT_NODE_TYPE_LOTTERY.key)
         },
-        "已参与(直播预告)": { type: "checkbox", filter: (item, input) => defaultFilters['直播预告'].filter(item) && item.reserve?.isFollow === 1 },
-        "未参与(直播预告)": { type: "checkbox", filter: (item, input) => defaultFilters['直播预告'].filter(item) && item.reserve?.isFollow === 0 },
+        已参与: { type: "checkbox", note: "直播预告", filter: (item, input) => defaultFilters['直播预告'].filter(item) && item.reserve?.isFollow === 1 },
+        未参与: { type: "checkbox", note: "直播预告", filter: (item, input) => defaultFilters['直播预告'].filter(item) && item.reserve?.isFollow === 0 },
         已开奖: { type: "checkbox", filter: (item, input) => item.reserveInfo?.lottery_result },
         未开奖: { type: "checkbox", filter: (item, input) => item.reserveInfo && !item.reserveInfo.lottery_result },
         我中奖的: {
@@ -416,7 +416,7 @@
 
                 let label = document.createElement('label');
                 label.htmlFor = key;
-                label.textContent = key;
+                label.textContent = `${key}${filter.note ? `（${filter.note}）` : ''}`;
                 label.style.display = 'flex'; // 确保 label 和 input 在同一行
                 label.style.alignItems = 'center'; // 垂直居中对齐
                 label.style.marginRight = '5px';
