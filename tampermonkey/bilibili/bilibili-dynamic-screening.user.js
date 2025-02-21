@@ -125,6 +125,12 @@
         2: { key: 2, name: "直播预告" },
     };
 
+    const BUSINESS_TYPE = {
+        1: { key: 1, name: "直播预约抽奖" },
+        10: { key: 10, name: "动态互动抽奖" },
+        12: { key: 12, name: "充电动态互动抽奖" }
+    }
+
     // 添加全局变量
     let dynamicList = [];
     let collectedCount = 0;
@@ -154,10 +160,27 @@
                 ||
                 (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item)?.modules?.module_dynamic?.desc?.rich_text_nodes?.some(n => n?.type === RICH_TEXT_NODE_TYPE.RICH_TEXT_NODE_TYPE_LOTTERY.key)
         },
-        只看已开奖: {
-            type: "checkbox", filter: (item, input) => item.reserveInfo?.lottery_result
+        "已参与(直播预告)": { type: "checkbox", filter: (item, input) => defaultFilters['直播预告'].filter(item) && item.reserve?.isFollow === 1 },
+        "未参与(直播预告)": { type: "checkbox", filter: (item, input) => defaultFilters['直播预告'].filter(item) && item.reserve?.isFollow === 0 },
+        已开奖: { type: "checkbox", filter: (item, input) => item.reserveInfo?.lottery_result },
+        未开奖: { type: "checkbox", filter: (item, input) => item.reserveInfo && !item.reserveInfo.lottery_result },
+        我中奖的: {
+            type: "checkbox", filter: (item, input) => {
+                const lottery_result = item.reserveInfo?.lottery_result
+                if (!lottery_result) {
+                    return false;
+                }
+                const prizeCategories = Object.keys(lottery_result);
+                for (const category of prizeCategories) {
+                    const prizeList = lottery_result[category];
+                    if (prizeList.some(prize => prize.uid === userData.profile.mid)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
         },
-        排除已开奖: { type: "checkbox", filter: (item, input) => item.reserveInfo && !item.reserveInfo.lottery_result },
+        未中奖: { type: "checkbox", filter: (item, input) => defaultFilters['已开奖'].filter(item, input) && !defaultFilters['我中奖的'].filter(item, input) },
         搜索: {
             type: "text",
             filter: (item, input) => {
@@ -274,6 +297,7 @@
                 const data = JSON.parse(response.responseText);
                 return data;
             } catch (e) {
+                console.error(`API ${url} 请求失败，正在重试...`, e);
                 if (attempt === retry) {
                     throw e;
                 }
@@ -693,20 +717,27 @@
                     item.display = true;
 
                     // 如果是直播预约动态，获取预约信息
+                    let reserve = null;
                     let reserveInfo = null;
                     if (defaultFilters['直播预告'].filter(item)) {
                         const rid = (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item).modules.module_dynamic?.additional?.reserve?.rid;
                         if (rid) {
                             reserveInfo = (await apiRequest(`https://api.vc.bilibili.com/lottery_svr/v1/lottery_svr/lottery_notice?business_id=${rid}&business_type=10`)).data;
                         }
+                        if (reserveInfo?.business_id) {
+                            const business_id = reserveInfo.business_id;
+                            const reserveRelationInfo = (await apiRequest(`https://api.bilibili.com/x/activity/up/reserve/relation/info?ids=${business_id}`)).data;
+                            reserve = reserveRelationInfo?.list[business_id];
+                        }
                     }
                     // 如果是互动抽奖动态，获取预约信息
                     if (defaultFilters['互动抽奖'].filter(item)) {
-                        const rid = (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item).id_str
-                        if (rid) {
-                            reserveInfo = (await apiRequest(`https://api.vc.bilibili.com/lottery_svr/v1/lottery_svr/lottery_notice?business_id=${rid}&business_type=1`)).data;
+                        const id_str = (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item).id_str
+                        if (id_str) {
+                            reserveInfo = (await apiRequest(`https://api.vc.bilibili.com/lottery_svr/v1/lottery_svr/lottery_notice?business_id=${id_str}&business_type=1`)).data;
                         }
                     }
+                    item.reserve = reserve;
                     item.reserveInfo = reserveInfo;
 
                     if (shouldInclude) {
@@ -723,7 +754,7 @@
                     if (!data.data.has_more) shouldContinue = false; // 没有更多数据时结束循环
                 }
             } catch (e) {
-                console.error(`Error fetching data: ${e.message}`);
+                console.error(`Error fetching data: ${e.message}`, e);
                 continue; // 出错时继续
             }
         }
