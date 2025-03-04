@@ -10,6 +10,7 @@
     "DOMAIN-SUFFIX,itch.io,Proxies",
     "DOMAIN-SUFFIX,cloudflarestorage.com,Proxies",
     "DOMAIN-SUFFIX,porn98.co,Proxies",
-    "DOMAIN-SUFFIX,xchina.store,Proxies"
+    "DOMAIN-SUFFIX,xchina.store,Proxies",
+    "DOMAIN-SUFFIX,steamcommunity.com,Proxies"
   ]
 }
