@@ -1,4 +1,5 @@
 {
+  "allow-lan": false,
   "rules": [
     "DOMAIN-SUFFIX,fanbox.cc,Proxies",
     "DOMAIN-SUFFIX,mega.co.nz,Proxies",
