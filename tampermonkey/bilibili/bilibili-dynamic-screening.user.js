@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 动态筛选
 // @namespace    Schwi
-// @version      1.9
+// @version      2.0
 // @description  Bilibili 动态筛选，快速找出感兴趣的动态
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -118,6 +118,7 @@
         ADDITIONAL_TYPE_UP_RCMD: { key: "ADDITIONAL_TYPE_UP_RCMD", name: "UP主推荐" },
         ADDITIONAL_TYPE_UGC: { key: "ADDITIONAL_TYPE_UGC", name: "视频跳转" },
         ADDITIONAL_TYPE_RESERVE: { key: "ADDITIONAL_TYPE_RESERVE", name: "直播预约" },
+        ADDITIONAL_TYPE_UPOWER_LOTTERY: { key: "ADDITIONAL_TYPE_UPOWER_LOTTERY", name: "动态充电互动抽奖" },
     };
 
     const STYPE = {
@@ -160,6 +161,7 @@
                 ||
                 (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item)?.modules?.module_dynamic?.desc?.rich_text_nodes?.some(n => n?.type === RICH_TEXT_NODE_TYPE.RICH_TEXT_NODE_TYPE_LOTTERY.key)
         },
+        充电互动抽奖: { type: "checkbox", filter: (item, input) => (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item)?.modules?.module_dynamic?.additional?.type === ADDITIONAL_TYPE.ADDITIONAL_TYPE_UPOWER_LOTTERY.key },
         已参与: { type: "checkbox", note: "直播预告", filter: (item, input) => defaultFilters['直播预告'].filter(item) && item.reserve?.isFollow === 1 },
         未参与: { type: "checkbox", note: "直播预告", filter: (item, input) => defaultFilters['直播预告'].filter(item) && item.reserve?.isFollow === 0 },
         已开奖: { type: "checkbox", filter: (item, input) => item.reserveInfo?.lottery_result },
@@ -597,7 +599,7 @@
             typeComment.style.padding = "5px";
             typeComment.style.marginBottom = "5px";
             typeComment.style.textAlign = "center";
-            typeComment.textContent = `类型: ${DYNAMIC_TYPE[dynamic.type]?.name || dynamic.type} ${isForward ? `(${DYNAMIC_TYPE[dynamic.orig.type]?.name || dynamic.orig.type})` : ''} ${(defaultFilters['有奖预约'].filter(dynamic) || defaultFilters['互动抽奖'].filter(dynamic)) ? '🎁' : ''}`;
+            typeComment.textContent = `类型: ${DYNAMIC_TYPE[dynamic.type]?.name || dynamic.type} ${isForward ? `(${DYNAMIC_TYPE[dynamic.orig.type]?.name || dynamic.orig.type})` : ''} ${(defaultFilters['有奖预约'].filter(dynamic) || defaultFilters['互动抽奖'].filter(dynamic) || defaultFilters['充电互动抽奖'].filter(dynamic)) ? '🎁' : ''}`;
 
             // 正文
             const describe = document.createElement("div");
@@ -735,6 +737,13 @@
                         const id_str = (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item).id_str
                         if (id_str) {
                             reserveInfo = (await apiRequest(`https://api.vc.bilibili.com/lottery_svr/v1/lottery_svr/lottery_notice?business_id=${id_str}&business_type=1`)).data;
+                        }
+                    }
+                    // 如果是充电互动抽奖动态，获取预约信息
+                    if (defaultFilters['充电互动抽奖'].filter(item)) {
+                        const id_str = (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item).id_str
+                        if (id_str) {
+                            reserveInfo = (await apiRequest(`https://api.vc.bilibili.com/lottery_svr/v1/lottery_svr/lottery_notice?business_id=${id_str}&business_type=12`)).data;
                         }
                     }
                     item.reserve = reserve;
