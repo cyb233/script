@@ -16,7 +16,8 @@ if ($args.Count -eq 0) {
         pause
         exit
     }
-} else {
+}
+else {
     $inputPath = $args[0]
 }
 Write-Host "输入路径：$inputPath"
@@ -60,7 +61,8 @@ if (Test-Path "$inputPath\*") {
     ffmpeg -f concat -safe 0 -i "$inputListFile720p" -s 1280x720 -r 60 -t 6 -y "$runPath\intro720p.webm"
     Remove-Item $inputListFile
     Remove-Item $inputListFile720p
-} else {
+}
+else {
     Write-Host "输入图片：$inputPath"
     ffmpeg -loop 1 -i "$inputPath" -s 3840x2160 -r 24 -t 3 -y "$runPath\intro.webm"
     ffmpeg -loop 1 -i "$inputPath" -s 1280x720 -r 60 -t 6 -y "$runPath\intro720p.webm"
@@ -78,4 +80,26 @@ Write-Host "$runPath\intro-perfectworld720p.webm"
 Write-Host ""
 Write-Host "替换以上文件至 Counter-Strike Global Offensive\game\csgo\panorama\videos 目录即可"
 Write-Host "检查游戏完整性即可恢复为原文件"
+
+# 询问是否立即替换
+$replaceNow = Read-Host "是否立即替换视频文件？(y/n)"
+if ($replaceNow -eq 'y') {
+    try {
+        $csgoPath = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 730").InstallLocation
+        $videoPath = Join-Path -Path $csgoPath -ChildPath "game\csgo\panorama\videos"
+        
+        Copy-Item "$runPath\intro.webm" "$videoPath\intro.webm" -Force
+        Copy-Item "$runPath\intro720p.webm" "$videoPath\intro720p.webm" -Force
+        Copy-Item "$runPath\intro-perfectworld.webm" "$videoPath\intro-perfectworld.webm" -Force
+        Copy-Item "$runPath\intro-perfectworld720p.webm" "$videoPath\intro-perfectworld720p.webm" -Force
+        
+        Write-Host "视频文件已成功替换。"
+    }
+    catch {
+        Write-Host "替换视频文件时出错：$_"
+    }
+}
+else {
+    Write-Host "已取消替换视频文件。"
+}
 pause
