@@ -85,7 +85,15 @@ Write-Host "检查游戏完整性即可恢复为原文件"
 $replaceNow = Read-Host "是否立即替换视频文件？(y/n)"
 if ($replaceNow -eq 'y') {
     try {
-        $csgoPath = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 730").InstallLocation
+        $registryPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 730"
+        if (-not (Test-Path $registryPath)) {
+            Write-Host "未找到 Steam App 730 的注册表路径，无法替换视频文件。"
+            Write-Host "请自行手动替换至 Counter-Strike Global Offensive\game\csgo\panorama\videos 目录。"
+            pause
+            exit
+        }
+        
+        $csgoPath = (Get-ItemProperty -Path $registryPath).InstallLocation
         $videoPath = Join-Path -Path $csgoPath -ChildPath "game\csgo\panorama\videos"
         
         Copy-Item "$runPath\intro.webm" "$videoPath\intro.webm" -Force
