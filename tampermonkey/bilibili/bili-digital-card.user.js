@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 收藏集奖励筛查脚本
 // @namespace    Schwi
-// @version      1.0
+// @version      1.1
 // @description  调用 API 来收集自己的 Bilibili 收藏集，并筛选未领取的奖励。注意，一套收藏集中至少存在一张卡牌才能本项目的接口被检测到!
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -103,7 +103,7 @@
     function collectDigitalCards() {
         console.log("开始收集收藏集...");
         const collectionUrl =
-              "https://api.bilibili.com/x/vas/smelt/my_decompose/info?scene=1";
+            "https://api.bilibili.com/x/vas/smelt/my_decompose/info?scene=1";
         let collectList = [];
 
         apiRequest(collectionUrl, function (collectionData) {
@@ -153,7 +153,7 @@
                     lotteries.forEach((lottery) => {
                         console.log(
                             `处理详情: ${lottery.lottery_name} (ID: ${lottery.lottery_id})`
-            );
+                        );
                         const cardDetailUrl = `https://api.bilibili.com/x/vas/dlc_act/lottery_home_detail?act_id=${collection.act_id}&lottery_id=${lottery.lottery_id}`;
 
                         apiRequest(cardDetailUrl, function (cardData) {
@@ -173,7 +173,7 @@
                                 cardData.data
                             );
                             // 根据需要处理卡牌数据
-                            collectList.push({ title: detailData.data.act_title, name: cardData.data.name, url: `https://www.bilibili.com/blackboard/activity-Mz9T5bO5Q3.html?id=${collection.act_id}&type=dlc`, act: detailData.data, lottery: cardData.data });
+                            collectList.push({ title: detailData.data.act_title, name: cardData.data.name, num: collection.card_num, url: `https://www.bilibili.com/blackboard/activity-Mz9T5bO5Q3.html?id=${collection.act_id}&type=dlc`, act: detailData.data, lottery: cardData.data });
                             processedLotteries++;
                             progressBar.update(processedCollections); // 更新进度条
                             checkLotteryCompletion();
@@ -201,11 +201,11 @@
                         return (
                             collectItem.lottery.collect_list.collect_infos?.some(
                                 (lottery) =>
-                                canGetReward(lottery)
+                                    canGetReward(lottery)
                             ) ||
                             collectItem.lottery.collect_list.collect_chain?.some(
                                 (lottery) =>
-                                canGetReward(lottery)
+                                    canGetReward(lottery)
                             )
                         );
                     });
@@ -390,7 +390,7 @@
                         const emptyMessage = document.createElement("p");
                         emptyMessage.textContent = showFiltered
                             ? "没有符合筛选条件的收藏集。"
-                        : "没有收藏集数据。";
+                            : "没有收藏集数据。";
                         gridContainer.appendChild(emptyMessage);
                         return;
                     }
@@ -410,6 +410,20 @@
                         card.style.justifyContent = "flex-end";
                         card.style.padding = "10px";
                         card.style.color = "#fff";
+
+                        // 显示 num 的元素
+                        const numBadge = document.createElement("div");
+                        numBadge.textContent = item.num;
+                        numBadge.style.position = "absolute";
+                        numBadge.style.top = "10px";
+                        numBadge.style.right = "10px";
+                        numBadge.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
+                        numBadge.style.color = "#fff";
+                        numBadge.style.padding = "5px 10px";
+                        numBadge.style.borderRadius = "10px";
+                        numBadge.style.fontSize = "14px";
+                        numBadge.style.fontWeight = "bold";
+                        card.appendChild(numBadge);
 
                         // 标题容器
                         const titleContainer = document.createElement("div");
