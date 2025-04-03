@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 收藏集奖励筛查脚本
 // @namespace    Schwi
-// @version      1.1
+// @version      1.3
 // @description  调用 API 来收集自己的 Bilibili 收藏集，并筛选未领取的奖励。注意，一套收藏集中至少存在一张卡牌才能本项目的接口被检测到!
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -15,6 +15,8 @@
 
 (function () {
     "use strict";
+
+    let collectionCount = 0; // 收藏集数量
 
     const REDEEM_ITEM_TYPE = {
         Card: 1,
@@ -31,6 +33,90 @@
         DynamicEmoji: 15,
         DiamondAvatar: 1000,
         CollectorMedal: 1001,
+    };
+
+    /**
+     * 别问我为啥这么写，B站前端JS就是这么判断的
+     *
+     * @param {object} reward 每条奖励的信息
+     * @param {string} scene 不知道是啥，还没研究明白，先这么写着
+     * @returns boolean 这个奖励是否能被领取
+     */
+    function canGetReward(reward, scene = "milestone") {
+        const curTime = new Date().getTime();
+        const has_redeemed_cnt = reward.has_redeemed_cnt;
+        const redeem_item_type = reward.redeem_item_type;
+        const total_stock = reward.total_stock;
+        const remain_stock = reward.remain_stock;
+        const redeem_cond_type = reward.redeem_cond_type;
+        const owned_item_amount = reward.owned_item_amount;
+        const require_item_amount = reward.require_item_amount;
+        const unlock_condition = reward.unlock_condition;
+        const redeem_count = reward.redeem_count;
+        const end_time = reward.end_time;
+        const unlock_condition_1 = unlock_condition || {};
+        const unlocked = unlock_condition_1.unlocked;
+        const lock_type = unlock_condition_1.lock_type;
+        const unlock_threshold = unlock_condition_1.unlock_threshold;
+        const expire_at = unlock_condition_1.expire_at;
+        let exceedReceiveTime = false;
+        if ([REDEEM_ITEM_TYPE.CollectorMedal, REDEEM_ITEM_TYPE.DiamondAvatar].includes(redeem_item_type)) {
+            exceedReceiveTime = curTime > end_time;
+        } else {
+            if (!(curTime > end_time)) {
+                exceedReceiveTime = true;
+            }
+            if (!reward.effective_forever) {
+                exceedReceiveTime = true;
+            }
+        }
+        if (unlocked || "milestone" === scene) {
+            if (!(has_redeemed_cnt && [REDEEM_ITEM_TYPE.CustomReward].includes(redeem_item_type))) {
+                if (!(has_redeemed_cnt && "card_number" !== redeem_cond_type)) {
+                    if (!((+total_stock > -1 && +remain_stock <= 0) || exceedReceiveTime)) {
+                        if (!("custom" === redeem_cond_type || [REDEEM_ITEM_TYPE.DiamondAvatar].includes(redeem_item_type))) {
+                            if (!((owned_item_amount || 0) < require_item_amount)) {
+                                return true
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return false
+    }
+
+    const defaultFilters = {
+        已集齐: { type: "checkbox", filter: (item, input) => item.owned >= item.total },
+        未集齐: { type: "checkbox", filter: (item, input) => item.owned < item.total },
+        未领奖励: {
+            type: "checkbox", filter: (item, input) =>
+                item.lottery.collect_list.collect_infos?.some(
+                    (lottery) =>
+                        canGetReward(lottery)
+                )
+                ||
+                item.lottery.collect_list.collect_chain?.some(
+                    (lottery) =>
+                        canGetReward(lottery)
+                )
+        },
+        搜索: {
+            type: "text",
+            filter: (item, input) => {
+                const searchText = input.toLocaleUpperCase();
+                const title = item.title.toLocaleUpperCase();
+                const name = item.name.toLocaleUpperCase();
+                const userinfos = item.act.related_user_infos;
+
+                return title.includes(searchText) || name.includes(searchText) ||
+                    userinfos.some(userinfo => {
+                        const userName = userinfo.nickname.toLocaleUpperCase();
+                        const userId = userinfo.uid.toString().toLocaleUpperCase();
+                        return userName.includes(searchText) || userId.includes(searchText);
+                    })
+            }
+        },
     };
 
     // 创建进度条容器
@@ -76,16 +162,76 @@
         };
     }
 
+    // 工具函数：创建 dialog
+    function createDialog(id, title, content) {
+        let dialog = document.createElement('div');
+        dialog.id = id;
+        dialog.style.position = 'fixed';
+        dialog.style.top = '5%';
+        dialog.style.left = '5%';
+        dialog.style.width = '90%';
+        dialog.style.height = '90%';
+        dialog.style.backgroundColor = '#fff';
+        dialog.style.border = '1px solid #ccc';
+        dialog.style.boxShadow = '0 0 10px rgba(0,0,0,0.5)';
+        dialog.style.zIndex = '9999';
+        dialog.style.display = 'none';
+        dialog.style.overflow = 'hidden';
+
+        let header = document.createElement('div');
+        header.style.display = 'flex';
+        header.style.justifyContent = 'space-between';
+        header.style.alignItems = 'center';
+        header.style.padding = '10px';
+        header.style.borderBottom = '1px solid #ccc';
+        header.style.backgroundColor = '#f9f9f9';
+
+        let titleElement = document.createElement('span');
+        titleElement.textContent = title;
+        header.appendChild(titleElement);
+
+        let closeButton = document.createElement('button');
+        closeButton.textContent = '关闭';
+        closeButton.style.backgroundColor = '#ff4d4f';
+        closeButton.style.color = '#fff';
+        closeButton.style.border = 'none';
+        closeButton.style.borderRadius = '5px';
+        closeButton.style.cursor = 'pointer';
+        closeButton.style.padding = '5px 10px';
+        closeButton.style.transition = 'background-color 0.3s';
+        closeButton.onmouseover = () => { closeButton.style.backgroundColor = '#d93637'; };
+        closeButton.onmouseout = () => { closeButton.style.backgroundColor = '#ff4d4f'; };
+        closeButton.onclick = () => dialog.remove();
+        header.appendChild(closeButton);
+
+        dialog.appendChild(header);
+
+        let contentArea = document.createElement('div');
+        contentArea.innerHTML = content;
+        contentArea.style.padding = '10px';
+        dialog.appendChild(contentArea);
+
+        document.body.appendChild(dialog);
+
+        return {
+            dialog: dialog,
+            header: header,
+            titleElement: titleElement,
+            closeButton: closeButton,
+            contentArea: contentArea
+        };
+    }
+
     // 发起 API 请求的函数
     function apiRequest(url, callback) {
-        console.log(`正在请求: ${url}`);
+        console.debug(`正在请求: ${url}`);
         GM_xmlhttpRequest({
             method: "GET",
             url: url,
             onload: function (response) {
                 try {
                     const data = JSON.parse(response.responseText);
-                    console.log(`来自 ${url} 的响应:`, data);
+                    console.debug(`来自 ${url} 的响应:`, data);
                     callback(data);
                 } catch (error) {
                     console.error(`解析来自 ${url} 的响应时出错:`, error);
@@ -99,7 +245,240 @@
         });
     }
 
-    // 主函数，用于收集收藏集
+    // 显示筛选结果的对话框
+    function showResultsDialog(collectList) {
+        const totalCards = collectList.reduce((sum, item) => sum + item.num, 0); // 计算总卡片张数
+        const { dialog, titleElement } = createDialog('resultsDialog', `收藏集（${collectList.length}/${collectList.length}/${collectionCount}）总卡片张数（${totalCards}/${totalCards}）`, '');
+
+        let gridContainer = document.createElement('div');
+        gridContainer.style.display = 'grid';
+        gridContainer.style.gridTemplateColumns = 'repeat(auto-fill,minmax(200px,1fr))';
+        gridContainer.style.gap = '10px';
+        gridContainer.style.padding = '10px';
+        gridContainer.style.height = 'calc(90% - 50px)';
+        gridContainer.style.overflowY = 'auto';
+        gridContainer.style.alignContent = 'flex-start';
+
+        const deal = (collectList) => {
+            let checkedFilters = [];
+            for (let key in defaultFilters) {
+                const f = defaultFilters[key];
+                const filter = filterButtonsContainer.querySelector(`#${key}`);
+                let checkedFilter;
+                switch (f.type) {
+                    case 'checkbox':
+                        checkedFilter = { ...f, value: filter.checked };
+                        break;
+                    case 'text':
+                        checkedFilter = { ...f, value: filter.value };
+                        break;
+                }
+                checkedFilters.push(checkedFilter);
+            }
+            collectList.forEach(item => {
+                item.display = checkedFilters.every(f => f.value ? f.filter(item, f.value) : true);
+            });
+
+            const filteredList = collectList.filter(item => item.display);
+            const filteredTotalCards = filteredList.reduce((sum, item) => sum + item.num, 0); // 计算筛选后的总卡片张数
+            titleElement.textContent = `收藏集（${filteredList.length}/${collectList.length}/${collectionCount}）总卡片张数（${filteredTotalCards}/${totalCards}）`;
+
+            observer.disconnect();
+            renderedCount = 0;
+            gridContainer.innerHTML = '';
+            renderBatch();
+        };
+
+        // 封装生成筛选按钮的函数
+        const createFilterButtons = (filters, list) => {
+            let mainContainer = document.createElement('div');
+            mainContainer.style.display = 'flex';
+            mainContainer.style.flexWrap = 'wrap';
+            mainContainer.style.width = '100%';
+
+            for (let key in filters) {
+                let filter = filters[key];
+                let input = document.createElement('input');
+                input.type = filter.type;
+                input.id = key;
+                input.style.marginRight = '5px';
+                if (filter.type === 'text') {
+                    input.style.border = '1px solid #ccc';
+                    input.style.padding = '5px';
+                    input.style.borderRadius = '5px';
+                }
+
+                let label = document.createElement('label');
+                label.htmlFor = key;
+                label.textContent = key;
+                label.style.display = 'flex';
+                label.style.alignItems = 'center';
+                label.style.marginRight = '5px';
+
+                let container = document.createElement('div');
+                container.style.display = 'flex';
+                container.style.alignItems = 'center';
+                container.style.marginRight = '10px';
+
+                if (['checkbox', 'radio'].includes(filter.type)) {
+                    (function (list, filter, input) {
+                        input.addEventListener('change', () => deal(list));
+                    })(list, filter, input);
+                    container.appendChild(input);
+                    container.appendChild(label);
+                } else {
+                    let timeout;
+                    (function (list, filter, input) {
+                        input.addEventListener('input', () => {
+                            clearTimeout(timeout);
+                            timeout = setTimeout(() => deal(list), 1000);
+                        });
+                    })(list, filter, input);
+                    container.appendChild(label);
+                    container.appendChild(input);
+                }
+
+                mainContainer.appendChild(container);
+            }
+
+            return mainContainer;
+        };
+
+        const filterButtonsContainer = document.createElement('div');
+        filterButtonsContainer.style.marginBottom = '10px';
+        filterButtonsContainer.style.display = 'flex';
+        filterButtonsContainer.style.flexWrap = 'wrap';
+        filterButtonsContainer.style.gap = '10px';
+        filterButtonsContainer.style.padding = '10px';
+        filterButtonsContainer.style.alignItems = 'center';
+
+        filterButtonsContainer.appendChild(createFilterButtons(defaultFilters, collectList));
+
+        const createCardItem = (item) => {
+            let card = document.createElement('div');
+            card.style.position = "relative";
+            card.style.border = "1px solid #ddd";
+            card.style.borderRadius = "10px";
+            card.style.overflow = "hidden";
+            card.style.height = "200px";
+            card.style.backgroundImage = `url(${item.act.act_square_img})`;
+            card.style.backgroundSize = "cover";
+            card.style.backgroundPosition = "center";
+            card.style.display = "flex";
+            card.style.flexDirection = "column";
+            card.style.justifyContent = "flex-end";
+            card.style.padding = "10px";
+            card.style.color = "#fff";
+
+            const numBadge = document.createElement("div");
+            numBadge.textContent = item.num;
+            numBadge.style.position = "absolute";
+            numBadge.style.top = "10px";
+            numBadge.style.right = "10px";
+            numBadge.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
+            numBadge.style.color = "#fff";
+            numBadge.style.padding = "5px 10px";
+            numBadge.style.borderRadius = "10px";
+            numBadge.style.fontSize = "14px";
+            numBadge.style.fontWeight = "bold";
+            card.appendChild(numBadge);
+
+            const ownedTotalBadge = document.createElement("div");
+            ownedTotalBadge.textContent = `${item.owned} / ${item.total}${item.owned === item.total ? ' 👑' : ''}`;
+            ownedTotalBadge.style.position = "absolute";
+            ownedTotalBadge.style.top = "10px";
+            ownedTotalBadge.style.left = "10px";
+            ownedTotalBadge.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
+            ownedTotalBadge.style.color = "#fff";
+            ownedTotalBadge.style.padding = "5px 10px";
+            ownedTotalBadge.style.borderRadius = "10px";
+            ownedTotalBadge.style.fontSize = "14px";
+            ownedTotalBadge.style.fontWeight = "bold";
+            card.appendChild(ownedTotalBadge);
+
+            const titleContainer = document.createElement("div");
+            titleContainer.style.background = "rgba(0, 0, 0, 0.5)";
+            titleContainer.style.backdropFilter = "blur(5px)";
+            titleContainer.style.borderRadius = "5px";
+            titleContainer.style.padding = "5px";
+            titleContainer.style.marginBottom = "5px";
+
+            const cardTitle = document.createElement("div");
+            cardTitle.style.fontWeight = "bold";
+            cardTitle.style.textShadow = "0 2px 4px rgba(0, 0, 0, 0.8)";
+            cardTitle.textContent = item.title;
+
+            const subtitleContainer = document.createElement("div");
+            subtitleContainer.style.display = "flex";
+            subtitleContainer.style.justifyContent = "space-between";
+            subtitleContainer.style.fontSize = "14px";
+            subtitleContainer.style.marginTop = "2px";
+
+            const cardSubtitle = document.createElement("span");
+            cardSubtitle.textContent = item.name;
+
+            const cardSale = document.createElement("span");
+            cardSale.textContent = `销量: ${item.sale}`;
+
+            subtitleContainer.appendChild(cardSubtitle);
+            subtitleContainer.appendChild(cardSale);
+
+            titleContainer.appendChild(cardTitle);
+            titleContainer.appendChild(subtitleContainer);
+
+            const link = document.createElement("a");
+            link.href = item.url;
+            link.target = "_blank";
+            link.textContent = "查看详情";
+            link.style.backgroundColor = "rgba(0, 0, 0, 0.6)";
+            link.style.color = "#fff";
+            link.style.padding = "5px 10px";
+            link.style.borderRadius = "5px";
+            link.style.textDecoration = "none";
+            link.style.textAlign = "center";
+
+            card.appendChild(titleContainer);
+            card.appendChild(link);
+
+            return card;
+        };
+
+        const batchSize = 50;
+        let renderedCount = 0;
+
+        const renderBatch = () => {
+            const renderList = collectList.filter(item => item.display);
+            for (let i = 0; i < batchSize && renderedCount < renderList.length; i++, renderedCount++) {
+                const cardItem = createCardItem(renderList[renderedCount]);
+                cardItem.style.display = renderList[renderedCount].display ? 'flex' : 'none';
+                gridContainer.appendChild(cardItem);
+            }
+            if (renderedCount < renderList.length) {
+                observer.observe(gridContainer.lastElementChild);
+            } else {
+                observer.disconnect();
+            }
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting) {
+                observer.unobserve(entries[0].target);
+                renderBatch();
+            }
+        });
+
+        collectList.forEach(item => {
+            item.display = true;
+        });
+
+        renderBatch();
+
+        dialog.appendChild(filterButtonsContainer);
+        dialog.appendChild(gridContainer);
+        dialog.style.display = 'block';
+    }
+
+    // 修改主函数调用筛选结果对话框
     function collectDigitalCards() {
         console.log("开始收集收藏集...");
         const collectionUrl =
@@ -121,14 +500,15 @@
             }
 
             console.log("成功获取收藏列表:", collectionData.data.list);
+            console.log("卡片总数:", collectionData.data.list.reduce((acc, item) => acc + item.card_num, 0));
             const collections = collectionData.data.list;
-            const collectionCount = collections.length;
+            collectionCount = collections.length;
             let processedCollections = 0;
 
-            const progressBar = createProgressBar(collectionCount); // 创建进度条
+            const progressBar = createProgressBar(collectionCount);
 
             collections.forEach((collection, index) => {
-                console.log(`处理收藏: ${collection.act_name}(ID: ${collection.act_id})`);
+                console.debug(`处理收藏: ${collection.act_name}(ID: ${collection.act_id})`);
                 const detailUrl = `https://api.bilibili.com/x/vas/dlc_act/act/basic?act_id=${collection.act_id}`;
 
                 apiRequest(detailUrl, function (detailData) {
@@ -138,12 +518,12 @@
                             detailData ? detailData.message : "无响应"
                         );
                         processedCollections++;
-                        progressBar.update(processedCollections); // 更新进度条
+                        progressBar.update(processedCollections);
                         checkCompletion();
                         return;
                     }
 
-                    console.log(
+                    console.debug(
                         `成功获取 ${collection.act_name}(act_id:${collection.act_id}) 的基本信息:`,
                         detailData.data
                     );
@@ -151,9 +531,13 @@
                     let processedLotteries = 0;
 
                     lotteries.forEach((lottery) => {
-                        console.log(
+                        console.debug(
                             `处理详情: ${lottery.lottery_name} (ID: ${lottery.lottery_id})`
                         );
+                        const item_owned_cnt = lottery.item_owned_cnt;
+                        const item_total_cnt = lottery.item_total_cnt;
+                        const total_sale_amount = lottery.total_sale_amount;
+
                         const cardDetailUrl = `https://api.bilibili.com/x/vas/dlc_act/lottery_home_detail?act_id=${collection.act_id}&lottery_id=${lottery.lottery_id}`;
 
                         apiRequest(cardDetailUrl, function (cardData) {
@@ -163,26 +547,35 @@
                                     cardData ? cardData.message : "无响应"
                                 );
                                 processedLotteries++;
-                                progressBar.update(processedCollections); // 更新进度条
+                                progressBar.update(processedCollections);
                                 checkLotteryCompletion();
                                 return;
                             }
 
-                            console.log(
+                            console.debug(
                                 `成功获取 ${collection.act_name}[${cardData.data.name}](act_id:${collection.act_id}&lottery_id:${lottery.lottery_id}) 的详情:`,
                                 cardData.data
                             );
-                            // 根据需要处理卡牌数据
-                            collectList.push({ title: detailData.data.act_title, name: cardData.data.name, num: collection.card_num, url: `https://www.bilibili.com/blackboard/activity-Mz9T5bO5Q3.html?id=${collection.act_id}&type=dlc`, act: detailData.data, lottery: cardData.data });
+                            collectList.push({
+                                title: detailData.data.act_title,
+                                name: cardData.data.name,
+                                num: collection.card_num,
+                                owned: item_owned_cnt,
+                                total: item_total_cnt,
+                                sale: total_sale_amount,
+                                url: `https://www.bilibili.com/blackboard/activity-Mz9T5bO5Q3.html?id=${collection.act_id}&type=dlc`,
+                                act: detailData.data,
+                                lottery: cardData.data
+                            });
                             processedLotteries++;
-                            progressBar.update(processedCollections); // 更新进度条
+                            progressBar.update(processedCollections);
                             checkLotteryCompletion();
                         });
 
                         function checkLotteryCompletion() {
                             if (processedLotteries === lotteries.length) {
                                 processedCollections++;
-                                progressBar.update(processedCollections); // 更新进度条
+                                progressBar.update(processedCollections);
                                 checkCompletion();
                             }
                         }
@@ -196,291 +589,14 @@
                     console.log("所有收藏已处理。");
                     console.log("最终收集列表:", collectList);
 
-                    // 筛选出符合条件的收藏集
-                    const filteredCollectList = collectList.filter((collectItem) => {
-                        return (
-                            collectItem.lottery.collect_list.collect_infos?.some(
-                                (lottery) =>
-                                    canGetReward(lottery)
-                            ) ||
-                            collectItem.lottery.collect_list.collect_chain?.some(
-                                (lottery) =>
-                                    canGetReward(lottery)
-                            )
-                        );
-                    });
+                    collectList = collectList.filter((collectItem) => collectItem.owned);
 
-                    console.log("筛选后的收集列表:", filteredCollectList);
-                    progressBar.hide(); // 隐藏进度条
-                    showResultDialog(collectList, filteredCollectList)
+                    progressBar.hide();
+                    showResultsDialog(collectList);
                 }
             }
-
-            /**
-             * 别问我为啥这么写，B站前端JS就是这么判断的
-             *
-             * @param {object} reward 每条奖励的信息
-             * @param {string} scene 不知道是啥，还没研究明白，先这么写着
-             * @returns boolean 这个奖励是否能被领取
-             */
-            function canGetReward(reward, scene = "milestone") {
-                const curTime = new Date().getTime();
-                const has_redeemed_cnt = reward.has_redeemed_cnt;
-                const redeem_item_type = reward.redeem_item_type;
-                const total_stock = reward.total_stock;
-                const remain_stock = reward.remain_stock;
-                const redeem_cond_type = reward.redeem_cond_type;
-                const owned_item_amount = reward.owned_item_amount;
-                const require_item_amount = reward.require_item_amount;
-                const unlock_condition = reward.unlock_condition;
-                const redeem_count = reward.redeem_count;
-                const end_time = reward.end_time;
-                const unlock_condition_1 = unlock_condition || {};
-                const unlocked = unlock_condition_1.unlocked;
-                const lock_type = unlock_condition_1.lock_type;
-                const unlock_threshold = unlock_condition_1.unlock_threshold;
-                const expire_at = unlock_condition_1.expire_at;
-                let exceedReceiveTime = false;
-                if ([REDEEM_ITEM_TYPE.CollectorMedal, REDEEM_ITEM_TYPE.DiamondAvatar].includes(redeem_item_type)) {
-                    exceedReceiveTime = curTime > end_time;
-                } else {
-                    if (!(curTime > end_time)) {
-                        exceedReceiveTime = true;
-                    }
-                    if (!reward.effective_forever) {
-                        exceedReceiveTime = true;
-                    }
-                }
-                if (unlocked || "milestone" === scene) {
-                    if (!(has_redeemed_cnt && [REDEEM_ITEM_TYPE.CustomReward].includes(redeem_item_type))) {
-                        if (!(has_redeemed_cnt && "card_number" !== redeem_cond_type)) {
-                            if (!((+total_stock > -1 && +remain_stock <= 0) || exceedReceiveTime)) {
-                                if (!("custom" === redeem_cond_type || [REDEEM_ITEM_TYPE.DiamondAvatar].includes(redeem_item_type))) {
-                                    if (!((owned_item_amount || 0) < require_item_amount)) {
-                                        return true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                return false
-            }
-
-            function showResultDialog(collectList, filteredCollectList) {
-                // 创建弹窗
-                const dialog = document.createElement("div");
-                dialog.style.position = "fixed";
-                dialog.style.top = "50%";
-                dialog.style.left = "50%";
-                dialog.style.transform = "translate(-50%, -50%)";
-                dialog.style.backgroundColor = "#fff";
-                dialog.style.border = "1px solid #ccc";
-                dialog.style.padding = "20px";
-                dialog.style.zIndex = "10000";
-                dialog.style.width = "90%";
-                dialog.style.height = "90%";
-                dialog.style.overflowY = "auto";
-                dialog.style.overflowX = "hidden";
-                dialog.style.fontFamily = "Arial, sans-serif";
-                dialog.style.boxShadow = "0 4px 8px rgba(0, 0, 0, 0.2)";
-                dialog.style.display = "flex";
-                dialog.style.flexDirection = "column";
-
-                // 标题和按钮容器
-                const header = document.createElement("div");
-                header.style.display = "flex";
-                header.style.justifyContent = "space-between";
-                header.style.alignItems = "center";
-                header.style.marginBottom = "20px";
-
-                // 左侧标题和 Debug 按钮容器
-                const titleContainer = document.createElement("div");
-                titleContainer.style.display = "flex";
-                titleContainer.style.alignItems = "center";
-                titleContainer.style.gap = "10px"; // 间距
-
-                // 标题
-                const title = document.createElement("h2");
-                title.textContent = "筛选结果";
-                title.style.margin = "0"; // 去掉默认边距
-                titleContainer.appendChild(title);
-
-                // Debug 按钮
-                const debugButton = document.createElement("button");
-                debugButton.textContent = "Debug";
-                debugButton.style.padding = "5px 10px";
-                debugButton.style.backgroundColor = "#4caf50";
-                debugButton.style.color = "#fff";
-                debugButton.style.border = "none";
-                debugButton.style.borderRadius = "5px";
-                debugButton.style.cursor = "pointer";
-                titleContainer.appendChild(debugButton);
-
-                // Debug 按钮的点击事件
-                debugButton.addEventListener("click", () => {
-                    const groupedByType = {};
-
-                    collectList.forEach((item) => {
-                        // 从奖励数据中获取类型并分组
-                        const rewardList = item.lottery.collect_list?.collect_infos || [];
-                        rewardList.forEach((reward) => {
-                            const type = Object.keys(REDEEM_ITEM_TYPE).find(
-                                (key) => REDEEM_ITEM_TYPE[key] === reward.redeem_item_type
-                            ) || `未知类型(${reward.redeem_item_type})`;
-
-                            if (!groupedByType[type]) {
-                                groupedByType[type] = [];
-                            }
-                            groupedByType[type].push(item);
-                        });
-                    });
-
-                    console.log("按类型分组的收藏集:", groupedByType);
-                });
-
-                // 关闭按钮
-                const closeButton = document.createElement("button");
-                closeButton.textContent = "关闭";
-                closeButton.style.padding = "5px 10px";
-                closeButton.style.backgroundColor = "#ff4d4d";
-                closeButton.style.color = "#fff";
-                closeButton.style.border = "none";
-                closeButton.style.borderRadius = "5px";
-                closeButton.style.cursor = "pointer";
-
-                closeButton.addEventListener("click", () => {
-                    document.body.removeChild(dialog);
-                });
-
-                // 将标题和按钮容器添加到标题栏
-                header.appendChild(titleContainer);
-                header.appendChild(closeButton);
-                dialog.appendChild(header);
-
-                // 复选框控制区域
-                const filterBox = document.createElement("div");
-                filterBox.style.marginBottom = "20px";
-
-                const filterLabel = document.createElement("label");
-                filterLabel.textContent = "筛选";
-                filterLabel.style.marginRight = "10px";
-
-                const filterCheckbox = document.createElement("input");
-                filterCheckbox.type = "checkbox";
-                filterBox.appendChild(filterLabel);
-                filterBox.appendChild(filterCheckbox);
-                dialog.appendChild(filterBox);
-
-                // 网格容器
-                const gridContainer = document.createElement("div");
-                gridContainer.style.display = "grid";
-                gridContainer.style.gridTemplateColumns = "repeat(auto-fill, minmax(200px, 1fr))";
-                gridContainer.style.gap = "15px";
-                gridContainer.style.flex = "1"; // 占满剩余高度
-                dialog.appendChild(gridContainer);
-
-                // 渲染列表函数
-                function renderList(showFiltered) {
-                    filterCheckbox.checked = showFiltered; // 更新复选框的初始状态
-
-                    gridContainer.innerHTML = ""; // 清空之前的内容
-                    const list = showFiltered ? filteredCollectList : collectList;
-                    if (list.length === 0) {
-                        const emptyMessage = document.createElement("p");
-                        emptyMessage.textContent = showFiltered
-                            ? "没有符合筛选条件的收藏集。"
-                            : "没有收藏集数据。";
-                        gridContainer.appendChild(emptyMessage);
-                        return;
-                    }
-
-                    list.forEach((item) => {
-                        const card = document.createElement("div");
-                        card.style.position = "relative";
-                        card.style.border = "1px solid #ddd";
-                        card.style.borderRadius = "10px";
-                        card.style.overflow = "hidden";
-                        card.style.height = "200px";
-                        card.style.backgroundImage = `url(${item.act.act_square_img})`;
-                        card.style.backgroundSize = "cover";
-                        card.style.backgroundPosition = "center";
-                        card.style.display = "flex";
-                        card.style.flexDirection = "column";
-                        card.style.justifyContent = "flex-end";
-                        card.style.padding = "10px";
-                        card.style.color = "#fff";
-
-                        // 显示 num 的元素
-                        const numBadge = document.createElement("div");
-                        numBadge.textContent = item.num;
-                        numBadge.style.position = "absolute";
-                        numBadge.style.top = "10px";
-                        numBadge.style.right = "10px";
-                        numBadge.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
-                        numBadge.style.color = "#fff";
-                        numBadge.style.padding = "5px 10px";
-                        numBadge.style.borderRadius = "10px";
-                        numBadge.style.fontSize = "14px";
-                        numBadge.style.fontWeight = "bold";
-                        card.appendChild(numBadge);
-
-                        // 标题容器
-                        const titleContainer = document.createElement("div");
-                        titleContainer.style.background = "rgba(0, 0, 0, 0.5)";
-                        titleContainer.style.backdropFilter = "blur(5px)";
-                        titleContainer.style.borderRadius = "5px";
-                        titleContainer.style.padding = "5px";
-                        titleContainer.style.marginBottom = "5px";
-
-                        // 标题
-                        const cardTitle = document.createElement("div");
-                        cardTitle.style.fontWeight = "bold";
-                        cardTitle.style.textShadow = "0 2px 4px rgba(0, 0, 0, 0.8)";
-                        cardTitle.textContent = item.title;
-
-                        // 副标题
-                        const cardSubtitle = document.createElement("div");
-                        cardSubtitle.style.fontSize = "14px";
-                        cardSubtitle.style.marginTop = "2px";
-                        cardSubtitle.textContent = item.name;
-
-                        titleContainer.appendChild(cardTitle);
-                        titleContainer.appendChild(cardSubtitle);
-
-                        const link = document.createElement("a");
-                        link.href = item.url;
-                        link.target = "_blank";
-                        link.textContent = "查看详情";
-                        link.style.backgroundColor = "rgba(0, 0, 0, 0.6)";
-                        link.style.color = "#fff";
-                        link.style.padding = "5px 10px";
-                        link.style.borderRadius = "5px";
-                        link.style.textDecoration = "none";
-                        link.style.textAlign = "center";
-
-                        card.appendChild(titleContainer);
-                        card.appendChild(link);
-
-                        gridContainer.appendChild(card);
-                    });
-                }
-
-                // 初始渲染为筛选后的列表
-                renderList(true);
-
-                // 添加复选框事件
-                filterCheckbox.addEventListener("change", () => {
-                    renderList(filterCheckbox.checked);
-                });
-
-                // 将弹窗添加到页面
-                document.body.appendChild(dialog);
-            }
-
-        })
+        });
     }
 
-    // 在 Tampermonkey 菜单中添加一个按钮
     GM_registerMenuCommand("检查收藏集", collectDigitalCards);
 })();
