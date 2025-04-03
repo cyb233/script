@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 收藏集奖励筛查脚本
 // @namespace    Schwi
-// @version      1.1
+// @version      1.2
 // @description  调用 API 来收集自己的 Bilibili 收藏集，并筛选未领取的奖励。注意，一套收藏集中至少存在一张卡牌才能本项目的接口被检测到!
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -78,14 +78,14 @@
 
     // 发起 API 请求的函数
     function apiRequest(url, callback) {
-        console.log(`正在请求: ${url}`);
+        console.debug(`正在请求: ${url}`);
         GM_xmlhttpRequest({
             method: "GET",
             url: url,
             onload: function (response) {
                 try {
                     const data = JSON.parse(response.responseText);
-                    console.log(`来自 ${url} 的响应:`, data);
+                    console.debug(`来自 ${url} 的响应:`, data);
                     callback(data);
                 } catch (error) {
                     console.error(`解析来自 ${url} 的响应时出错:`, error);
@@ -121,6 +121,7 @@
             }
 
             console.log("成功获取收藏列表:", collectionData.data.list);
+            console.log("卡片总数:", collectionData.data.list.reduce((acc, item) => acc + item.card_num, 0));
             const collections = collectionData.data.list;
             const collectionCount = collections.length;
             let processedCollections = 0;
@@ -128,7 +129,7 @@
             const progressBar = createProgressBar(collectionCount); // 创建进度条
 
             collections.forEach((collection, index) => {
-                console.log(`处理收藏: ${collection.act_name}(ID: ${collection.act_id})`);
+                console.debug(`处理收藏: ${collection.act_name}(ID: ${collection.act_id})`);
                 const detailUrl = `https://api.bilibili.com/x/vas/dlc_act/act/basic?act_id=${collection.act_id}`;
 
                 apiRequest(detailUrl, function (detailData) {
@@ -143,7 +144,7 @@
                         return;
                     }
 
-                    console.log(
+                    console.debug(
                         `成功获取 ${collection.act_name}(act_id:${collection.act_id}) 的基本信息:`,
                         detailData.data
                     );
@@ -151,9 +152,16 @@
                     let processedLotteries = 0;
 
                     lotteries.forEach((lottery) => {
-                        console.log(
+                        console.debug(
                             `处理详情: ${lottery.lottery_name} (ID: ${lottery.lottery_id})`
                         );
+                        // 当前已收集
+                        const item_owned_cnt = lottery.item_owned_cnt
+                        // 总数
+                        const item_total_cnt = lottery.item_total_cnt
+                        // 总销量
+                        const total_sale_amount = lottery.total_sale_amount
+
                         const cardDetailUrl = `https://api.bilibili.com/x/vas/dlc_act/lottery_home_detail?act_id=${collection.act_id}&lottery_id=${lottery.lottery_id}`;
 
                         apiRequest(cardDetailUrl, function (cardData) {
@@ -168,12 +176,22 @@
                                 return;
                             }
 
-                            console.log(
+                            console.debug(
                                 `成功获取 ${collection.act_name}[${cardData.data.name}](act_id:${collection.act_id}&lottery_id:${lottery.lottery_id}) 的详情:`,
                                 cardData.data
                             );
                             // 根据需要处理卡牌数据
-                            collectList.push({ title: detailData.data.act_title, name: cardData.data.name, num: collection.card_num, url: `https://www.bilibili.com/blackboard/activity-Mz9T5bO5Q3.html?id=${collection.act_id}&type=dlc`, act: detailData.data, lottery: cardData.data });
+                            collectList.push({
+                                title: detailData.data.act_title,
+                                name: cardData.data.name,
+                                num: collection.card_num,
+                                owned: item_owned_cnt,
+                                total: item_total_cnt,
+                                sale: total_sale_amount,
+                                url: `https://www.bilibili.com/blackboard/activity-Mz9T5bO5Q3.html?id=${collection.act_id}&type=dlc`,
+                                act: detailData.data,
+                                lottery: cardData.data
+                            });
                             processedLotteries++;
                             progressBar.update(processedCollections); // 更新进度条
                             checkLotteryCompletion();
@@ -196,24 +214,28 @@
                     console.log("所有收藏已处理。");
                     console.log("最终收集列表:", collectList);
 
-                    // 筛选出符合条件的收藏集
-                    const filteredCollectList = collectList.filter((collectItem) => {
-                        return (
-                            collectItem.lottery.collect_list.collect_infos?.some(
-                                (lottery) =>
-                                    canGetReward(lottery)
-                            ) ||
-                            collectItem.lottery.collect_list.collect_chain?.some(
-                                (lottery) =>
-                                    canGetReward(lottery)
-                            )
-                        );
-                    });
+                    // 筛选出真正有卡的收藏集
+                    collectList = collectList.filter((collectItem) => collectItem.owned);
 
-                    console.log("筛选后的收集列表:", filteredCollectList);
                     progressBar.hide(); // 隐藏进度条
-                    showResultDialog(collectList, filteredCollectList)
+                    showResultDialog(collectList, filterCollectList(collectList))
                 }
+            }
+
+            function filterCollectList(collectList) {
+                // 筛选出符合条件的收藏集
+                return collectList.filter((collectItem) => {
+                    return (
+                        collectItem.lottery.collect_list.collect_infos?.some(
+                            (lottery) =>
+                                canGetReward(lottery)
+                        ) ||
+                        collectItem.lottery.collect_list.collect_chain?.some(
+                            (lottery) =>
+                                canGetReward(lottery)
+                        )
+                    );
+                });
             }
 
             /**
@@ -425,6 +447,20 @@
                         numBadge.style.fontWeight = "bold";
                         card.appendChild(numBadge);
 
+                        // 显示 owned / total 的元素
+                        const ownedTotalBadge = document.createElement("div");
+                        ownedTotalBadge.textContent = `${item.owned} / ${item.total}${item.owned === item.total ? ' 👑' : ''}`;
+                        ownedTotalBadge.style.position = "absolute";
+                        ownedTotalBadge.style.top = "10px";
+                        ownedTotalBadge.style.left = "10px";
+                        ownedTotalBadge.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
+                        ownedTotalBadge.style.color = "#fff";
+                        ownedTotalBadge.style.padding = "5px 10px";
+                        ownedTotalBadge.style.borderRadius = "10px";
+                        ownedTotalBadge.style.fontSize = "14px";
+                        ownedTotalBadge.style.fontWeight = "bold";
+                        card.appendChild(ownedTotalBadge);
+
                         // 标题容器
                         const titleContainer = document.createElement("div");
                         titleContainer.style.background = "rgba(0, 0, 0, 0.5)";
@@ -439,14 +475,26 @@
                         cardTitle.style.textShadow = "0 2px 4px rgba(0, 0, 0, 0.8)";
                         cardTitle.textContent = item.title;
 
+                        // 副标题容器
+                        const subtitleContainer = document.createElement("div");
+                        subtitleContainer.style.display = "flex";
+                        subtitleContainer.style.justifyContent = "space-between";
+                        subtitleContainer.style.fontSize = "14px";
+                        subtitleContainer.style.marginTop = "2px";
+
                         // 副标题
-                        const cardSubtitle = document.createElement("div");
-                        cardSubtitle.style.fontSize = "14px";
-                        cardSubtitle.style.marginTop = "2px";
+                        const cardSubtitle = document.createElement("span");
                         cardSubtitle.textContent = item.name;
 
+                        // 销量
+                        const cardSale = document.createElement("span");
+                        cardSale.textContent = `销量: ${item.sale}`;
+
+                        subtitleContainer.appendChild(cardSubtitle);
+                        subtitleContainer.appendChild(cardSale);
+
                         titleContainer.appendChild(cardTitle);
-                        titleContainer.appendChild(cardSubtitle);
+                        titleContainer.appendChild(subtitleContainer);
 
                         const link = document.createElement("a");
                         link.href = item.url;
