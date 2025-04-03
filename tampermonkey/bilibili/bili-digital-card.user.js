@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 收藏集奖励筛查脚本
 // @namespace    Schwi
-// @version      1.3
+// @version      1.4
 // @description  调用 API 来收集自己的 Bilibili 收藏集，并筛选未领取的奖励。注意，一套收藏集中至少存在一张卡牌才能本项目的接口被检测到!
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -17,6 +17,7 @@
     "use strict";
 
     let collectionCount = 0; // 收藏集数量
+    let totalCardNum = 0; // 卡片总数
 
     const REDEEM_ITEM_TYPE = {
         Card: 1,
@@ -247,8 +248,7 @@
 
     // 显示筛选结果的对话框
     function showResultsDialog(collectList) {
-        const totalCards = collectList.reduce((sum, item) => sum + item.num, 0); // 计算总卡片张数
-        const { dialog, titleElement } = createDialog('resultsDialog', `收藏集（${collectList.length}/${collectList.length}/${collectionCount}）总卡片张数（${totalCards}/${totalCards}）`, '');
+        const { dialog, titleElement } = createDialog('resultsDialog', `收藏集（${collectList.length}/${collectList.length}/${collectionCount}）总卡片张数 ${totalCardNum}`, '');
 
         let gridContainer = document.createElement('div');
         gridContainer.style.display = 'grid';
@@ -281,7 +281,7 @@
 
             const filteredList = collectList.filter(item => item.display);
             const filteredTotalCards = filteredList.reduce((sum, item) => sum + item.num, 0); // 计算筛选后的总卡片张数
-            titleElement.textContent = `收藏集（${filteredList.length}/${collectList.length}/${collectionCount}）总卡片张数（${filteredTotalCards}/${totalCards}）`;
+            titleElement.textContent = `收藏集（${filteredList.length}/${collectList.length}/${collectionCount}）总卡片张数 ${totalCardNum}`;
 
             observer.disconnect();
             renderedCount = 0;
@@ -498,6 +498,8 @@
                 alert(errorMsg)
                 return;
             }
+
+            totalCardNum = collectionData.data.list.reduce((acc, item) => acc + item.card_num, 0);
 
             console.log("成功获取收藏列表:", collectionData.data.list);
             console.log("卡片总数:", collectionData.data.list.reduce((acc, item) => acc + item.card_num, 0));
