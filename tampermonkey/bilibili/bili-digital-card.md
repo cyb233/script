@@ -11,7 +11,5 @@
 ![86844b2a-80aa-4fb3-8491-c5ed72e7eb17](https://github.com/user-attachments/assets/9fb3ba7a-f7e6-4080-a6e3-cfb91e02d44d)
 
 运行效果演示：
-> 筛选按钮未勾选是所有有卡牌的收藏集的列表，勾选后是其中有可领取奖励的收藏集的列表
-> 点击查看详情即可打开收藏集页面
 
-![47fe0910-5717-41f6-ad0e-19ecb2bab691](https://github.com/user-attachments/assets/32cfabbd-d4a2-4cfd-b456-264779cbff8b)
+![QQ20250404-021016](https://github.com/user-attachments/assets/987cabab-e4d5-4196-9aa0-bef118e575d8)
