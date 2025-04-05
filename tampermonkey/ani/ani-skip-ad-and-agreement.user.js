@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         动画疯跳过广告和年龄确认
 // @namespace    Schwi
-// @version      0.2
+// @version      0.3
 // @description  巴哈姆特动画疯跳过广告和年龄确认
 // @author       Schwi
 // @match        https://ani.gamer.com.tw/animeVideo.php?sn=*
@@ -21,17 +21,14 @@
   const defaultConfig = {
     debug: false,
     skipAgreement: true,
-    skipAd: true,
-    clickNext: false,
+    skipAd: true
   };
 
-  const config = GM_getValue('config', defaultConfig)
+  const config = GM_getValue('config', defaultConfig);
 
   const menuIds = [];
   const resetMenus = () => {
-    menuIds.forEach((id) => {
-      GM_unregisterMenuCommand(id);
-    });
+    menuIds.forEach((id) => GM_unregisterMenuCommand(id));
     menuIds.length = 0;
     menuIds.push(
       GM_registerMenuCommand(`跳过年龄确认：${config.skipAgreement ? '开' : '关'}`, () => {
@@ -43,101 +40,88 @@
         config.skipAd = !config.skipAd;
         GM_setValue('config', config);
         resetMenus();
-      }),
-      GM_registerMenuCommand(`自动下一集：${config.clickNext ? '开' : '关'}`, () => {
-        config.clickNext = !config.clickNext;
-        GM_setValue('config', config);
-        resetMenus();
       })
-    )
-  }
+    );
+  };
 
   resetMenus();
 
-
-  let accSkipped = false;
-  let adSkipped = false;
-  let userMuted = null;
-  let adMuted = false;
+  const status = {
+    accSkipped: false,
+    adSkipped: false,
+    userMuted: null,
+    adMuted: false
+  };
 
   const skipAgreement = () => {
     const accAgreement = document.querySelector('#adult');
     if (accAgreement) {
       console.log('跳过年龄确认');
       accAgreement.click();
-      accSkipped = true;
+      status.accSkipped = true;
+    } else {
+      console.debug('年龄确认已跳过或不存在');
     }
   };
 
   const skipAd = (video) => {
-    const adSkipButton = document.querySelector('#adSkipButton.vast-skip-button');
+    const adSkipButton = document.querySelector('#adSkipButton.vast-skip-button,.nativeAD-skip-button');
     if (adSkipButton) {
       if (adSkipButton.classList.contains('enable')) {
         console.log('跳过广告');
         adSkipButton.click();
-        adSkipped = true;
-      } else if (!adMuted) {
+        status.adSkipped = true;
+      } else if (!status.adMuted) {
         console.debug('广告未跳过，静音广告');
         video.muted = true;
-        adMuted = true;
+        status.adMuted = true;
       }
+    } else {
+      console.debug('广告跳过按钮不存在或已被点击');
     }
   };
 
   const restoreMuteStatus = (video) => {
-    if (userMuted !== null) {
+    if (status.userMuted !== null) {
       console.log('恢复用户静音状态');
-      video.muted = !!userMuted;
-      userMuted = null;
-      adSkipped = false;
-      adMuted = false;
+      video.muted = status.userMuted; // 修正变量名称
+      status.userMuted = null;
+      status.adSkipped = false;
+      status.adMuted = false;
     }
   };
 
-  const nextEpisode = (video) => {
-    const nextButton = document.querySelector('#nextEpisode');
-    if (nextButton) {
-      if (video.ended) {
-        console.log('点击下一集');
-        nextButton.click();
-      } else {
-        console.debug('视频未结束，等待下一集');
-      }
-    } else {
-      console.debug('未找到下一集按钮');
-    }
-  };
-
-  const interval = setInterval(() => {
+  // 使用 MutationObserver 替换 setInterval 进行 DOM 变化监控
+  const observer = new MutationObserver(() => {
     const video = document.querySelector('#ani_video_html5_api');
     if (!video) {
       console.debug('未找到视频元素');
       return;
     }
 
-    // 记录用户初始静音状态
-    if (userMuted === null) {
+    // 第一次检测记录用户静音状态
+    if (status.userMuted === null) {
       console.debug('记录用户初始静音状态:', video.muted);
-      userMuted = video.muted;
+      status.userMuted = video.muted;
     }
 
-    // 根据配置：跳过年龄确认
-    if (config.skipAgreement && !accSkipped) {
+    if (config.skipAgreement && !status.accSkipped) {
       skipAgreement();
     }
 
-    // 根据配置：跳过广告
     if (config.skipAd) {
       skipAd(video);
     }
 
-    if (adSkipped) {
+    if (status.adSkipped) {
       restoreMuteStatus(video);
     }
+  });
 
-    // 根据配置：自动下一集
-    if (config.clickNext) {
-      nextEpisode(video);
-    }
-  }, 1000);
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true
+  });
+
 })();
