@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         动画疯跳过广告和年龄确认
 // @namespace    Schwi
-// @version      0.3
+// @version      0.4
 // @description  巴哈姆特动画疯跳过广告和年龄确认
 // @author       Schwi
 // @match        https://ani.gamer.com.tw/animeVideo.php?sn=*
@@ -21,7 +21,8 @@
   const defaultConfig = {
     debug: false,
     skipAgreement: true,
-    skipAd: true
+    skipAd: true,
+    muteAd: true
   };
 
   const config = GM_getValue('config', defaultConfig);
@@ -38,6 +39,11 @@
       }),
       GM_registerMenuCommand(`跳过广告：${config.skipAd ? '开' : '关'}`, () => {
         config.skipAd = !config.skipAd;
+        GM_setValue('config', config);
+        resetMenus();
+      }),
+      GM_registerMenuCommand(`广告静音：${config.muteAd ? '开' : '关'}`, () => {
+        config.muteAd = !config.muteAd;
         GM_setValue('config', config);
         resetMenus();
       })
@@ -71,7 +77,7 @@
         console.log('跳过广告');
         adSkipButton.click();
         status.adSkipped = true;
-      } else if (!status.adMuted) {
+      } else if (config.muteAd && !status.adMuted) {
         console.debug('广告未跳过，静音广告');
         video.muted = true;
         status.adMuted = true;
