@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         e站收藏统计
 // @namespace    Schwi
-// @version      1.1
+// @version      1.2
 // @description  获取e站所有收藏，以及对所有标签进行排序以找到你最爱的标签，可按namespace分组，支持翻译
 // @author       Schwi
 // @match        *://e-hentai.org/*
@@ -74,53 +74,78 @@
         return myFavList;
     }
 
-    async function translateTags(myFavList, translationUrl) {
+    async function getTranslate(translationUrl) {
+        showProgress('正在获取翻译...');
         try {
-            const response = await fetchFavorites(translationUrl);
-            if (!response) {
-                throw new Error("Network response was not ok");
+            const response = await fetch(translationUrl);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
-            const db = JSON.parse(response);
-            return myFavList.map(fav => {
-                let newFav = { ...fav };
-                if (newFav.reclass.toLowerCase().replace(' ','') in db.data[1].data) {
-                    newFav.reclass = db.data[1].data[newFav.reclass.toLowerCase().replace(' ','')].name;
-                }
-                newFav.tags = newFav.tags.map(fullTag => {
-                    let namespace = fullTag.split(":")[0];
-                    let tag = fullTag.split(":")[1];
-                    let data = db.data.filter(title => title.frontMatters.key === namespace);
-                    if (data.length > 0) {
-                        namespace = data[0].frontMatters.name;
-                        if (tag in data[0].data) {
-                            tag = data[0].data[tag].name;
-                        }
-                    }
-                    return namespace + ":" + tag;
-                });
-                return newFav;
-            });
+            return await response.json();
         } catch (error) {
-            console.error("Error fetching data:", error);
+            console.error('Fetch error:', error);
         }
     }
 
-    function sortByCount(list) {
-        const array = Object.entries(list);
-        array.sort((a, b) => (b[1] - a[1]) * 2 + (a[0].toUpperCase() > b[0].toUpperCase() ? 1 : -1));
-        return Object.fromEntries(array);
+    async function translateResult(myFavList, translate) {
+
+        const reclassList = getReclassList(myFavList);
+        const tagList = getTagList(myFavList);
+        const groupedTagList = getGroupedTagList(myFavList);
+        showProgress('正在翻译...');
+
+        reclassList.forEach(reclass => {
+            if (reclass.reclass.toLowerCase().replace(' ', '') in translate.data[1].data) {
+                reclass.translate = translate.data[1].data[reclass.reclass.toLowerCase().replace(' ', '')].name;
+            }
+        });
+        tagList.forEach(fullTag => {
+            let namespace = fullTag.tag.split(":")[0];
+            let tag = fullTag.tag.split(":")[1];
+            let data = translate.data.filter(title => title.namespace === namespace);
+            if (data.length > 0) {
+                namespace = data[0].frontMatters.name;
+                if (tag in data[0].data) {
+                    tag = data[0].data[tag].name;
+                }
+            }
+            fullTag.translate = `${namespace}:${tag}`;
+        });
+        groupedTagList.forEach(group => {
+            let data = translate.data.filter(title => title.namespace === group.namespace);
+            if (data.length > 0) {
+                group.translate = data[0].frontMatters.name;
+                group.tags.forEach(tag => {
+                    if (tag.tag in data[0].data) {
+                        tag.translate = data[0].data[tag.tag].name;
+                    }
+                })
+            }
+
+        })
+
+        return {
+            reclassList,
+            tagList,
+            groupedTagList,
+            myFavList
+        };
+    }
+
+    function sortByCount(list, key) {
+        return list.sort((a, b) => (b.count - a.count) * 2 + (a[key].toUpperCase() > b[key].toUpperCase() ? 1 : -1));
     }
 
     function getReclassList(myFavList) {
         let reclassList = {};
         myFavList.forEach(fav => {
             if (fav.reclass in reclassList) {
-                reclassList[fav.reclass]++;
+                reclassList[fav.reclass].count++;
             } else {
-                reclassList[fav.reclass] = 1;
+                reclassList[fav.reclass] = { reclass: fav.reclass, translate: '', count: 1 };
             }
         });
-        return sortByCount(reclassList);
+        return sortByCount(Object.values(reclassList), "reclass"); // [{reclass, translate, count}]
     }
 
     function getTagList(myFavList) {
@@ -128,13 +153,13 @@
         myFavList.forEach(fav => {
             fav.tags.forEach(tag => {
                 if (tag in tagList) {
-                    tagList[tag]++;
+                    tagList[tag].count++;
                 } else {
-                    tagList[tag] = 1;
+                    tagList[tag] = { tag: tag, translate: '', count: 1 };
                 }
             });
         });
-        return sortByCount(tagList);
+        return sortByCount(Object.values(tagList), "tag");// [{tag, translate, count}]
     }
 
     function getGroupedTagList(myFavList) {
@@ -147,16 +172,16 @@
                     groupedTagList[namespace] = {};
                 }
                 if (fullTag in groupedTagList[namespace]) {
-                    groupedTagList[namespace][fullTag]++;
+                    groupedTagList[namespace][fullTag].count++;
                 } else {
-                    groupedTagList[namespace][fullTag] = 1;
+                    groupedTagList[namespace][fullTag] = { tag: tag, translate: '', count: 1 };
                 }
             });
         });
-        for (let k in groupedTagList) {
-            groupedTagList[k] = sortByCount(groupedTagList[k]);
+        for (let namespace in groupedTagList) {
+            groupedTagList[namespace] = { namespace, translate: '', tags: sortByCount(Object.values(groupedTagList[namespace]), "tag") };
         }
-        return groupedTagList;
+        return Object.values(groupedTagList); // [{namespace, translate, tags:[{tag, translate, count}]}]
     }
 
     function showProgress(message) {
@@ -185,36 +210,79 @@
         }
     }
 
-    function showResults(result) {
+    function showResults(result, translate) {
         let resultDiv = document.querySelector('#resultDiv');
-        if (!resultDiv) {
-            resultDiv = document.createElement('div');
-            resultDiv.id = 'resultDiv';
-            resultDiv.style.position = 'fixed';
-            resultDiv.style.top = '5%';
-            resultDiv.style.left = '5%';
-            resultDiv.style.width = '90%';
-            resultDiv.style.height = '90%';
-            resultDiv.style.backgroundColor = 'white';
-            resultDiv.style.border = '1px solid black';
-            resultDiv.style.overflow = 'auto';
-            resultDiv.style.zIndex = '10000';
-            document.body.appendChild(resultDiv);
-
-            const closeButton = document.createElement('button');
-            closeButton.innerText = '关闭';
-            closeButton.style.position = 'absolute';
-            closeButton.style.top = '10px';
-            closeButton.style.right = '10px';
-            closeButton.style.backgroundColor = 'red';
-            closeButton.style.color = 'white';
-            closeButton.style.border = 'none';
-            closeButton.style.borderRadius = '5px';
-            closeButton.style.padding = '5px 10px';
-            closeButton.style.cursor = 'pointer';
-            closeButton.onclick = () => resultDiv.remove();
-            resultDiv.appendChild(closeButton);
+        if (resultDiv) {
+            resultDiv.remove();
         }
+        resultDiv = document.createElement('div');
+        resultDiv.id = 'resultDiv';
+        resultDiv.translate = false; // https://github.com/EhTagTranslation/EhSyringe/issues/1290
+        resultDiv.style.position = 'fixed';
+        resultDiv.style.top = '5%';
+        resultDiv.style.left = '5%';
+        resultDiv.style.width = '90%';
+        resultDiv.style.height = '90%';
+        resultDiv.style.backgroundColor = 'white';
+        resultDiv.style.border = '1px solid black';
+        resultDiv.style.overflow = 'auto';
+        resultDiv.style.zIndex = '10000';
+        document.body.appendChild(resultDiv);
+
+        const closeButton = document.createElement('button');
+        closeButton.innerText = '关闭';
+        closeButton.style.position = 'absolute';
+        closeButton.style.top = '10px';
+        closeButton.style.right = '10px';
+        closeButton.style.backgroundColor = 'red';
+        closeButton.style.color = 'white';
+        closeButton.style.border = 'none';
+        closeButton.style.borderRadius = '5px';
+        closeButton.style.padding = '5px 10px';
+        closeButton.style.cursor = 'pointer';
+        closeButton.onclick = () => resultDiv.remove();
+        resultDiv.appendChild(closeButton);
+
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.display = 'flex';
+        buttonContainer.style.justifyContent = 'space-between';
+        buttonContainer.style.marginTop = '20px';
+        buttonContainer.style.marginBottom = '10px';
+
+        const saveRawBtnContainer = document.createElement('div');
+        saveRawBtnContainer.style.flex = '1';
+        saveRawBtnContainer.style.textAlign = 'center';
+
+        const saveRawBtn = document.createElement('button');
+        saveRawBtn.id = 'saveBtnJSON';
+        saveRawBtn.innerText = '保存JSON结果';
+        saveRawBtn.style.backgroundColor = '#4CAF50';
+        saveRawBtn.style.color = 'white';
+        saveRawBtn.style.border = 'none';
+        saveRawBtn.style.borderRadius = '5px';
+        saveRawBtn.style.padding = '10px 20px';
+        saveRawBtn.style.cursor = 'pointer';
+        saveRawBtnContainer.appendChild(saveRawBtn);
+
+        const saveTranslatedBtnContainer = document.createElement('div');
+        saveTranslatedBtnContainer.style.flex = '1';
+        saveTranslatedBtnContainer.style.textAlign = 'center';
+
+        const saveTranslatedBtn = document.createElement('button');
+        saveTranslatedBtn.id = 'saveBtnHTML';
+        saveTranslatedBtn.innerText = '保存HTML结果';
+        saveTranslatedBtn.style.backgroundColor = '#008CBA';
+        saveTranslatedBtn.style.color = 'white';
+        saveTranslatedBtn.style.border = 'none';
+        saveTranslatedBtn.style.borderRadius = '5px';
+        saveTranslatedBtn.style.padding = '10px 20px';
+        saveTranslatedBtn.style.cursor = 'pointer';
+        saveTranslatedBtnContainer.appendChild(saveTranslatedBtn);
+
+        buttonContainer.appendChild(saveRawBtnContainer);
+        buttonContainer.appendChild(saveTranslatedBtnContainer);
+
+        resultDiv.appendChild(buttonContainer);
 
         const createTable = (data, headers) => {
             const table = document.createElement('table');
@@ -239,9 +307,10 @@
                 indexTd.innerText = index + 1;
                 tr.appendChild(indexTd);
 
-                row.forEach(cell => {
+                headers.forEach(header => {
+                    if (header === 'Index') return; // Skip index column
                     const td = document.createElement('td');
-                    td.innerText = cell;
+                    td.innerText = row[header.toLowerCase()];
                     tr.appendChild(td);
                 });
 
@@ -266,8 +335,8 @@
             });
             table.appendChild(headerRow);
 
-            for (let namespace in data) {
-                const tags = Object.entries(data[namespace]);
+            data.forEach((group, groupIndex) => {
+                const tags = group.tags;
                 tags.forEach((tag, tagIndex) => {
                     const tr = document.createElement('tr');
                     tr.style.height = '30px';
@@ -275,8 +344,12 @@
                     if (tagIndex === 0) {
                         const namespaceTd = document.createElement('td');
                         namespaceTd.rowSpan = tags.length;
-                        namespaceTd.innerText = namespace;
+                        namespaceTd.innerText = group.namespace;
                         tr.appendChild(namespaceTd);
+                        const namespaceTranslateTd = document.createElement('td');
+                        namespaceTranslateTd.rowSpan = tags.length;
+                        namespaceTranslateTd.innerText = group.translate;
+                        tr.appendChild(namespaceTranslateTd);
                     }
 
                     const indexTd = document.createElement('td');
@@ -284,125 +357,62 @@
                     tr.appendChild(indexTd);
 
                     const tagTd = document.createElement('td');
-                    tagTd.innerText = tag[0];
+                    tagTd.innerText = tag.tag;
                     tr.appendChild(tagTd);
 
+                    const translateTd = document.createElement('td');
+                    translateTd.innerText = tag.translate;
+                    tr.appendChild(translateTd);
+
                     const countTd = document.createElement('td');
-                    countTd.innerText = tag[1];
+                    countTd.innerText = tag.count;
                     tr.appendChild(countTd);
 
                     table.appendChild(tr);
                 });
-            }
+            })
 
             return table;
         };
-
-        const buttonContainer = document.createElement('div');
-        buttonContainer.style.display = 'flex';
-        buttonContainer.style.justifyContent = 'space-between';
-        buttonContainer.style.marginTop = '20px';
-        buttonContainer.style.marginBottom = '10px';
-
-        const saveRawBtnContainer = document.createElement('div');
-        saveRawBtnContainer.style.flex = '1';
-        saveRawBtnContainer.style.textAlign = 'center';
-
-        const saveRawBtn = document.createElement('button');
-        saveRawBtn.id = 'saveRawBtn';
-        saveRawBtn.innerText = '保存原文结果';
-        saveRawBtn.style.backgroundColor = '#4CAF50';
-        saveRawBtn.style.color = 'white';
-        saveRawBtn.style.border = 'none';
-        saveRawBtn.style.borderRadius = '5px';
-        saveRawBtn.style.padding = '10px 20px';
-        saveRawBtn.style.cursor = 'pointer';
-        saveRawBtnContainer.appendChild(saveRawBtn);
-
-        const saveTranslatedBtnContainer = document.createElement('div');
-        saveTranslatedBtnContainer.style.flex = '1';
-        saveTranslatedBtnContainer.style.textAlign = 'center';
-
-        const saveTranslatedBtn = document.createElement('button');
-        saveTranslatedBtn.id = 'saveTranslatedBtn';
-        saveTranslatedBtn.innerText = '保存翻译结果';
-        saveTranslatedBtn.style.backgroundColor = '#008CBA';
-        saveTranslatedBtn.style.color = 'white';
-        saveTranslatedBtn.style.border = 'none';
-        saveTranslatedBtn.style.borderRadius = '5px';
-        saveTranslatedBtn.style.padding = '10px 20px';
-        saveTranslatedBtn.style.cursor = 'pointer';
-        saveTranslatedBtnContainer.appendChild(saveTranslatedBtn);
-
-        buttonContainer.appendChild(saveRawBtnContainer);
-        buttonContainer.appendChild(saveTranslatedBtnContainer);
-
-        resultDiv.appendChild(buttonContainer);
 
         const resultContainer = document.createElement('div');
         resultContainer.style.display = 'flex';
         resultContainer.style.justifyContent = 'space-around';
 
         const rawResultDiv = document.createElement('div');
-        rawResultDiv.style.width = '45%';
+        rawResultDiv.style.width = '90%';
         rawResultDiv.style.border = '1px solid black';
         rawResultDiv.style.padding = '10px';
 
         const rawResultTitle = document.createElement('h3');
-        rawResultTitle.innerText = '原文结果';
+        rawResultTitle.innerText = '统计结果';
         rawResultDiv.appendChild(rawResultTitle);
 
         const rawReclassTitle = document.createElement('h4');
         rawReclassTitle.innerText = 'Reclass List';
         rawResultDiv.appendChild(rawReclassTitle);
-        rawResultDiv.appendChild(createTable(Object.entries(result.raw.reclassList), ['Index', 'Reclass', 'Count']));
+        rawResultDiv.appendChild(createTable(result.reclassList, ['Index', 'Reclass', 'Translate', 'Count']));
 
         const rawTagTitle = document.createElement('h4');
         rawTagTitle.innerText = 'Tag List';
         rawResultDiv.appendChild(rawTagTitle);
-        rawResultDiv.appendChild(createTable(Object.entries(result.raw.tagList), ['Index', 'Tag', 'Count']));
+        rawResultDiv.appendChild(createTable(result.tagList, ['Index', 'Tag', 'Translate', 'Count']));
 
         const rawGroupedTagTitle = document.createElement('h4');
         rawGroupedTagTitle.innerText = 'Grouped Tag List';
         rawResultDiv.appendChild(rawGroupedTagTitle);
-        rawResultDiv.appendChild(createGroupedTable(result.raw.groupedTagList, ['Namespace', 'Index', 'Tag', 'Count']));
+        rawResultDiv.appendChild(createGroupedTable(result.groupedTagList, ['Namespace', 'Translate', 'Index', 'Tag', 'Translate', 'Count']));
 
         resultContainer.appendChild(rawResultDiv);
 
-        const translatedResultDiv = document.createElement('div');
-        translatedResultDiv.style.width = '45%';
-        translatedResultDiv.style.border = '1px solid black';
-        translatedResultDiv.style.padding = '10px';
-
-        const translatedResultTitle = document.createElement('h3');
-        translatedResultTitle.innerText = '翻译结果';
-        translatedResultDiv.appendChild(translatedResultTitle);
-
-        const translatedReclassTitle = document.createElement('h4');
-        translatedReclassTitle.innerText = '分类列表';
-        translatedResultDiv.appendChild(translatedReclassTitle);
-        translatedResultDiv.appendChild(createTable(Object.entries(result.translate.reclassList), ['序号', '分类', '数量']));
-
-        const translatedTagTitle = document.createElement('h4');
-        translatedTagTitle.innerText = '标签列表';
-        translatedResultDiv.appendChild(translatedTagTitle);
-        translatedResultDiv.appendChild(createTable(Object.entries(result.translate.tagList), ['序号', '标签', '数量']));
-
-        const translatedGroupedTagTitle = document.createElement('h4');
-        translatedGroupedTagTitle.innerText = '分组标签列表';
-        translatedResultDiv.appendChild(translatedGroupedTagTitle);
-        translatedResultDiv.appendChild(createGroupedTable(result.translate.groupedTagList, ['命名空间', '序号', '标签', '数量']));
-
-        resultContainer.appendChild(translatedResultDiv);
-
         resultDiv.appendChild(resultContainer);
 
-        resultDiv.querySelector('#saveRawBtn').onclick = () => {
-            download('eh_raw.json', JSON.stringify(result.raw, null, 2));
+        resultDiv.querySelector('#saveBtnJSON').onclick = () => {
+            download('eh_collect.json', JSON.stringify(result, null, 2));
         };
 
-        resultDiv.querySelector('#saveTranslatedBtn').onclick = () => {
-            download('eh_translated.json', JSON.stringify(result.translate, null, 2));
+        resultDiv.querySelector('#saveBtnHTML').onclick = () => {
+            download('eh_collect.html', resultContainer.outerHTML);
         };
     }
 
@@ -411,33 +421,7 @@
         const queryUrl = new URL(config.favoritesUrl);
         const favList = await getFavoritesList(queryUrl);
         let myFavList = parseFavorites(favList);
-
-        showProgress('正在翻译标签...');
-        let translatedFavList = await translateTags(myFavList, config.translationUrl);
-
-        const reclassList = getReclassList(myFavList);
-        const tagList = getTagList(myFavList);
-        const groupedTagList = getGroupedTagList(myFavList);
-
-        const translatedReclassList = getReclassList(translatedFavList);
-        const translatedTagList = getTagList(translatedFavList);
-        const translatedGroupedTagList = getGroupedTagList(translatedFavList);
-
-        hideProgress();
-        return {
-            raw: {
-                reclassList,
-                tagList,
-                groupedTagList,
-                myFavList
-            },
-            translate: {
-                reclassList: translatedReclassList,
-                tagList: translatedTagList,
-                groupedTagList: translatedGroupedTagList,
-                myFavList: translatedFavList
-            }
-        };
+        return myFavList;
     }
 
     function download(filename, data) {
@@ -446,9 +430,10 @@
     }
 
     GM_registerMenuCommand("统计收藏", async () => {
-        const result = await collect(config);
-        showResults(result);
+        const collectList = await collect(config);
+        const translate = await getTranslate(config.translationUrl);
+        const result = await translateResult(collectList, translate);
+        hideProgress();
+        showResults(result, translate);
     });
-
-    // 移除页面上的翻译结果选项
 })();
