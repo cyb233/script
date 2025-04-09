@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 收藏集奖励筛查脚本
 // @namespace    Schwi
-// @version      1.4
+// @version      1.5
 // @description  调用 API 来收集自己的 Bilibili 收藏集，并筛选未领取的奖励。注意，一套收藏集中至少存在一张卡牌才能本项目的接口被检测到!
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -111,7 +111,7 @@
                 const userinfos = item.act.related_user_infos;
 
                 return title.includes(searchText) || name.includes(searchText) ||
-                    userinfos.some(userinfo => {
+                    Object.values(userinfos).some(userinfo => {
                         const userName = userinfo.nickname.toLocaleUpperCase();
                         const userId = userinfo.uid.toString().toLocaleUpperCase();
                         return userName.includes(searchText) || userId.includes(searchText);
