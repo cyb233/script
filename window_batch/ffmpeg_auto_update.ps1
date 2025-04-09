@@ -53,6 +53,7 @@ try {
     } else {
         throw "ffmpeg executable not found"
     }
+    exit 0
 } catch {
     Write-Host "出错，恢复旧版本..."
     if (Test-Path $backup_zip) {
