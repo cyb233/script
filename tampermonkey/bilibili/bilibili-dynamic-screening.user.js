@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 动态筛选
 // @namespace    Schwi
-// @version      2.0
+// @version      2.1
 // @description  Bilibili 动态筛选，快速找出感兴趣的动态
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -470,13 +470,14 @@
         }
 
         const getDescText = (dynamic, isForward) => {
+            let titleText = data.item.modules.module_dynamic.major?.opus?.title || ''
             let descText = dynamic.modules.module_dynamic.desc?.text || ''
             if (isForward) {
                 const subDescText = getDescText(dynamic.orig)
                 descText += `<hr />${subDescText}`
             }
 
-            return descText
+            return `<h3>${titleText}</h3><br />${descText}`
         }
 
         const createDynamicItem = (dynamic) => {
