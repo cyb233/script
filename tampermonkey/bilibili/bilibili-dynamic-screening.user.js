@@ -470,7 +470,7 @@
         }
 
         const getDescText = (dynamic, isForward) => {
-            let titleText = data.item.modules.module_dynamic.major?.opus?.title || ''
+            let titleText = dynamic.modules.module_dynamic.major?.opus?.title || ''
             let descText = dynamic.modules.module_dynamic.desc?.text || ''
             if (isForward) {
                 const subDescText = getDescText(dynamic.orig)
