@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 动态筛选
 // @namespace    Schwi
-// @version      2.2
+// @version      2.3
 // @description  Bilibili 动态筛选，快速找出感兴趣的动态
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -162,8 +162,20 @@
                 (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item)?.modules?.module_dynamic?.desc?.rich_text_nodes?.some(n => n?.type === RICH_TEXT_NODE_TYPE.RICH_TEXT_NODE_TYPE_LOTTERY.key)
         },
         充电互动抽奖: { type: "checkbox", filter: (item, input) => (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item)?.modules?.module_dynamic?.additional?.type === ADDITIONAL_TYPE.ADDITIONAL_TYPE_UPOWER_LOTTERY.key },
-        已参与: { type: "checkbox", note: "直播预告", filter: (item, input) => defaultFilters['直播预告'].filter(item) && item.reserve?.isFollow === 1 },
-        未参与: { type: "checkbox", note: "直播预告", filter: (item, input) => defaultFilters['直播预告'].filter(item) && item.reserve?.isFollow === 0 },
+        已参与: {
+            type: "checkbox", note: "有奖预约,互动抽奖", filter: (item, input) => {
+                return (defaultFilters['有奖预约'].filter(item) && item.reserve?.isFollow === 1)
+                    ||
+                    (defaultFilters['互动抽奖'].filter(item) && (item.reserveInfo?.followed && (item.reserveInfo?.need_post > 0 ? item.reserveInfo?.reposted : false)))
+            }
+        },
+        未参与: {
+            type: "checkbox", note: "有奖预约,互动抽奖", filter: (item, input) => {
+                return (defaultFilters['有奖预约'].filter(item) && item.reserve?.isFollow === 0)
+                    ||
+                    (defaultFilters['互动抽奖'].filter(item) && !(item.reserveInfo?.followed && (item.reserveInfo?.need_post > 0 ? item.reserveInfo?.reposted : false)))
+            }
+        },
         已开奖: { type: "checkbox", filter: (item, input) => item.reserveInfo?.lottery_result },
         未开奖: { type: "checkbox", filter: (item, input) => item.reserveInfo && !item.reserveInfo.lottery_result },
         我中奖的: {
@@ -189,12 +201,14 @@
                 const searchText = input.toLocaleUpperCase();
                 const authorName = item.modules.module_author.name.toLocaleUpperCase();
                 const authorMid = item.modules.module_author.mid.toString();
-                const descText = (item.modules.module_dynamic.desc?.text || '').toLocaleUpperCase();
+                const titleText = (dynamic.modules.module_dynamic.major?.opus?.title || dynamic.modules.module_dynamic.major?.archive?.title || '').toLocaleUpperCase();
+                const descText = (dynamic.modules.module_dynamic.major?.opus?.summary?.text || dynamic.modules.module_dynamic.desc?.text || dynamic.modules.module_dynamic.major?.archive?.desc || '').toLocaleUpperCase();
+
                 const forwardAuthorName = item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? item.orig.modules.module_author.name.toLocaleUpperCase() : '';
                 const forwardAuthorMid = item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? item.orig.modules.module_author.mid.toString() : '';
-                const forwardDescText = item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? (item.orig.modules.module_dynamic.desc?.text || '').toLocaleUpperCase() : '';
+                const forwardDescText = item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? (item.orig.modules.module_dynamic.major.opus.summary.text || '').toLocaleUpperCase() : '';
 
-                return authorName.includes(searchText) || authorMid.includes(searchText) || descText.includes(searchText) ||
+                return authorName.includes(searchText) || authorMid.includes(searchText) || titleText.includes(searchText) || descText.includes(searchText) ||
                     forwardAuthorName.includes(searchText) || forwardAuthorMid.includes(searchText) || forwardDescText.includes(searchText);
             }
         },
@@ -470,8 +484,9 @@
         }
 
         const getDescText = (dynamic, isForward) => {
-            let titleText = dynamic.modules.module_dynamic.major?.opus?.title || ''
-            let descText = dynamic.modules.module_dynamic.desc?.text || ''
+            let titleText = dynamic.modules.module_dynamic.major?.opus?.title || dynamic.modules.module_dynamic.major?.archive?.title || ''
+            let descText = dynamic.modules.module_dynamic.major?.opus?.summary?.text || dynamic.modules.module_dynamic.desc?.text || dynamic.modules.module_dynamic.major?.archive?.desc || ''
+
             if (isForward) {
                 const subDescText = getDescText(dynamic.orig)
                 descText += `<hr />${subDescText}`
@@ -499,7 +514,7 @@
 
             let backgroundImage = '';
             if (type === DYNAMIC_TYPE.DYNAMIC_TYPE_DRAW.key) {
-                backgroundImage = baseDynamic.modules.module_dynamic.major.draw.items[0].src;
+                backgroundImage = baseDynamic.modules.module_dynamic.major.opus.pics[0].url;
             }
 
             let dynamicItem = document.createElement('div');
