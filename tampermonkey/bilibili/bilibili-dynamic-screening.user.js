@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 动态筛选
 // @namespace    Schwi
-// @version      2.1
+// @version      2.2
 // @description  Bilibili 动态筛选，快速找出感兴趣的动态
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -477,7 +477,7 @@
                 descText += `<hr />${subDescText}`
             }
 
-            return `<h3>${titleText}</h3><br />${descText}`
+            return `${titleText ? '<h3>' + titleText + '</h3><br />' : ''}${descText}`
         }
 
         const createDynamicItem = (dynamic) => {
@@ -691,8 +691,8 @@
         let shouldInclude = false;
         while (shouldContinue) { // 使用标志位控制循环
             const api = isSelf ?
-                `https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?host_mid=${userData.profile.mid}&offset=${offset}` :
-                `https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all?type=all&offset=${offset}`;
+                `https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?host_mid=${userData.profile.mid}&offset=${offset}&features=itemOpusStyle,listOnlyfans,opusBigCover,onlyfansVote,decorationCard,onlyfansAssetsV2,forwardListHidden,ugcDelete,onlyfansQaCard,commentsNewVersion` :
+                `https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all?type=all&offset=${offset}&features=itemOpusStyle,listOnlyfans,opusBigCover,onlyfansVote,decorationCard,onlyfansAssetsV2,forwardListHidden,ugcDelete,onlyfansQaCard,commentsNewVersion`;
 
             try {
                 const data = await apiRequest(api);
