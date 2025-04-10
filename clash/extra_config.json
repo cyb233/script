@@ -1,4 +1,6 @@
 {
+  "mode": "rule",
+  "mixed-port": 7890,
   "allow-lan": false,
   "rules": [
     "DOMAIN-SUFFIX,fanbox.cc,Proxies",
