@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 动态筛选
 // @namespace    Schwi
-// @version      2.4
+// @version      2.5
 // @description  Bilibili 动态筛选，快速找出感兴趣的动态
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -619,7 +619,7 @@
             typeComment.style.padding = "5px";
             typeComment.style.marginBottom = "5px";
             typeComment.style.textAlign = "center";
-            typeComment.textContent = `类型: ${DYNAMIC_TYPE[dynamic.type]?.name || dynamic.type} ${isForward ? `(${DYNAMIC_TYPE[dynamic.orig.type]?.name || dynamic.orig.type})` : ''} ${(defaultFilters['有奖预约'].filter(dynamic) || defaultFilters['互动抽奖'].filter(dynamic) || defaultFilters['充电互动抽奖'].filter(dynamic)) ? '🎁' : ''}`;
+            typeComment.textContent = `类型: ${DYNAMIC_TYPE[dynamic.type]?.name || dynamic.type} ${isForward ? `(${DYNAMIC_TYPE[dynamic.orig.type]?.name || dynamic.orig.type})` : ''} ${(defaultFilters['有奖预约'].filter(dynamic) || defaultFilters['互动抽奖'].filter(dynamic) || defaultFilters['充电互动抽奖'].filter(dynamic)) ? defaultFilters['充电互动抽奖'].filter(dynamic) ? '🎁🔋' : '🎁' : ''}`;
 
             // 正文
             const describe = document.createElement("div");
