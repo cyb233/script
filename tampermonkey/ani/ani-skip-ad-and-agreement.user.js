@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         动画疯跳过广告和年龄确认
 // @namespace    Schwi
-// @version      0.4
+// @version      0.5
 // @description  巴哈姆特动画疯跳过广告和年龄确认
 // @author       Schwi
 // @match        https://ani.gamer.com.tw/animeVideo.php?sn=*
@@ -53,25 +53,29 @@
   resetMenus();
 
   const status = {
-    accSkipped: false,
     adSkipped: false,
     userMuted: null,
     adMuted: false
   };
+
+  const adCssList = [
+    '#adSkipButton.vast-skip-button',
+    '.nativeAD-skip-button',
+    '.videoAdUiSkipContainer.html5-stop-propagation>button'
+  ];
 
   const skipAgreement = () => {
     const accAgreement = document.querySelector('#adult');
     if (accAgreement) {
       console.log('跳过年龄确认');
       accAgreement.click();
-      status.accSkipped = true;
     } else {
-      console.debug('年龄确认已跳过或不存在');
+      // console.debug('年龄确认已跳过或不存在');
     }
   };
 
   const skipAd = (video) => {
-    const adSkipButton = document.querySelector('#adSkipButton.vast-skip-button,.nativeAD-skip-button');
+    const adSkipButton = document.querySelector(adCssList.join(','));
     if (adSkipButton) {
       if (adSkipButton.classList.contains('enable')) {
         console.log('跳过广告');
@@ -83,7 +87,7 @@
         status.adMuted = true;
       }
     } else {
-      console.debug('广告跳过按钮不存在或已被点击');
+      // console.debug('广告跳过按钮不存在或已被点击');
     }
   };
 
@@ -111,7 +115,7 @@
       status.userMuted = video.muted;
     }
 
-    if (config.skipAgreement && !status.accSkipped) {
+    if (config.skipAgreement) {
       skipAgreement();
     }
 
