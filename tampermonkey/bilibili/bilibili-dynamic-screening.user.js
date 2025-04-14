@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 动态筛选
 // @namespace    Schwi
-// @version      2.5
+// @version      2.6
 // @description  Bilibili 动态筛选，快速找出感兴趣的动态
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -166,7 +166,7 @@
             type: "checkbox", filter: (item, input) => {
                 return (defaultFilters['有奖预约'].filter(item) && item.reserve?.isFollow === 1)
                     ||
-                    (defaultFilters['互动抽奖'].filter(item) && (item.reserveInfo?.followed && (item.reserveInfo?.need_post > 0 ? item.reserveInfo?.reposted : false)))
+                    (defaultFilters['互动抽奖'].filter(item) && (item.reserveInfo?.followed && item.reserveInfo?.reposted))
                     ||
                     (defaultFilters['充电互动抽奖'].filter(item) && (item.reserveInfo?.has_charge_right && item.reserveInfo?.participated))
             }
@@ -175,7 +175,7 @@
             type: "checkbox", filter: (item, input) => {
                 return (defaultFilters['有奖预约'].filter(item) && item.reserve?.isFollow === 0)
                     ||
-                    (defaultFilters['互动抽奖'].filter(item) && !(item.reserveInfo?.followed && (item.reserveInfo?.need_post > 0 ? item.reserveInfo?.reposted : false)))
+                    (defaultFilters['互动抽奖'].filter(item) && !(item.reserveInfo?.followed && item.reserveInfo?.reposted))
                     ||
                     (defaultFilters['充电互动抽奖'].filter(item) && !(item.reserveInfo?.has_charge_right && item.reserveInfo?.participated))
             }

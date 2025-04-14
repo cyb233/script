@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 庆会广场
 // @namespace    Schwi
-// @version      0.1
+// @version      0.2
 // @description  Bilibili 庆会广场查询
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -26,11 +26,13 @@
     const defaultFilters = {
         // 全部: {type: "checkbox", filter: (item, input) => true },
         有奖预约: { type: "checkbox", filter: (item, input) => Object.keys(item.reserveInfo).length > 0 },
-        只看已开奖: { type: "checkbox", filter: (item, input) => item.reserveInfo?.lottery_result },
-        排除已开奖: { type: "checkbox", filter: (item, input) => item.reserveInfo && !item.reserveInfo.lottery_result },
-        未预约: { type: "checkbox", filter: (item, input) => item.is_subscribed === 0 },
+        普通预约: { type: "checkbox", filter: (item, input) => Object.keys(item.reserveInfo).length === 0 },
+        已开奖: { type: "checkbox", filter: (item, input) => item.reserveInfo?.lottery_result },
+        未开奖: { type: "checkbox", filter: (item, input) => item.reserveInfo && !item.reserveInfo.lottery_result },
         已预约: { type: "checkbox", filter: (item, input) => item.is_subscribed === 1 },
+        未预约: { type: "checkbox", filter: (item, input) => item.is_subscribed === 0 },
         直播中: { type: "checkbox", filter: (item, input) => item.room_info.live_status === 1 },
+        未开播: { type: "checkbox", filter: (item, input) => item.room_info.live_status === 0 },
         搜索: {
             type: "text",
             filter: (item, input) => {
