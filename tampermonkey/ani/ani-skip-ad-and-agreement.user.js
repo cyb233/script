@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         动画疯跳过广告和年龄确认
 // @namespace    Schwi
-// @version      0.6
-// @description  巴哈姆特动画疯跳过广告和年龄确认
+// @version      0.7
+// @description  巴哈姆特动画疯 跳过各种麻烦的东西
 // @author       Schwi
 // @match        https://ani.gamer.com.tw/animeVideo.php?sn=*
 // @icon         https://i2.bahamut.com.tw/favicon.svg
@@ -61,7 +61,8 @@
   const status = {
     adSkipped: false,
     userMuted: null,
-    adMuted: false
+    adMuted: false,
+    quizSkipped: false
   };
 
   const adCssList = [
@@ -76,7 +77,7 @@
       console.log('跳过年龄确认');
       accAgreement.click();
     } else {
-      // console.debug('年龄确认已跳过或不存在');
+      if (config.debug) console.debug('年龄确认已跳过或不存在');
     }
   };
 
@@ -88,12 +89,12 @@
         adSkipButton.click();
         status.adSkipped = true;
       } else if (config.muteAd && !status.adMuted) {
-        console.debug('广告未跳过，静音广告');
+        if (config.debug) console.debug('广告未跳过，静音广告');
         video.muted = true;
         status.adMuted = true;
       }
     } else {
-      // console.debug('广告跳过按钮不存在或已被点击');
+      if (config.debug) console.debug('广告跳过按钮不存在或已被点击');
     }
   };
 
@@ -109,11 +110,16 @@
 
   const skipQuiz = () => {
     const quizButton = document.querySelector('.quiz_title>a');
-    if (quizButton) {
+    if (quizButton && !status.quizSkipped) {
       console.log('跳过动漫通问答');
       quizButton.click();
+      status.quizSkipped = true;
     } else {
-      // console.debug('动漫通问答按钮不存在或已被点击');
+      if (config.debug) console.debug('动漫通问答按钮不存在或已被点击');
+      if (status.quizSkipped) {
+        console.log('恢复动漫通问答状态');
+        status.quizSkipped = false;
+      }
     }
   };
 
@@ -121,13 +127,13 @@
   const observer = new MutationObserver(() => {
     const video = document.querySelector('#ani_video_html5_api');
     if (!video) {
-      console.debug('未找到视频元素');
+      if (config.debug) console.debug('未找到视频元素');
       return;
     }
 
     // 第一次检测记录用户静音状态
     if (status.userMuted === null) {
-      console.debug('记录用户初始静音状态:', video.muted);
+      console.log('记录用户初始静音状态:', video.muted);
       status.userMuted = video.muted;
     }
 
