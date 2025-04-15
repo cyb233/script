@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         动画疯跳过广告和年龄确认
 // @namespace    Schwi
-// @version      0.5
+// @version      0.6
 // @description  巴哈姆特动画疯跳过广告和年龄确认
 // @author       Schwi
 // @match        https://ani.gamer.com.tw/animeVideo.php?sn=*
@@ -22,7 +22,8 @@
     debug: false,
     skipAgreement: true,
     skipAd: true,
-    muteAd: true
+    muteAd: true,
+    skipQuiz: false
   };
 
   const config = GM_getValue('config', defaultConfig);
@@ -44,6 +45,11 @@
       }),
       GM_registerMenuCommand(`广告静音：${config.muteAd ? '开' : '关'}`, () => {
         config.muteAd = !config.muteAd;
+        GM_setValue('config', config);
+        resetMenus();
+      }),
+      GM_registerMenuCommand(`跳过动漫通问答：${config.skipQuiz ? '开' : '关'}`, () => {
+        config.skipQuiz = !config.skipQuiz;
         GM_setValue('config', config);
         resetMenus();
       })
@@ -101,6 +107,16 @@
     }
   };
 
+  const skipQuiz = () => {
+    const quizButton = document.querySelector('.quiz_title>a');
+    if (quizButton) {
+      console.log('跳过动漫通问答');
+      quizButton.click();
+    } else {
+      // console.debug('动漫通问答按钮不存在或已被点击');
+    }
+  };
+
   // 使用 MutationObserver 替换 setInterval 进行 DOM 变化监控
   const observer = new MutationObserver(() => {
     const video = document.querySelector('#ani_video_html5_api');
@@ -125,6 +141,10 @@
 
     if (status.adSkipped) {
       restoreMuteStatus(video);
+    }
+
+    if (config.skipQuiz) {
+      skipQuiz();
     }
   });
 
