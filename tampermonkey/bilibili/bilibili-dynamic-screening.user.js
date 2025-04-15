@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 动态筛选
 // @namespace    Schwi
-// @version      2.6
+// @version      2.7
 // @description  Bilibili 动态筛选，快速找出感兴趣的动态
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -154,6 +154,7 @@
         排除转发: { type: "checkbox", filter: (item, input) => !defaultFilters['只看转发'].filter(item, input) },
         视频更新预告: { type: "checkbox", filter: (item, input) => (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item).modules.module_dynamic.additional?.reserve?.stype === 1 },
         直播预告: { type: "checkbox", filter: (item, input) => (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item).modules.module_dynamic.additional?.reserve?.stype === 2 },
+        充电动态: { type: "checkbox", filter: (item, input) => (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item).modules.module_author.icon_badge?.text === '充电专属' },
         有奖预约: { type: "checkbox", filter: (item, input) => defaultFilters['直播预告'].filter(item, input) && (item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? item.orig : item).modules.module_dynamic.additional?.reserve?.desc3?.text },
         互动抽奖: {
             type: "checkbox", filter: (item, input) =>
@@ -205,12 +206,12 @@
                 const searchText = input.toLocaleUpperCase();
                 const authorName = item.modules.module_author.name.toLocaleUpperCase();
                 const authorMid = item.modules.module_author.mid.toString();
-                const titleText = (dynamic.modules.module_dynamic.major?.opus?.title || dynamic.modules.module_dynamic.major?.archive?.title || '').toLocaleUpperCase();
-                const descText = (dynamic.modules.module_dynamic.major?.opus?.summary?.text || dynamic.modules.module_dynamic.desc?.text || dynamic.modules.module_dynamic.major?.archive?.desc || '').toLocaleUpperCase();
+                const titleText = (item.modules.module_dynamic.major?.opus?.title || item.modules.module_dynamic.major?.archive?.title || '').toLocaleUpperCase();
+                const descText = (item.modules.module_dynamic.major?.opus?.summary?.text || item.modules.module_dynamic.desc?.text || item.modules.module_dynamic.major?.archive?.desc || '').toLocaleUpperCase();
 
                 const forwardAuthorName = item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? item.orig.modules.module_author.name.toLocaleUpperCase() : '';
                 const forwardAuthorMid = item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? item.orig.modules.module_author.mid.toString() : '';
-                const forwardDescText = item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? (item.orig.modules.module_dynamic.major.opus.summary.text || '').toLocaleUpperCase() : '';
+                const forwardDescText = item.type === DYNAMIC_TYPE.DYNAMIC_TYPE_FORWARD.key ? (item.orig.modules.module_dynamic.major.opus?.summary?.text || '').toLocaleUpperCase() : '';
 
                 return authorName.includes(searchText) || authorMid.includes(searchText) || titleText.includes(searchText) || descText.includes(searchText) ||
                     forwardAuthorName.includes(searchText) || forwardAuthorMid.includes(searchText) || forwardDescText.includes(searchText);
@@ -327,7 +328,7 @@
 
     // 显示结果 dialog
     function showResultsDialog() {
-        const { dialog, titleElement } = createDialog('resultsDialog', `动态结果（${dynamicList.length}/${dynamicList.length}） ${new Date(dynamicList[dynamicList.length - 1].modules.module_author.pub_ts * 1000).toLocaleString()} ~ ${new Date(dynamicList[0].modules.module_author.pub_ts * 1000).toLocaleString()}`, '');
+        const { dialog, titleElement, closeButton } = createDialog('resultsDialog', `动态结果（${dynamicList.length}/${dynamicList.length}） ${new Date(dynamicList[dynamicList.length - 1].modules.module_author.pub_ts * 1000).toLocaleString()} ~ ${new Date(dynamicList[0].modules.module_author.pub_ts * 1000).toLocaleString()}`, '');
 
         let gridContainer = document.createElement('div');
         gridContainer.style.display = 'grid';
@@ -337,6 +338,33 @@
         gridContainer.style.height = 'calc(90% - 50px)'; // 设置高度以启用滚动
         gridContainer.style.overflowY = 'auto'; // 启用垂直滚动
         gridContainer.style.alignContent = 'flex-start';
+
+        // 添加全局切换按钮
+        const toggleVisibilityButton = document.createElement('button');
+        toggleVisibilityButton.textContent = "是否只看图片";
+        toggleVisibilityButton.style.backgroundColor = "#00a1d6";
+        toggleVisibilityButton.style.color = "#fff";
+        toggleVisibilityButton.style.border = 'none';
+        toggleVisibilityButton.style.borderRadius = '5px';
+        toggleVisibilityButton.style.cursor = 'pointer';
+        toggleVisibilityButton.style.padding = '5px 10px';
+        toggleVisibilityButton.style.transition = 'background-color 0.3s'; // 添加过渡效果
+        toggleVisibilityButton.style.marginLeft = "auto"; // 右对齐
+        toggleVisibilityButton.style.marginRight = "10px";
+        toggleVisibilityButton.onmouseover = () => { toggleVisibilityButton.style.backgroundColor = "#008ecf"; };
+        toggleVisibilityButton.onmouseout = () => { toggleVisibilityButton.style.backgroundColor = "#00a1d6"; };
+
+        let isContentVisible = true; // 全局状态
+
+        toggleVisibilityButton.onclick = () => {
+            isContentVisible = !isContentVisible;
+            const contentContainers = document.querySelectorAll(".dynamic-content-container");
+            contentContainers.forEach(container => {
+                container.style.display = isContentVisible ? "flex" : "none";
+            });
+        };
+        // 添加到倒数第二个
+        closeButton.before(toggleVisibilityButton);
 
         // 遍历 DYNAMIC_TYPE 生成 filters
         Object.values(DYNAMIC_TYPE).forEach(type => {
@@ -518,7 +546,7 @@
 
             let backgroundImage = '';
             if (type === DYNAMIC_TYPE.DYNAMIC_TYPE_DRAW.key) {
-                backgroundImage = baseDynamic.modules.module_dynamic.major.opus.pics[0].url;
+                backgroundImage = baseDynamic.modules.module_dynamic.major.opus?.pics[0].url;
             }
 
             let dynamicItem = document.createElement('div');
@@ -567,6 +595,16 @@
                 dynamicItem.appendChild(img);
             }
 
+            // 创建内容容器
+            const contentContainer = document.createElement('div');
+            contentContainer.className = "dynamic-content-container";
+            contentContainer.style.position = "relative";
+            contentContainer.style.zIndex = "1"; // 确保内容在背景图之上
+            contentContainer.style.width = "100%"; // 撑满 dynamicItem 的宽度
+            contentContainer.style.height = "100%"; // 撑满 dynamicItem 的高度
+            contentContainer.style.display = "flex";
+            contentContainer.style.flexDirection = "column";
+
             // 标题
             const cardTitle = document.createElement("div");
             cardTitle.style.fontWeight = "bold";
@@ -584,7 +622,7 @@
             authorLink.target = "_blank";
             authorLink.textContent = authorName;
 
-            let originalAuthorLink
+            let originalAuthorLink;
             if (isForward) {
                 originalAuthorLink = document.createElement('a');
                 const originalMid = dynamic.orig.modules.module_author.mid;
@@ -619,7 +657,10 @@
             typeComment.style.padding = "5px";
             typeComment.style.marginBottom = "5px";
             typeComment.style.textAlign = "center";
-            typeComment.textContent = `类型: ${DYNAMIC_TYPE[dynamic.type]?.name || dynamic.type} ${isForward ? `(${DYNAMIC_TYPE[dynamic.orig.type]?.name || dynamic.orig.type})` : ''} ${(defaultFilters['有奖预约'].filter(dynamic) || defaultFilters['互动抽奖'].filter(dynamic) || defaultFilters['充电互动抽奖'].filter(dynamic)) ? defaultFilters['充电互动抽奖'].filter(dynamic) ? '🎁🔋' : '🎁' : ''}`;
+            typeComment.textContent = `类型: ${DYNAMIC_TYPE[dynamic.type]?.name || dynamic.type} ${isForward ? `(${DYNAMIC_TYPE[dynamic.orig.type]?.name || dynamic.orig.type})` : ''
+                } ${(defaultFilters['有奖预约'].filter(dynamic) || defaultFilters['互动抽奖'].filter(dynamic) || defaultFilters['充电互动抽奖'].filter(dynamic)) ? '🎁' : ''
+                }${defaultFilters['充电动态'].filter(dynamic) ? '🔋' : ''
+                }`;
 
             // 正文
             const describe = document.createElement("div");
@@ -647,11 +688,14 @@
             viewDetailsButton.style.textDecoration = "none";
             viewDetailsButton.style.textAlign = "center";
 
-            dynamicItem.appendChild(cardTitle);
-            dynamicItem.appendChild(typeComment);
-            dynamicItem.appendChild(describe);
-            dynamicItem.appendChild(publishTime); // 添加发布时间
-            dynamicItem.appendChild(viewDetailsButton);
+            contentContainer.appendChild(cardTitle);
+            contentContainer.appendChild(typeComment);
+            contentContainer.appendChild(describe);
+            contentContainer.appendChild(publishTime); // 添加发布时间
+            contentContainer.appendChild(viewDetailsButton);
+
+            // 将内容容器添加到 dynamicItem
+            dynamicItem.appendChild(contentContainer);
 
             return dynamicItem;
         };
@@ -665,6 +709,8 @@
             for (let i = 0; i < batchSize && renderedCount < renderList.length; i++, renderedCount++) {
                 const dynamicItem = createDynamicItem(renderList[renderedCount]);
                 dynamicItem.style.display = renderList[renderedCount].display ? 'flex' : 'none'; // 根据 display 属性显示或隐藏
+                const contentContainer = dynamicItem.querySelector(".dynamic-content-container");
+                contentContainer.style.display = isContentVisible ? "flex" : "none"; // 根据全局状态设置可见性
                 gridContainer.appendChild(dynamicItem);
             }
             // 检查是否还需要继续渲染
@@ -741,29 +787,31 @@
                     // 如果是直播预约动态，获取预约信息
                     let reserve = null;
                     let reserveInfo = null;
-                    if (defaultFilters['直播预告'].filter(item)) {
-                        const rid = (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item).modules.module_dynamic?.additional?.reserve?.rid;
-                        if (rid) {
-                            reserveInfo = (await apiRequest(`https://api.vc.bilibili.com/lottery_svr/v1/lottery_svr/lottery_notice?business_id=${rid}&business_type=10`)).data;
+                    if (shouldInclude) {
+                        if (defaultFilters['直播预告'].filter(item)) {
+                            const rid = (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item).modules.module_dynamic?.additional?.reserve?.rid;
+                            if (rid) {
+                                reserveInfo = (await apiRequest(`https://api.vc.bilibili.com/lottery_svr/v1/lottery_svr/lottery_notice?business_id=${rid}&business_type=10`)).data;
+                            }
+                            if (reserveInfo?.business_id) {
+                                const business_id = reserveInfo.business_id;
+                                const reserveRelationInfo = (await apiRequest(`https://api.bilibili.com/x/activity/up/reserve/relation/info?ids=${business_id}`)).data;
+                                reserve = reserveRelationInfo?.list[business_id];
+                            }
                         }
-                        if (reserveInfo?.business_id) {
-                            const business_id = reserveInfo.business_id;
-                            const reserveRelationInfo = (await apiRequest(`https://api.bilibili.com/x/activity/up/reserve/relation/info?ids=${business_id}`)).data;
-                            reserve = reserveRelationInfo?.list[business_id];
+                        // 如果是互动抽奖动态，获取预约信息
+                        if (defaultFilters['互动抽奖'].filter(item)) {
+                            const id_str = (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item).id_str
+                            if (id_str) {
+                                reserveInfo = (await apiRequest(`https://api.vc.bilibili.com/lottery_svr/v1/lottery_svr/lottery_notice?business_id=${id_str}&business_type=1`)).data;
+                            }
                         }
-                    }
-                    // 如果是互动抽奖动态，获取预约信息
-                    if (defaultFilters['互动抽奖'].filter(item)) {
-                        const id_str = (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item).id_str
-                        if (id_str) {
-                            reserveInfo = (await apiRequest(`https://api.vc.bilibili.com/lottery_svr/v1/lottery_svr/lottery_notice?business_id=${id_str}&business_type=1`)).data;
-                        }
-                    }
-                    // 如果是充电互动抽奖动态，获取预约信息
-                    if (defaultFilters['充电互动抽奖'].filter(item)) {
-                        const id_str = (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item).id_str
-                        if (id_str) {
-                            reserveInfo = (await apiRequest(`https://api.vc.bilibili.com/lottery_svr/v1/lottery_svr/lottery_notice?business_id=${id_str}&business_type=12`)).data;
+                        // 如果是充电互动抽奖动态，获取预约信息
+                        if (defaultFilters['充电互动抽奖'].filter(item)) {
+                            const id_str = (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item).id_str
+                            if (id_str) {
+                                reserveInfo = (await apiRequest(`https://api.vc.bilibili.com/lottery_svr/v1/lottery_svr/lottery_notice?business_id=${id_str}&business_type=12`)).data;
+                            }
                         }
                     }
                     item.reserve = reserve;
@@ -775,7 +823,7 @@
                     collectedCount++;
                     contentArea.querySelector('#collectedCount').textContent = dynamicList.length;
                     contentArea.querySelector('#totalCount').textContent = collectedCount;
-                    contentArea.querySelector('#earliestTime').textContent = new Date(dynamicList[dynamicList.length - 1].modules.module_author.pub_ts * 1000).toLocaleString();
+                    contentArea.querySelector('#earliestTime').textContent = new Date(item.modules.module_author.pub_ts * 1000).toLocaleString();
                 }
                 offset = items[items.length - 1].id_str;
 
