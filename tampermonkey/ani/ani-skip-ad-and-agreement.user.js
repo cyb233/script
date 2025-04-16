@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         动画疯跳过广告和年龄确认
 // @namespace    Schwi
-// @version      0.7
+// @version      0.8
 // @description  巴哈姆特动画疯 跳过各种麻烦的东西
 // @author       Schwi
 // @match        https://ani.gamer.com.tw/animeVideo.php?sn=*
@@ -67,7 +67,7 @@
 
   const adCssList = [
     '#adSkipButton.vast-skip-button',
-    '.nativeAD-skip-button',
+    '.nativeAD-skip-button:not(.vjs-hidden)',
     '.videoAdUiSkipContainer.html5-stop-propagation>button'
   ];
 
@@ -84,6 +84,7 @@
   const skipAd = (video) => {
     const adSkipButton = document.querySelector(adCssList.join(','));
     if (adSkipButton) {
+      if (config.debug) console.debug('找到广告跳过按钮:', adSkipButton);
       if (adSkipButton.classList.contains('enable')) {
         console.log('跳过广告');
         adSkipButton.click();
@@ -100,7 +101,7 @@
 
   const restoreMuteStatus = (video) => {
     if (status.userMuted !== null) {
-      console.log('恢复用户静音状态');
+      console.log('恢复用户静音状态', status.userMuted);
       video.muted = status.userMuted; // 修正变量名称
       status.userMuted = null;
       status.adSkipped = false;
