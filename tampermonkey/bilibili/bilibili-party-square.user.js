@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 庆会广场
 // @namespace    Schwi
-// @version      0.2
+// @version      0.3
 // @description  Bilibili 庆会广场查询
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -127,7 +127,7 @@
 
     // 显示结果 dialog
     function showResultsDialog() {
-        const { dialog, titleElement } = createDialog('resultsDialog', `庆会结果（${partyList.length}/${partyList.length}）`, '');
+        const { dialog, titleElement, closeButton } = createDialog('resultsDialog', `庆会结果（${partyList.length}/${partyList.length}）`, '');
 
         let gridContainer = document.createElement('div');
         gridContainer.style.display = 'grid';
@@ -137,6 +137,33 @@
         gridContainer.style.height = 'calc(90% - 50px)'; // 设置高度以启用滚动
         gridContainer.style.overflowY = 'auto'; // 启用垂直滚动
         gridContainer.style.alignContent = 'flex-start';
+
+        // 添加全局切换按钮
+        const toggleVisibilityButton = document.createElement('button');
+        toggleVisibilityButton.textContent = "是否只看图片";
+        toggleVisibilityButton.style.backgroundColor = "#00a1d6";
+        toggleVisibilityButton.style.color = "#fff";
+        toggleVisibilityButton.style.border = 'none';
+        toggleVisibilityButton.style.borderRadius = '5px';
+        toggleVisibilityButton.style.cursor = 'pointer';
+        toggleVisibilityButton.style.padding = '5px 10px';
+        toggleVisibilityButton.style.transition = 'background-color 0.3s'; // 添加过渡效果
+        toggleVisibilityButton.style.marginLeft = "auto"; // 右对齐
+        toggleVisibilityButton.style.marginRight = "10px";
+        toggleVisibilityButton.onmouseover = () => { toggleVisibilityButton.style.backgroundColor = "#008ecf"; };
+        toggleVisibilityButton.onmouseout = () => { toggleVisibilityButton.style.backgroundColor = "#00a1d6"; };
+
+        let isContentVisible = true; // 全局状态
+
+        toggleVisibilityButton.onclick = () => {
+            isContentVisible = !isContentVisible;
+            const contentContainers = document.querySelectorAll(".party-content-container");
+            contentContainers.forEach(container => {
+                container.style.display = isContentVisible ? "flex" : "none";
+            });
+        };
+        // 添加到倒数第二个
+        closeButton.before(toggleVisibilityButton);
 
         const deal = (partyList) => {
             let checkedFilters = [];
@@ -295,6 +322,16 @@
                 partyItem.appendChild(img);
             }
 
+            // 创建内容容器
+            const contentContainer = document.createElement('div');
+            contentContainer.className = "party-content-container";
+            contentContainer.style.position = "relative";
+            contentContainer.style.zIndex = "1"; // 确保内容在背景图之上
+            contentContainer.style.width = "100%"; // 撑满 partyItem 的宽度
+            contentContainer.style.height = "100%"; // 撑满 partyItem 的高度
+            contentContainer.style.display = "flex";
+            contentContainer.style.flexDirection = "column";
+
             // 标题
             const cardTitle = document.createElement("div");
             cardTitle.style.fontWeight = "bold";
@@ -379,14 +416,17 @@
             viewDetailsButton.style.textDecoration = "none";
             viewDetailsButton.style.textAlign = "center";
 
-            partyItem.appendChild(cardTitle);
-            partyItem.appendChild(typeComment);
-            partyItem.appendChild(describe);
-            partyItem.appendChild(publishTime); // 添加发布时间
+            contentContainer.appendChild(cardTitle);
+            contentContainer.appendChild(typeComment);
+            contentContainer.appendChild(describe);
+            contentContainer.appendChild(publishTime); // 添加发布时间
             if (hasLottery) {
-                partyItem.appendChild(lotteryDetailsButton);
+                contentContainer.appendChild(lotteryDetailsButton);
             }
-            partyItem.appendChild(viewDetailsButton);
+            contentContainer.appendChild(viewDetailsButton);
+
+            // 将内容容器添加到 partyItem
+            partyItem.appendChild(contentContainer);
 
             return partyItem;
         };
@@ -400,6 +440,8 @@
             for (let i = 0; i < batchSize && renderedCount < renderList.length; i++, renderedCount++) {
                 const partyItem = createPartyItem(renderList[renderedCount]);
                 partyItem.style.display = renderList[renderedCount].display ? 'flex' : 'none'; // 根据 display 属性显示或隐藏
+                const contentContainer = partyItem.querySelector(".party-content-container");
+                contentContainer.style.display = isContentVisible ? "flex" : "none"; // 根据全局状态设置可见性
                 gridContainer.appendChild(partyItem);
             }
             // 检查是否还需要继续渲染
