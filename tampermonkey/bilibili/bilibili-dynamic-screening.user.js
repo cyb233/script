@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 动态筛选
 // @namespace    Schwi
-// @version      2.7
+// @version      2.8
 // @description  Bilibili 动态筛选，快速找出感兴趣的动态
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -84,6 +84,7 @@
         MAJOR_TYPE_LIVE_RCMD: { key: "MAJOR_TYPE_LIVE_RCMD", name: "直播推荐" },
         MAJOR_TYPE_UGC_SEASON: { key: "MAJOR_TYPE_UGC_SEASON", name: "合集" },
         MAJOR_TYPE_SUBSCRIPTION_NEW: { key: "MAJOR_TYPE_SUBSCRIPTION_NEW", name: "新订阅" },
+        MAJOR_TYPE_BLOCKED: { key: "MAJOR_TYPE_BLOCKED", name: "屏蔽(如未充电)" },
     };
 
     const RICH_TEXT_NODE_TYPE = {
@@ -659,7 +660,7 @@
             typeComment.style.textAlign = "center";
             typeComment.textContent = `类型: ${DYNAMIC_TYPE[dynamic.type]?.name || dynamic.type} ${isForward ? `(${DYNAMIC_TYPE[dynamic.orig.type]?.name || dynamic.orig.type})` : ''
                 } ${(defaultFilters['有奖预约'].filter(dynamic) || defaultFilters['互动抽奖'].filter(dynamic) || defaultFilters['充电互动抽奖'].filter(dynamic)) ? '🎁' : ''
-                }${defaultFilters['充电动态'].filter(dynamic) ? '🔋' : ''
+                }${defaultFilters['充电动态'].filter(dynamic) || defaultFilters['充电互动抽奖'].filter(dynamic) ? '🔋' : ''
                 }`;
 
             // 正文
