@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      3.6
+// @version      3.7
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -1115,6 +1115,20 @@
             mediaCount.style.flexShrink = '0' // 防止收缩
             mediaCount.style.textAlign = 'center' // 居中
             postElement.appendChild(mediaCount)
+
+            const publishTime = document.createElement('p')
+            publishTime.innerText = `发布时间：${new Date(post.publishedDatetime).toLocaleString()}`
+            publishTime.style.margin = '0'
+            publishTime.style.fontSize = '14px'
+            publishTime.style.color = '#555'
+            publishTime.style.whiteSpace = 'nowrap' // 单行显示
+            publishTime.style.overflow = 'hidden' // 隐藏超出部分
+            publishTime.style.textOverflow = 'ellipsis' // 显示省略号
+            publishTime.style.width = '100%' // 确保宽度不超过父元素
+            publishTime.style.minHeight = '15px' // 设置最小高度
+            publishTime.style.flexShrink = '0' // 防止收缩
+            publishTime.style.textAlign = 'center' // 居中
+            postElement.appendChild(publishTime)
 
             const textElement = document.createElement('div')
             textElement.innerText = text
