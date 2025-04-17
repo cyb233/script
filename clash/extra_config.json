@@ -29,6 +29,8 @@
     "DOMAIN-SUFFIX,porn98.co,Proxies",
     "DOMAIN-SUFFIX,xchina.store,Proxies",
     "DOMAIN-SUFFIX,steamcommunity.com,Proxies",
-    "DOMAIN-SUFFIX,shuvi.moe,DIRECT"
+    "DOMAIN-SUFFIX,shuvi.moe,DIRECT",
+    "IP-CIDR,61.160.148.90/32,Proxies",
+    "IP-CIDR,221.228.32.13/32,Proxies"
   ]
 }
