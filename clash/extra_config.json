@@ -7,7 +7,7 @@
       "type": "http",
       "behavior": "classical",
       "path": "./rule_providers/adblock.yml",
-      "url": "https://mirror.ghproxy.com/https://raw.githubusercontent.com/peasoft/NoMoreWalls/master/snippets/adblock.yml",
+      "url": "https://raw.githubusercontent.com/peasoft/NoMoreWalls/master/snippets/adblock.yml",
       "interval": "21600",
       "format": "yaml"
     }
