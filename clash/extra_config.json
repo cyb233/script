@@ -2,25 +2,10 @@
   "mode": "rule",
   "mixed-port": 7890,
   "allow-lan": false,
-  "dns": {
-    "enable": true,
-    "enhanced-mode": "redir-host",
-    "fallback": [
-      "8.8.8.8",
-      "1.1.1.1"
-    ],
-    "ipv6": true,
-    "listen": ":1053",
-    "nameserver": [
-      "223.5.5.5",
-      "114.114.114.114"
-    ]
-  },
   "rules": [
     "DOMAIN-KEYWORD,js96110,REJECT",
     "IP-CIDR,61.160.148.90/32,Proxies",
     "IP-CIDR,221.228.32.13/32,Proxies",
-    "DOMAIN-SUFFIX,fanbox.cc,Proxies",
     "DOMAIN-SUFFIX,mega.co.nz,Proxies",
     "DOMAIN-SUFFIX,w3.org,Proxies",
     "DOMAIN-SUFFIX,bfeac.com,Proxies",
@@ -29,8 +14,6 @@
     "DOMAIN-SUFFIX,playnite.link,Proxies",
     "DOMAIN-SUFFIX,itch.io,Proxies",
     "DOMAIN-SUFFIX,cloudflarestorage.com,Proxies",
-    "DOMAIN-SUFFIX,porn98.co,Proxies",
-    "DOMAIN-SUFFIX,xchina.store,Proxies",
     "DOMAIN-SUFFIX,steamcommunity.com,Proxies",
     "DOMAIN-SUFFIX,shuvi.moe,DIRECT"
   ]
