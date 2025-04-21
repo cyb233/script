@@ -3,7 +3,9 @@
   "mixed-port": 7890,
   "allow-lan": false,
   "rules": [
-    "DOMAIN-SUFFIX,fanbox.cc,Proxies",
+    "DOMAIN-KEYWORD,js96110,REJECT",
+    "IP-CIDR,61.160.148.90/32,Proxies",
+    "IP-CIDR,221.228.32.13/32,Proxies",
     "DOMAIN-SUFFIX,mega.co.nz,Proxies",
     "DOMAIN-SUFFIX,w3.org,Proxies",
     "DOMAIN-SUFFIX,bfeac.com,Proxies",
@@ -12,8 +14,6 @@
     "DOMAIN-SUFFIX,playnite.link,Proxies",
     "DOMAIN-SUFFIX,itch.io,Proxies",
     "DOMAIN-SUFFIX,cloudflarestorage.com,Proxies",
-    "DOMAIN-SUFFIX,porn98.co,Proxies",
-    "DOMAIN-SUFFIX,xchina.store,Proxies",
     "DOMAIN-SUFFIX,steamcommunity.com,Proxies",
     "DOMAIN-SUFFIX,shuvi.moe,DIRECT"
   ]
