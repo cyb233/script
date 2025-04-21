@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      3.9
+// @version      4.0
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -145,6 +145,7 @@
             const resp = await fetch(api.post(nextId), { credentials: 'include' }).then(response => response.json()).catch(e => console.error(e));
             const feeRequired = resp.body.feeRequired || 0
             const minFeeRequired = getMinKey(planPostCount, feeRequired)
+            resp.body.minFeeRequired = minFeeRequired;
             planPostCount[minFeeRequired].count++;
             planPostCount["-2"].count++;
             if (minFeeRequired > yourFee) {
@@ -1087,7 +1088,7 @@
             postElement.appendChild(title)
 
             const typeElement = document.createElement('p')
-            typeElement.innerText = `${postType[post.type]?.name || post.type}`
+            typeElement.innerText = `${postType[post.type]?.name || post.type} · ${post.minFeeRequired} 日元`
             typeElement.style.margin = '0'
             typeElement.style.fontSize = '14px'
             typeElement.style.color = '#555'
