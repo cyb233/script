@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      3.8
+// @version      3.9
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -79,6 +79,13 @@
         };
     })();
 
+    function getMinKey(obj, minNum) {
+        const keys = Object.keys(obj)
+            .map(Number)
+            .filter(key => key >= minNum);
+        return keys.length > 0 ? Math.min(...keys) : Infinity;
+    }
+
     async function getAllPost(progressBar) {
         const planData = await fetch(api.plan((await baseinfo()).creatorId), { credentials: 'include' }).then(response => response.json()).catch(e => console.error(e));
         const yourPlan = planData.body.filter(plan => plan.paymentMethod)
@@ -137,10 +144,11 @@
             console.log(`请求第${++i}个`)
             const resp = await fetch(api.post(nextId), { credentials: 'include' }).then(response => response.json()).catch(e => console.error(e));
             const feeRequired = resp.body.feeRequired || 0
-            planPostCount[feeRequired].count++;
+            const minFeeRequired = getMinKey(planPostCount, feeRequired)
+            planPostCount[minFeeRequired].count++;
             planPostCount["-2"].count++;
-            if (feeRequired > yourFee) {
-                console.log(`${nextId}:${resp.body.title} 赞助等级不足，需要 ${feeRequired} 日元档，您的档位是 ${yourFee} 日元`)
+            if (minFeeRequired > yourFee) {
+                console.log(`${nextId}:${resp.body.title} 赞助等级不足，至少需要 ${minFeeRequired}${minFeeRequired > feeRequired ? '(' + feeRequired + ')' : ''} 日元档，您的档位是 ${yourFee} 日元`)
             }
             if (resp.body.body) {
                 planPostCount["-1"].count++
