@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      3.7
+// @version      3.8
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -139,7 +139,10 @@
             const feeRequired = resp.body.feeRequired || 0
             planPostCount[feeRequired].count++;
             planPostCount["-2"].count++;
-            if (feeRequired <= yourFee) {
+            if (feeRequired > yourFee) {
+                console.log(`${nextId}:${resp.body.title} 赞助等级不足，需要 ${feeRequired} 日元档，您的档位是 ${yourFee} 日元`)
+            }
+            if (resp.body.body) {
                 planPostCount["-1"].count++
                 // 处理post类型
                 resp.body.body.images = resp.body.body.images || []
@@ -265,8 +268,6 @@
                     console.log(`${nextId}:${resp.body.title} 未知类型 ${resp.body.type}`)
                 }
                 postArray.push(resp.body)
-            } else {
-                console.log(`${nextId}:${resp.body.title} 赞助等级不足，需要 ${feeRequired} 日元档，您的档位是 ${yourFee} 日元`)
             }
             progressBar.update(postArray.length, i)
             const prevPost = resp.body.prevPost
