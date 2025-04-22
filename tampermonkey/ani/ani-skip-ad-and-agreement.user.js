@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         动画疯跳过广告和年龄确认
 // @namespace    Schwi
-// @version      0.8
+// @version      0.9
 // @description  巴哈姆特动画疯 跳过各种麻烦的东西
 // @author       Schwi
 // @match        https://ani.gamer.com.tw/animeVideo.php?sn=*
@@ -23,7 +23,8 @@
     skipAgreement: true,
     skipAd: true,
     muteAd: true,
-    skipQuiz: false
+    skipQuiz: false,
+    autoNext: false
   };
 
   const config = GM_getValue('config', defaultConfig);
@@ -52,7 +53,12 @@
         config.skipQuiz = !config.skipQuiz;
         GM_setValue('config', config);
         resetMenus();
-      })
+      }),
+      GM_registerMenuCommand(`自动下一集：${config.autoNext ? '开' : '关'}`, () => {
+        config.autoNext = !config.autoNext;
+        GM_setValue('config', config);
+        resetMenus();
+      }),
     );
   };
 
@@ -124,6 +130,16 @@
     }
   };
 
+  const autoNext = () => {
+    const nextButton = document.querySelector('.stop:not(.vjs-hidden) #nextEpisode');
+    if (nextButton) {
+      console.log('下一集');
+      nextButton.click();
+    } else {
+      if (config.debug) console.debug('下一集按钮不存在');
+    }
+  };
+
   // 使用 MutationObserver 替换 setInterval 进行 DOM 变化监控
   const observer = new MutationObserver(() => {
     const video = document.querySelector('#ani_video_html5_api');
@@ -152,6 +168,10 @@
 
     if (config.skipQuiz) {
       skipQuiz();
+    }
+
+    if (config.autoNext) {
+      autoNext();
     }
   });
 
