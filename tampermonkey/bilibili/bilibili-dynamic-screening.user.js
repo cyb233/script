@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 动态筛选
 // @namespace    Schwi
-// @version      2.8
+// @version      2.9
 // @description  Bilibili 动态筛选，快速找出感兴趣的动态
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -42,7 +42,7 @@
 
     // https://github.com/SocialSisterYi/bilibili-API-collect/blob/master/docs/dynamic/dynamic_enum.md
     const DYNAMIC_TYPE = {
-        DYNAMIC_TYPE_NONE: { key: "DYNAMIC_TYPE_NONE", name: "动态失效", filter: false },
+        DYNAMIC_TYPE_NONE: { key: "DYNAMIC_TYPE_NONE", name: "动态失效", filter: true },
         DYNAMIC_TYPE_FORWARD: { key: "DYNAMIC_TYPE_FORWARD", name: "转发", filter: false },
         DYNAMIC_TYPE_AV: { key: "DYNAMIC_TYPE_AV", name: "视频", filter: true },
         DYNAMIC_TYPE_PGC: { key: "DYNAMIC_TYPE_PGC", name: "剧集", filter: true },
@@ -521,8 +521,13 @@
             let descText = dynamic.modules.module_dynamic.major?.opus?.summary?.text || dynamic.modules.module_dynamic.desc?.text || dynamic.modules.module_dynamic.major?.archive?.desc || ''
 
             if (isForward) {
-                const subDescText = getDescText(dynamic.orig)
-                descText += `<hr />${subDescText}`
+                if (dynamic.orig.type === DYNAMIC_TYPE.DYNAMIC_TYPE_NONE.key) {
+                    const tips = dynamic.orig.modules.module_dynamic.major.none.tips
+                    descText += `<hr />${tips}`
+                } else {
+                    const subDescText = getDescText(dynamic.orig)
+                    descText += `<hr />${subDescText}`
+                }
             }
 
             return `${titleText ? '<h3>' + titleText + '</h3><br />' : ''}${descText}`
