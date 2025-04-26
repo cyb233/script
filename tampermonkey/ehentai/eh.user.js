@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         e站收藏统计
 // @namespace    Schwi
-// @version      1.4
+// @version      1.5
 // @description  获取e站所有收藏，以及对所有标签进行排序以找到你最爱的标签，可按namespace分组，支持翻译
 // @author       Schwi
 // @match        *://e-hentai.org/*
@@ -109,7 +109,7 @@
             if (data.length > 0) {
                 namespace = data[0].frontMatters.name;
                 if (tag in data[0].data) {
-                    translate = data[0].data[tag].name;
+                    tagTranslate = data[0].data[tag].name;
                     intro = data[0].data[tag].intro || '';
                 }
             }
