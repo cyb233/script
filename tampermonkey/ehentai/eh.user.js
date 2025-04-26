@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         e站收藏统计
 // @namespace    Schwi
-// @version      1.2
+// @version      1.3
 // @description  获取e站所有收藏，以及对所有标签进行排序以找到你最爱的标签，可按namespace分组，支持翻译
 // @author       Schwi
 // @match        *://e-hentai.org/*
@@ -97,27 +97,34 @@
         reclassList.forEach(reclass => {
             if (reclass.reclass.toLowerCase().replace(' ', '') in translate.data[1].data) {
                 reclass.translate = translate.data[1].data[reclass.reclass.toLowerCase().replace(' ', '')].name;
+                reclass.intro = translate.data[1].data[reclass.reclass.toLowerCase().replace(' ', '')].intro || '';
             }
         });
         tagList.forEach(fullTag => {
             let namespace = fullTag.tag.split(":")[0];
             let tag = fullTag.tag.split(":")[1];
             let data = translate.data.filter(title => title.namespace === namespace);
+            let translate = tag;
+            let intro = '';
             if (data.length > 0) {
                 namespace = data[0].frontMatters.name;
                 if (tag in data[0].data) {
-                    tag = data[0].data[tag].name;
+                    translate = data[0].data[tag].name;
+                    intro = data[0].data[tag].intro || '';
                 }
             }
-            fullTag.translate = `${namespace}:${tag}`;
+            fullTag.translate = `${namespace}:${translate}`;
+            fullTag.intro = intro;
         });
         groupedTagList.forEach(group => {
             let data = translate.data.filter(title => title.namespace === group.namespace);
             if (data.length > 0) {
                 group.translate = data[0].frontMatters.name;
                 group.tags.forEach(tag => {
+                    tag.translate = tag.tag;
                     if (tag.tag in data[0].data) {
                         tag.translate = data[0].data[tag.tag].name;
+                        tag.intro = data[0].data[tag.tag].intro || '';
                     }
                 })
             }
@@ -210,7 +217,7 @@
         }
     }
 
-    function showResults(result, translate) {
+    function showResults(result) {
         let resultDiv = document.querySelector('#resultDiv');
         if (resultDiv) {
             resultDiv.remove();
@@ -302,6 +309,7 @@
             data.forEach((row, index) => {
                 const tr = document.createElement('tr');
                 tr.style.height = '30px';
+                tr.title = row.intro || '';
 
                 const indexTd = document.createElement('td');
                 indexTd.innerText = index + 1;
@@ -340,6 +348,7 @@
                 tags.forEach((tag, tagIndex) => {
                     const tr = document.createElement('tr');
                     tr.style.height = '30px';
+                    tr.title = tag.intro || '';
 
                     if (tagIndex === 0) {
                         const namespaceTd = document.createElement('td');
@@ -434,6 +443,6 @@
         const translate = await getTranslate(config.translationUrl);
         const result = await translateResult(collectList, translate);
         hideProgress();
-        showResults(result, translate);
+        showResults(result);
     });
 })();
