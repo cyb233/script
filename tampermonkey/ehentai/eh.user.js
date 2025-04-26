@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         e站收藏统计
 // @namespace    Schwi
-// @version      1.5
+// @version      1.6
 // @description  获取e站所有收藏，以及对所有标签进行排序以找到你最爱的标签，可按namespace分组，支持翻译
 // @author       Schwi
 // @match        *://e-hentai.org/*
@@ -348,7 +348,6 @@
                 tags.forEach((tag, tagIndex) => {
                     const tr = document.createElement('tr');
                     tr.style.height = '30px';
-                    tr.title = tag.intro || '';
 
                     if (tagIndex === 0) {
                         const namespaceTd = document.createElement('td');
@@ -363,18 +362,22 @@
 
                     const indexTd = document.createElement('td');
                     indexTd.innerText = tagIndex + 1;
+                    indexTd.title = tag.intro || '';
                     tr.appendChild(indexTd);
 
                     const tagTd = document.createElement('td');
                     tagTd.innerText = tag.tag;
+                    tagTd.title = tag.intro || '';
                     tr.appendChild(tagTd);
 
                     const translateTd = document.createElement('td');
                     translateTd.innerText = tag.translate;
+                    translateTd.title = tag.intro || '';
                     tr.appendChild(translateTd);
 
                     const countTd = document.createElement('td');
                     countTd.innerText = tag.count;
+                    countTd.title = tag.intro || '';
                     tr.appendChild(countTd);
 
                     table.appendChild(tr);
