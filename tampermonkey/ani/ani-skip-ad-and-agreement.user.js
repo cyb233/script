@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         动画疯跳过广告和年龄确认
 // @namespace    Schwi
-// @version      0.9
+// @version      1.0
 // @description  巴哈姆特动画疯 跳过各种麻烦的东西
 // @author       Schwi
 // @match        https://ani.gamer.com.tw/animeVideo.php?sn=*
