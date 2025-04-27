@@ -23,7 +23,6 @@
     skipAgreement: true,
     skipAd: true,
     muteAd: true,
-    skipQuiz: false,
     autoNext: false
   };
 
@@ -49,11 +48,6 @@
         GM_setValue('config', config);
         resetMenus();
       }),
-      GM_registerMenuCommand(`跳过动漫通问答：${config.skipQuiz ? '开' : '关'}`, () => {
-        config.skipQuiz = !config.skipQuiz;
-        GM_setValue('config', config);
-        resetMenus();
-      }),
       GM_registerMenuCommand(`自动下一集：${config.autoNext ? '开' : '关'}`, () => {
         config.autoNext = !config.autoNext;
         GM_setValue('config', config);
@@ -67,8 +61,7 @@
   const status = {
     adSkipped: false,
     userMuted: null,
-    adMuted: false,
-    quizSkipped: false
+    adMuted: false
   };
 
   const adCssList = [
@@ -115,21 +108,6 @@
     }
   };
 
-  const skipQuiz = () => {
-    const quizButton = document.querySelector('.quiz_title>a');
-    if (quizButton && !status.quizSkipped) {
-      console.log('跳过动漫通问答');
-      quizButton.click();
-      status.quizSkipped = true;
-    } else {
-      if (config.debug) console.debug('动漫通问答按钮不存在或已被点击');
-      if (status.quizSkipped) {
-        console.log('恢复动漫通问答状态');
-        status.quizSkipped = false;
-      }
-    }
-  };
-
   const autoNext = () => {
     const nextButton = document.querySelector('.stop:not(.vjs-hidden) #nextEpisode');
     if (nextButton) {
@@ -164,10 +142,6 @@
 
     if (status.adSkipped) {
       restoreMuteStatus(video);
-    }
-
-    if (config.skipQuiz) {
-      skipQuiz();
     }
 
     if (config.autoNext) {
