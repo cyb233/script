@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 动态筛选
 // @namespace    Schwi
-// @version      2.9
+// @version      3.0
 // @description  Bilibili 动态筛选，快速找出感兴趣的动态
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -552,7 +552,7 @@
 
             let backgroundImage = '';
             if (type === DYNAMIC_TYPE.DYNAMIC_TYPE_DRAW.key) {
-                backgroundImage = baseDynamic.modules.module_dynamic.major.opus?.pics[0].url;
+                backgroundImage = baseDynamic.modules.module_dynamic.major.opus?.pics[0]?.url || '';
             }
 
             let dynamicItem = document.createElement('div');
