@@ -10,6 +10,7 @@
 // @grant        GM_registerMenuCommand
 // @noframes
 // @supportURL   https://github.com/cyb233/script
+// @icon         https://www.bilibili.com/favicon.ico
 // @license      GPL-3.0
 // ==/UserScript==
 
