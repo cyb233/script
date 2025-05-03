@@ -167,6 +167,66 @@
     return mergedGifts;
   }
 
+  // 工具函数：创建 dialog
+  function createDialog(id, title, content) {
+    let dialog = document.createElement('div');
+    dialog.id = id;
+    dialog.style.position = 'fixed';
+    dialog.style.top = '5%';
+    dialog.style.left = '5%';
+    dialog.style.width = '90%';
+    dialog.style.height = '90%';
+    dialog.style.backgroundColor = '#fff';
+    dialog.style.border = '1px solid #ccc';
+    dialog.style.boxShadow = '0 0 10px rgba(0,0,0,0.5)';
+    dialog.style.zIndex = '9999';
+    dialog.style.display = 'none';
+    dialog.style.overflow = 'hidden';
+
+    let header = document.createElement('div');
+    header.style.display = 'flex';
+    header.style.justifyContent = 'space-between';
+    header.style.alignItems = 'center';
+    header.style.padding = '10px';
+    header.style.borderBottom = '1px solid #ccc';
+    header.style.backgroundColor = '#f9f9f9';
+
+    let titleElement = document.createElement('span');
+    titleElement.textContent = title;
+    header.appendChild(titleElement);
+
+    let closeButton = document.createElement('button');
+    closeButton.textContent = '关闭';
+    closeButton.style.backgroundColor = '#ff4d4f';
+    closeButton.style.color = '#fff';
+    closeButton.style.border = 'none';
+    closeButton.style.borderRadius = '5px';
+    closeButton.style.cursor = 'pointer';
+    closeButton.style.padding = '5px 10px';
+    closeButton.style.transition = 'background-color 0.3s';
+    closeButton.onmouseover = () => { closeButton.style.backgroundColor = '#d93637'; }
+    closeButton.onmouseout = () => { closeButton.style.backgroundColor = '#ff4d4f'; }
+    closeButton.onclick = () => dialog.remove();
+    header.appendChild(closeButton);
+
+    dialog.appendChild(header);
+
+    let contentArea = document.createElement('div');
+    contentArea.innerHTML = content;
+    contentArea.style.padding = '10px';
+    dialog.appendChild(contentArea);
+
+    document.body.appendChild(dialog);
+
+    return {
+      dialog: dialog,
+      header: header,
+      titleElement: titleElement,
+      closeButton: closeButton,
+      contentArea: contentArea
+    };
+  }
+
   // 循环请求盲盒数据
   async function fetchAllBlindBoxes() {
     let nextId = 0;
@@ -174,6 +234,11 @@
     let isMore = 1;
 
     const allGiftList = [];
+
+    // 创建进度弹窗
+    let { dialog: progressDialog, contentArea: progressContentArea } = createDialog('progressDialog', '盲盒数据收集进度', `<p>已收集盲盒数：<span id='collectedCount'>0</span></p>`);
+    progressDialog.style.display = 'block';
+
     while (isMore) {
       try {
         const response = await apiRequest(api.getBlindBox(nextId, month));
@@ -191,6 +256,10 @@
           nextId = params.nextId;
           month = params.month;
           isMore = params.isMore;
+
+          // 更新进度弹窗
+          progressContentArea.querySelector('#collectedCount').textContent = allGiftList.length;
+
         } else {
           console.error('API 返回错误:', response.message);
           break;
@@ -200,6 +269,9 @@
         break;
       }
     }
+
+    // 关闭进度弹窗
+    progressDialog.remove();
 
     // 去重并存储
     const mergedGiftList = saveGiftList(allGiftList);
@@ -258,6 +330,61 @@
     });
 
     console.log('按 originalGiftId 分组的盲盒统计:', groupedGiftStats);
+
+    // 显示结果弹窗
+    showResultsDialog(groupedGiftStats);
+  }
+
+  // 显示结果 dialog
+  function showResultsDialog(groupedGiftStats) {
+    const { dialog, titleElement, closeButton, contentArea } = createDialog('resultsDialog', '盲盒统计结果', '');
+
+    // 创建表格
+    let table = document.createElement('table');
+    table.style.width = '100%';
+    table.style.borderCollapse = 'collapse';
+    table.style.margin = '10px 0';
+
+    // 创建表头
+    let thead = table.createTHead();
+    let headerRow = thead.insertRow();
+    let headers = ['盲盒名称', '礼物名称', '数量', '概率'];
+    headers.forEach(headerText => {
+      let th = document.createElement('th');
+      th.textContent = headerText;
+      th.style.padding = '8px';
+      th.style.border = '1px solid #ddd';
+      th.style.textAlign = 'left';
+      headerRow.appendChild(th);
+    });
+
+    // 创建表体
+    let tbody = table.createTBody();
+    Object.entries(groupedGiftStats).forEach(([originalGiftId, group]) => {
+      Object.entries(group.gifts).forEach(([giftId, gift]) => {
+        let row = tbody.insertRow();
+        let cell1 = row.insertCell();
+        let cell2 = row.insertCell();
+        let cell3 = row.insertCell();
+        let cell4 = row.insertCell();
+
+        cell1.textContent = group.originalGiftName;
+        cell2.textContent = gift.giftName;
+        cell3.textContent = gift.count;
+        cell4.textContent = gift.percentage;
+
+        [cell1, cell2, cell3, cell4].forEach(cell => {
+          cell.style.padding = '8px';
+          cell.style.border = '1px solid #ddd';
+          cell.style.textAlign = 'left';
+        });
+      });
+    });
+
+    // 将表格添加到弹窗内容区域
+    contentArea.appendChild(table);
+
+    dialog.style.display = 'block';
   }
 
   // 注册菜单项
