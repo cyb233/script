@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 动态筛选
 // @namespace    Schwi
-// @version      3.0
+// @version      3.1
 // @description  Bilibili 动态筛选，快速找出感兴趣的动态
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -164,6 +164,7 @@
                 (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item)?.modules?.module_dynamic?.desc?.rich_text_nodes?.some(n => n?.type === RICH_TEXT_NODE_TYPE.RICH_TEXT_NODE_TYPE_LOTTERY.key)
         },
         充电互动抽奖: { type: "checkbox", filter: (item, input) => (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig : item)?.modules?.module_dynamic?.additional?.type === ADDITIONAL_TYPE.ADDITIONAL_TYPE_UPOWER_LOTTERY.key },
+        非充电互动抽奖: { type: "checkbox", filter: (item, input) => defaultFilters['互动抽奖'].filter(item) && !defaultFilters['充电互动抽奖'].filter(item) },
         已参与: {
             type: "checkbox", filter: (item, input) => {
                 return (defaultFilters['有奖预约'].filter(item) && item.reserve?.isFollow === 1)
