@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 盲盒统计
 // @namespace    Schwi
-// @version      0.2
+// @version      0.3
 // @description  调用 API 来收集自己的 Bilibili 盲盒概率，公示概率真的准确吗？（受API限制，获取的记录大约只有最近2个自然月）
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -136,6 +136,8 @@
     }
   };
 
+  const boxOrder = ['星月盲盒', '心动盲盒', '奇遇盲盒', '闪耀盲盒', '至尊盲盒']
+
   // API 请求函数
   async function apiRequest(url, retry = 3) {
     for (let attempt = 1; attempt <= retry; attempt++) {
@@ -214,6 +216,8 @@
     let contentArea = document.createElement('div');
     contentArea.innerHTML = content;
     contentArea.style.padding = '10px';
+    contentArea.style.overflowY = 'auto'; // 允许垂直滚动
+    contentArea.style.height = 'calc(100% - 40px)'; // 减去 header 的高度
     dialog.appendChild(contentArea);
 
     document.body.appendChild(dialog);
@@ -339,39 +343,88 @@
   function showResultsDialog(groupedGiftStats) {
     const { dialog, titleElement, closeButton, contentArea } = createDialog('resultsDialog', '盲盒统计结果', '');
 
-    // 创建表格
-    let table = document.createElement('table');
-    table.style.width = '100%';
-    table.style.borderCollapse = 'collapse';
-    table.style.margin = '10px 0';
+    // 获取排序后的 originalGiftId 数组
+    const sortedOriginalGiftIds = Object.entries(groupedGiftStats)
+      .sort(([originalGiftIdA, groupA], [originalGiftIdB, groupB]) => {
+        const nameA = groupA.originalGiftName;
+        const nameB = groupB.originalGiftName;
 
-    // 创建表头
-    let thead = table.createTHead();
-    let headerRow = thead.insertRow();
-    let headers = ['盲盒名称', '礼物名称', '数量', '概率'];
-    headers.forEach(headerText => {
-      let th = document.createElement('th');
-      th.textContent = headerText;
-      th.style.padding = '8px';
-      th.style.border = '1px solid #ddd';
-      th.style.textAlign = 'left';
-      headerRow.appendChild(th);
-    });
+        const indexA = boxOrder.indexOf(nameA);
+        const indexB = boxOrder.indexOf(nameB);
 
-    // 创建表体
-    let tbody = table.createTBody();
-    Object.entries(groupedGiftStats).forEach(([originalGiftId, group]) => {
-      Object.entries(group.gifts).forEach(([giftId, gift]) => {
+        if (indexA === -1 && indexB === -1) return 0;
+        if (indexA === -1) return 1;
+        if (indexB === -1) return -1;
+
+        return indexA - indexB;
+      })
+      .map(([originalGiftId]) => originalGiftId);
+
+    // 循环创建每个盲盒的表格
+    sortedOriginalGiftIds.forEach(originalGiftId => {
+      const group = groupedGiftStats[originalGiftId];
+
+      // 创建标题
+      let title = document.createElement('h2');
+      title.textContent = `${group.originalGiftName} (总抽数: ${group.totalCount})`;
+      title.style.marginTop = '20px';
+      contentArea.appendChild(title);
+
+      // 创建表格
+      let table = document.createElement('table');
+      table.style.width = '100%';
+      table.style.borderCollapse = 'collapse';
+      table.style.margin = '10px 0';
+
+      // 创建表头
+      let thead = table.createTHead();
+      let headerRow = thead.insertRow();
+      let headers = ['礼物名称', '数量', '你的概率', '公示概率'];
+      headers.forEach(headerText => {
+        let th = document.createElement('th');
+        th.textContent = headerText;
+        th.style.padding = '8px';
+        th.style.border = '1px solid #ddd';
+        th.style.textAlign = 'left';
+        headerRow.appendChild(th);
+      });
+
+      // 创建表体
+      let tbody = table.createTBody();
+
+      // 获取排序后的 gifts 数组
+      const sortedGifts = Object.entries(group.gifts).sort(([giftIdA, giftA], [giftIdB, giftB]) => {
+        const giftInfoA = giftInfo[originalGiftId]?.gifts.find(g => g.id === parseInt(giftIdA));
+        const giftInfoB = giftInfo[originalGiftId]?.gifts.find(g => g.id === parseInt(giftIdB));
+
+        if (!giftInfoA && !giftInfoB) return 0;
+        if (!giftInfoA) return 1;
+        if (!giftInfoB) return -1;
+
+        const indexA = giftInfo[originalGiftId].gifts.indexOf(giftInfoA);
+        const indexB = giftInfo[originalGiftId].gifts.indexOf(giftInfoB);
+        return indexA - indexB;
+      });
+
+      sortedGifts.forEach(([giftId, gift]) => {
         let row = tbody.insertRow();
         let cell1 = row.insertCell();
         let cell2 = row.insertCell();
         let cell3 = row.insertCell();
         let cell4 = row.insertCell();
 
-        cell1.textContent = group.originalGiftName;
-        cell2.textContent = gift.giftName;
-        cell3.textContent = gift.count;
-        cell4.textContent = gift.percentage;
+        let giftLink = document.createElement('a');
+        giftLink.href = `https://shuvi.moe/sync-bilibili-gifts/#${giftId}`;
+        giftLink.textContent = gift.giftName;
+        giftLink.target = '_blank'; // 在新标签页中打开
+        cell1.appendChild(giftLink);
+
+        cell2.textContent = gift.count;
+        cell3.textContent = gift.percentage;
+
+        // 获取公示概率
+        const officialPercentage = giftInfo[originalGiftId]?.gifts.find(g => g.id === parseInt(giftId))?.percentage;
+        cell4.textContent = officialPercentage ? officialPercentage + '%' : 'N/A';
 
         [cell1, cell2, cell3, cell4].forEach(cell => {
           cell.style.padding = '8px';
@@ -379,10 +432,10 @@
           cell.style.textAlign = 'left';
         });
       });
-    });
 
-    // 将表格添加到弹窗内容区域
-    contentArea.appendChild(table);
+      // 将表格添加到弹窗内容区域
+      contentArea.appendChild(table);
+    });
 
     dialog.style.display = 'block';
   }
