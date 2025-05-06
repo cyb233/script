@@ -47,85 +47,94 @@
 
 
   // 盲盒信息，percentage为官方公示概率（不包含活动倍率）
-  let giftInfo;
-  try {
-    giftInfo = await apiRequest('https://gift.shuvi.moe/bili-gift-box.json');
-  } catch (error) {
-    console.error('获取盲盒信息失败:', error);
-    // 如果获取失败，使用本地存储的最基本的盲盒信息
-    giftInfo = {
-      "32649": {
-        "id": 32649,
-        "name": "星月盲盒",
-        "price": 50,
-        "gifts": [
-          { "id": 32698, "name": "小蛋糕", "price": 15, "percentage": 20, "subGifts": {} },
-          { "id": 32694, "name": "星与月", "price": 25, "percentage": 24.3, "subGifts": {} },
-          { "id": 32075, "name": "情书", "price": 52, "percentage": 23.15, "subGifts": {} },
-          { "id": 34188, "name": "少女祈祷", "price": 66, "percentage": 20, "subGifts": {} },
-          { "id": 32695, "name": "冲鸭", "price": 99, "percentage": 10.3, "subGifts": {} },
-          { "id": 32700, "name": "星河入梦", "price": 199, "percentage": 2, "subGifts": {} },
-          { "id": 32692, "name": "落樱缤纷", "price": 600, "percentage": 0.25, "subGifts": {} }
-        ]
-      },
-      "32251": {
-        "id": 32251,
-        "name": "心动盲盒",
-        "price": 150,
-        "gifts": [
-          { "id": 32125, "name": "电影票", "price": 20, "percentage": 6, "subGifts": {} },
-          { "id": 32126, "name": "棉花糖", "price": 90, "percentage": 44.5, "subGifts": {} },
-          { "id": 32128, "name": "爱心抱枕", "price": 160, "percentage": 45.56, "subGifts": {} },
-          { "id": 32281, "name": "绮彩权杖", "price": 400, "percentage": 3.7, "subGifts": {} },
-          { "id": 34082, "name": "时空之站", "price": 1000, "percentage": 0.12, "subGifts": {} },
-          { "id": 34894, "name": "蛇形护符", "price": 2000, "percentage": 0.08, "subGifts": {} },
-          { "id": 32132, "name": "浪漫城堡", "price": 22330, "percentage": 0.04, "subGifts": {} }
-        ]
-      },
-      "34052": {
-        "id": 34052,
-        "name": "奇遇盲盒",
-        "price": 330,
-        "gifts": [
-          { "id": 34059, "name": "魔力球", "price": 50, "percentage": 5, "subGifts": {} },
-          { "id": 34058, "name": "精灵兔", "price": 100, "percentage": 41.67, "subGifts": {} },
-          { "id": 34057, "name": "许愿神灯", "price": 400, "percentage": 49, "subGifts": {} },
-          { "id": 34530, "name": "梦幻花车", "price": 1000, "percentage": 4, "subGifts": {} },
-          { "id": 34055, "name": "奇遇巴士", "price": 2000, "percentage": 0.13, "subGifts": {} },
-          { "id": 34054, "name": "星愿飞船", "price": 8000, "percentage": 0.1, "subGifts": {} },
-          { "id": 32683, "name": "奇幻古堡", "price": 28880, "percentage": 0.1, "subGifts": {} }
-        ]
-      },
-      "32368": {
-        "id": 32368,
-        "name": "闪耀盲盒",
-        "price": 500,
-        "gifts": [
-          { "id": 32360, "name": "璀璨钻石", "price": 200, "percentage": 9.96, "subGifts": {} },
-          { "id": 32359, "name": "旅行日记", "price": 300, "percentage": 36, "subGifts": {} },
-          { "id": 34000, "name": "机械幻想", "price": 510, "percentage": 50.1, "subGifts": {} },
-          { "id": 34082, "name": "时空之站", "price": 1000, "percentage": 3.4, "subGifts": {} },
-          { "id": 34894, "name": "蛇形护符", "price": 2000, "percentage": 0.28, "subGifts": {} },
-          { "id": 34895, "name": "金蛇献福", "price": 5000, "percentage": 0.16, "subGifts": {} },
-          { "id": 32356, "name": "幻影飞船", "price": 30000, "percentage": 0.1, "subGifts": {} }
-        ]
-      },
-      "32369": {
-        "id": 32369,
-        "name": "至尊盲盒",
-        "price": 1000,
-        "gifts": [
-          { "id": 32360, "name": "璀璨钻石", "price": 200, "percentage": 0.1, "subGifts": {} },
-          { "id": 32281, "name": "绮彩权杖", "price": 400, "percentage": 22.75, "subGifts": {} },
-          { "id": 32363, "name": "许愿精灵", "price": 888, "percentage": 35, "subGifts": {} },
-          { "id": 33999, "name": "星际启航", "price": 1010, "percentage": 40.14, "subGifts": {} },
-          { "id": 34894, "name": "蛇形护符", "price": 2000, "percentage": 1.45, "subGifts": {} },
-          { "id": 34895, "name": "金蛇献福", "price": 5000, "percentage": 0.32, "subGifts": {} },
-          { "id": 32361, "name": "奇幻之城", "price": 32000, "percentage": 0.24, "subGifts": {} }
-        ]
+  const getGiftInfo = (() => {
+    let giftInfo = null;
+    return async function () {
+      if (giftInfo) {
+        return giftInfo;
       }
-    }
-  }
+
+      try {
+        giftInfo = await apiRequest('https://gift.shuvi.moe/bili-gift-box.json');
+        return giftInfo;
+      } catch (error) {
+        console.error('获取盲盒信息失败:', error);
+        // 如果获取失败，使用本地存储的最基本的盲盒信息
+        return {
+          "32649": {
+            "id": 32649,
+            "name": "星月盲盒",
+            "price": 50,
+            "gifts": [
+              { "id": 32698, "name": "小蛋糕", "price": 15, "percentage": 20, "subGifts": {} },
+              { "id": 32694, "name": "星与月", "price": 25, "percentage": 24.3, "subGifts": {} },
+              { "id": 32075, "name": "情书", "price": 52, "percentage": 23.15, "subGifts": {} },
+              { "id": 34188, "name": "少女祈祷", "price": 66, "percentage": 20, "subGifts": {} },
+              { "id": 32695, "name": "冲鸭", "price": 99, "percentage": 10.3, "subGifts": {} },
+              { "id": 32700, "name": "星河入梦", "price": 199, "percentage": 2, "subGifts": {} },
+              { "id": 32692, "name": "落樱缤纷", "price": 600, "percentage": 0.25, "subGifts": {} }
+            ]
+          },
+          "32251": {
+            "id": 32251,
+            "name": "心动盲盒",
+            "price": 150,
+            "gifts": [
+              { "id": 32125, "name": "电影票", "price": 20, "percentage": 6, "subGifts": {} },
+              { "id": 32126, "name": "棉花糖", "price": 90, "percentage": 44.5, "subGifts": {} },
+              { "id": 32128, "name": "爱心抱枕", "price": 160, "percentage": 45.56, "subGifts": {} },
+              { "id": 32281, "name": "绮彩权杖", "price": 400, "percentage": 3.7, "subGifts": {} },
+              { "id": 34082, "name": "时空之站", "price": 1000, "percentage": 0.12, "subGifts": {} },
+              { "id": 34894, "name": "蛇形护符", "price": 2000, "percentage": 0.08, "subGifts": {} },
+              { "id": 32132, "name": "浪漫城堡", "price": 22330, "percentage": 0.04, "subGifts": {} }
+            ]
+          },
+          "34052": {
+            "id": 34052,
+            "name": "奇遇盲盒",
+            "price": 330,
+            "gifts": [
+              { "id": 34059, "name": "魔力球", "price": 50, "percentage": 5, "subGifts": {} },
+              { "id": 34058, "name": "精灵兔", "price": 100, "percentage": 41.67, "subGifts": {} },
+              { "id": 34057, "name": "许愿神灯", "price": 400, "percentage": 49, "subGifts": {} },
+              { "id": 34530, "name": "梦幻花车", "price": 1000, "percentage": 4, "subGifts": {} },
+              { "id": 34055, "name": "奇遇巴士", "price": 2000, "percentage": 0.13, "subGifts": {} },
+              { "id": 34054, "name": "星愿飞船", "price": 8000, "percentage": 0.1, "subGifts": {} },
+              { "id": 32683, "name": "奇幻古堡", "price": 28880, "percentage": 0.1, "subGifts": {} }
+            ]
+          },
+          "32368": {
+            "id": 32368,
+            "name": "闪耀盲盒",
+            "price": 500,
+            "gifts": [
+              { "id": 32360, "name": "璀璨钻石", "price": 200, "percentage": 9.96, "subGifts": {} },
+              { "id": 32359, "name": "旅行日记", "price": 300, "percentage": 36, "subGifts": {} },
+              { "id": 34000, "name": "机械幻想", "price": 510, "percentage": 50.1, "subGifts": {} },
+              { "id": 34082, "name": "时空之站", "price": 1000, "percentage": 3.4, "subGifts": {} },
+              { "id": 34894, "name": "蛇形护符", "price": 2000, "percentage": 0.28, "subGifts": {} },
+              { "id": 34895, "name": "金蛇献福", "price": 5000, "percentage": 0.16, "subGifts": {} },
+              { "id": 32356, "name": "幻影飞船", "price": 30000, "percentage": 0.1, "subGifts": {} }
+            ]
+          },
+          "32369": {
+            "id": 32369,
+            "name": "至尊盲盒",
+            "price": 1000,
+            "gifts": [
+              { "id": 32360, "name": "璀璨钻石", "price": 200, "percentage": 0.1, "subGifts": {} },
+              { "id": 32281, "name": "绮彩权杖", "price": 400, "percentage": 22.75, "subGifts": {} },
+              { "id": 32363, "name": "许愿精灵", "price": 888, "percentage": 35, "subGifts": {} },
+              { "id": 33999, "name": "星际启航", "price": 1010, "percentage": 40.14, "subGifts": {} },
+              { "id": 34894, "name": "蛇形护符", "price": 2000, "percentage": 1.45, "subGifts": {} },
+              { "id": 34895, "name": "金蛇献福", "price": 5000, "percentage": 0.32, "subGifts": {} },
+              { "id": 32361, "name": "奇幻之城", "price": 32000, "percentage": 0.24, "subGifts": {} }
+            ]
+          }
+        }
+      }
+    };
+  })();
 
   // 去重合并记录并存储
   function saveGiftList(newGifts) {
@@ -254,12 +263,12 @@
 
     // {originalGiftId: {giftId: giftName}} 格式化，仅保存giftInfo中gifts及subGifts中不存在的礼物
     const giftMap = {};
-    mergedGiftList.forEach(gift => {
+    mergedGiftList.forEach(async gift => {
       const { originalGiftId, originalGiftName, giftId, giftName } = gift;
       if (!giftMap[originalGiftId]) {
         giftMap[originalGiftId] = { name: originalGiftName };
       }
-      const giftInfoEntry = giftInfo[originalGiftId]?.gifts.find(g => g.id === giftId || Object.values(g.subGifts).some(gift => gift.id === giftId));
+      const giftInfoEntry = (await getGiftInfo())[originalGiftId]?.gifts.find(g => g.id === giftId || Object.values(g.subGifts).some(gift => gift.id === giftId));
       if (!giftInfoEntry) {
         giftMap[originalGiftId][giftId] = giftName;
       }
@@ -268,7 +277,7 @@
 
     // 根据 originalGiftId 分组统计 giftId 数量
     const groupedGiftStats = {};
-    mergedGiftList.forEach(gift => {
+    mergedGiftList.forEach(async gift => {
       const { originalGiftId, originalGiftName, giftId, giftName, giftNum } = gift;
       if (!groupedGiftStats[originalGiftId]) {
         groupedGiftStats[originalGiftId] = {
@@ -280,7 +289,7 @@
 
       // 检查 giftId 是否属于 subGifts
       let mainGiftId = giftId;
-      const giftInfoEntry = giftInfo[originalGiftId]?.gifts.find(g => g.id === giftId || Object.values(g.subGifts).some(gift => gift.id === giftId));
+      const giftInfoEntry = (await getGiftInfo())[originalGiftId]?.gifts.find(g => g.id === giftId || Object.values(g.subGifts).some(gift => gift.id === giftId));
       if (giftInfoEntry) {
         mainGiftId = giftInfoEntry.id;
       }
@@ -364,20 +373,20 @@
       let tbody = table.createTBody();
 
       // 获取排序后的 gifts 数组
-      const sortedGifts = Object.entries(group.gifts).sort(([giftIdA, giftA], [giftIdB, giftB]) => {
-        const giftInfoA = giftInfo[originalGiftId]?.gifts.find(g => g.id === parseInt(giftIdA));
-        const giftInfoB = giftInfo[originalGiftId]?.gifts.find(g => g.id === parseInt(giftIdB));
+      const sortedGifts = Object.entries(group.gifts).sort(async ([giftIdA, giftA], [giftIdB, giftB]) => {
+        const giftInfoA = (await getGiftInfo())[originalGiftId]?.gifts.find(g => g.id === parseInt(giftIdA));
+        const giftInfoB = (await getGiftInfo())[originalGiftId]?.gifts.find(g => g.id === parseInt(giftIdB));
 
         if (!giftInfoA && !giftInfoB) return 0;
         if (!giftInfoA) return 1;
         if (!giftInfoB) return -1;
 
-        const indexA = giftInfo[originalGiftId].gifts.indexOf(giftInfoA);
-        const indexB = giftInfo[originalGiftId].gifts.indexOf(giftInfoB);
+        const indexA = (await getGiftInfo())[originalGiftId].gifts.indexOf(giftInfoA);
+        const indexB = (await getGiftInfo())[originalGiftId].gifts.indexOf(giftInfoB);
         return indexA - indexB;
       });
 
-      sortedGifts.forEach(([giftId, gift]) => {
+      sortedGifts.forEach(async ([giftId, gift]) => {
         let row = tbody.insertRow();
         let cell1 = row.insertCell();
         let cell2 = row.insertCell();
@@ -394,7 +403,7 @@
         cell3.textContent = gift.percentage;
 
         // 获取公示概率
-        const officialPercentage = giftInfo[originalGiftId]?.gifts.find(g => g.id === parseInt(giftId))?.percentage;
+        const officialPercentage = (await getGiftInfo())[originalGiftId]?.gifts.find(g => g.id === parseInt(giftId))?.percentage;
         cell4.textContent = officialPercentage ? officialPercentage + '%' : 'N/A';
 
         [cell1, cell2, cell3, cell4].forEach(cell => {
