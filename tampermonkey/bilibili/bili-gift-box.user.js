@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 盲盒统计
 // @namespace    Schwi
-// @version      0.4
+// @version      0.5
 // @description  调用 API 来收集自己的 Bilibili 盲盒概率，公示概率真的准确吗？（受API限制，获取的记录大约只有最近2个自然月，本脚本会本地持久化储存记录）
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -45,17 +45,11 @@
     }
   }
 
-  // https://api.live.bilibili.com/gift/v3/live/gift_config
-  /*
-  const resp = await fetch('https://api.live.bilibili.com/gift/v3/live/gift_config').then(resp => resp.json())
-  const gifts = resp.data
-  gifts.find(gift => gift.id === 1)?.name
-  gifts.find(gift => gift.name === '')?.id
-  */
+
   // 盲盒信息，percentage为官方公示概率（不包含活动倍率）
   let giftInfo;
   try {
-    giftInfo = await apiRequest('https://shuvi.moe/sync-bilibili-gifts/bili-gift-box.json');
+    giftInfo = await apiRequest('https://gift.shuvi.moe/bili-gift-box.json');
   } catch (error) {
     console.error('获取盲盒信息失败:', error);
     // 如果获取失败，使用本地存储的最基本的盲盒信息
