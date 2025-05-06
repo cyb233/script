@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 盲盒统计
 // @namespace    Schwi
-// @version      0.6
+// @version      0.7
 // @description  调用 API 来收集自己的 Bilibili 盲盒概率，公示概率真的准确吗？（受API限制，获取的记录大约只有最近2个自然月，本脚本会本地持久化储存记录）
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -261,14 +261,16 @@
     const mergedGiftList = saveGiftList(allGiftList);
     console.log('合并后的盲盒数据:', mergedGiftList);
 
+    const giftInfo = await getGiftInfo()
+
     // {originalGiftId: {giftId: giftName}} 格式化，仅保存giftInfo中gifts及subGifts中不存在的礼物
     const giftMap = {};
-    mergedGiftList.forEach(async gift => {
+    mergedGiftList.forEach(gift => {
       const { originalGiftId, originalGiftName, giftId, giftName } = gift;
       if (!giftMap[originalGiftId]) {
         giftMap[originalGiftId] = { name: originalGiftName };
       }
-      const giftInfoEntry = (await getGiftInfo())[originalGiftId]?.gifts.find(g => g.id === giftId || Object.values(g.subGifts).some(gift => gift.id === giftId));
+      const giftInfoEntry = giftInfo[originalGiftId]?.gifts.find(g => g.id === giftId || Object.values(g.subGifts).some(gift => gift.id === giftId));
       if (!giftInfoEntry) {
         giftMap[originalGiftId][giftId] = giftName;
       }
@@ -277,7 +279,7 @@
 
     // 根据 originalGiftId 分组统计 giftId 数量
     const groupedGiftStats = {};
-    mergedGiftList.forEach(async gift => {
+    mergedGiftList.forEach(gift => {
       const { originalGiftId, originalGiftName, giftId, giftName, giftNum } = gift;
       if (!groupedGiftStats[originalGiftId]) {
         groupedGiftStats[originalGiftId] = {
@@ -289,7 +291,7 @@
 
       // 检查 giftId 是否属于 subGifts
       let mainGiftId = giftId;
-      const giftInfoEntry = (await getGiftInfo())[originalGiftId]?.gifts.find(g => g.id === giftId || Object.values(g.subGifts).some(gift => gift.id === giftId));
+      const giftInfoEntry = giftInfo[originalGiftId]?.gifts.find(g => g.id === giftId || Object.values(g.subGifts).some(gift => gift.id === giftId));
       if (giftInfoEntry) {
         mainGiftId = giftInfoEntry.id;
       }
@@ -320,9 +322,9 @@
   }
 
   // 显示结果 dialog
-  function showResultsDialog(groupedGiftStats) {
+  async function showResultsDialog(groupedGiftStats) {
     const { dialog, titleElement, closeButton, contentArea } = createDialog('resultsDialog', '盲盒统计结果', '');
-
+    const giftInfo = await getGiftInfo()
     // 获取排序后的 originalGiftId 数组
     const sortedOriginalGiftIds = Object.entries(groupedGiftStats)
       .sort(([originalGiftIdA, groupA], [originalGiftIdB, groupB]) => {
@@ -373,20 +375,20 @@
       let tbody = table.createTBody();
 
       // 获取排序后的 gifts 数组
-      const sortedGifts = Object.entries(group.gifts).sort(async ([giftIdA, giftA], [giftIdB, giftB]) => {
-        const giftInfoA = (await getGiftInfo())[originalGiftId]?.gifts.find(g => g.id === parseInt(giftIdA));
-        const giftInfoB = (await getGiftInfo())[originalGiftId]?.gifts.find(g => g.id === parseInt(giftIdB));
+      const sortedGifts = Object.entries(group.gifts).sort(([giftIdA, giftA], [giftIdB, giftB]) => {
+        const giftInfoA = giftInfo[originalGiftId]?.gifts.find(g => g.id === parseInt(giftIdA));
+        const giftInfoB = giftInfo[originalGiftId]?.gifts.find(g => g.id === parseInt(giftIdB));
 
         if (!giftInfoA && !giftInfoB) return 0;
         if (!giftInfoA) return 1;
         if (!giftInfoB) return -1;
 
-        const indexA = (await getGiftInfo())[originalGiftId].gifts.indexOf(giftInfoA);
-        const indexB = (await getGiftInfo())[originalGiftId].gifts.indexOf(giftInfoB);
+        const indexA = giftInfo[originalGiftId].gifts.indexOf(giftInfoA);
+        const indexB = giftInfo[originalGiftId].gifts.indexOf(giftInfoB);
         return indexA - indexB;
       });
 
-      sortedGifts.forEach(async ([giftId, gift]) => {
+      sortedGifts.forEach(([giftId, gift]) => {
         let row = tbody.insertRow();
         let cell1 = row.insertCell();
         let cell2 = row.insertCell();
@@ -403,7 +405,7 @@
         cell3.textContent = gift.percentage;
 
         // 获取公示概率
-        const officialPercentage = (await getGiftInfo())[originalGiftId]?.gifts.find(g => g.id === parseInt(giftId))?.percentage;
+        const officialPercentage = giftInfo[originalGiftId]?.gifts.find(g => g.id === parseInt(giftId))?.percentage;
         cell4.textContent = officialPercentage ? officialPercentage + '%' : 'N/A';
 
         [cell1, cell2, cell3, cell4].forEach(cell => {
