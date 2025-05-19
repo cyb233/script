@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 动态筛选
 // @namespace    Schwi
-// @version      3.1
+// @version      3.2
 // @description  Bilibili 动态筛选，快速找出感兴趣的动态
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -749,6 +749,9 @@
         collectedCount = 0;
         let shouldContinue = true; // 引入标志位
 
+        // 新增：用于去重
+        const collectedIdSet = new Set();
+
         let { dialog, contentArea } = createDialog('progressDialog', '任务进度', `<p>已收集动态数：<span id='collectedCount'>0</span>/<span id='totalCount'>0</span></p><p>已获取最早动态时间：<span id='earliestTime'>N/A</span></p>`);
         dialog.style.display = 'block';
 
@@ -779,6 +782,12 @@
                     shouldInclude = items.some(item => item.modules.module_author.pub_ts > 0 && item.modules.module_author.pub_ts < (endTime + 24 * 60 * 60));
                 }
                 for (let item of items) {
+                    // 新增：根据id_str去重
+                    if (collectedIdSet.has(item.id_str)) {
+                        continue;
+                    }
+                    collectedIdSet.add(item.id_str);
+
                     if (item.type !== DYNAMIC_TYPE.DYNAMIC_TYPE_LIVE_RCMD.key) {
                         // 直播动态可能不按时间顺序出现，不能用来判断时间要求
                         if (item.modules.module_author.pub_ts > 0 && item.modules.module_author.pub_ts < startTime) {
