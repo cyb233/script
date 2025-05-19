@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 动态筛选
 // @namespace    Schwi
-// @version      3.2
+// @version      3.3
 // @description  Bilibili 动态筛选，快速找出感兴趣的动态
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -771,12 +771,7 @@
 
             try {
                 const data = await apiRequest(api);
-                const items = data?.data?.items;
-
-                // 如果出错等原因导致没有，直接跳过
-                if (!items) {
-                    continue;
-                }
+                const items = data?.data?.items || [];
 
                 if (!shouldInclude) {
                     shouldInclude = items.some(item => item.modules.module_author.pub_ts > 0 && item.modules.module_author.pub_ts < (endTime + 24 * 60 * 60));

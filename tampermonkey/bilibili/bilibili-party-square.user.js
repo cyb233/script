@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 庆会广场
 // @namespace    Schwi
-// @version      0.4
+// @version      0.5
 // @description  Bilibili 庆会广场查询
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -488,12 +488,7 @@
 
             try {
                 const data = await apiRequest(api);
-                const items = data?.data?.list;
-
-                // 如果出错等原因导致没有，直接跳过
-                if (!items) {
-                    continue;
-                }
+                const items = data?.data?.list || [];
 
                 for (let item of items) {
                     // 新增：根据 party_id 去重
