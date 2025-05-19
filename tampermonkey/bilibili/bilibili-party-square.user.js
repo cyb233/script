@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 庆会广场
 // @namespace    Schwi
-// @version      0.3
+// @version      0.4
 // @description  Bilibili 庆会广场查询
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -471,6 +471,7 @@
         partyList = [];
         collectedCount = 0;
         let shouldContinue = true; // 引入标志位
+        const collectedPartyIds = new Set(); // 新增：用于去重
 
         let { dialog, contentArea } = createDialog('progressDialog', '任务进度', `<p>已收集庆会数：<span id='collectedCount'>0</span>/<span id='totalCount'>0</span></p><p>已获取最后庆会时间：<span id='earliestTime'>N/A</span></p>`);
         dialog.style.display = 'block';
@@ -495,6 +496,12 @@
                 }
 
                 for (let item of items) {
+                    // 新增：根据 party_id 去重
+                    if (collectedPartyIds.has(item.party_id)) {
+                        continue;
+                    }
+                    collectedPartyIds.add(item.party_id);
+
                     item.display = true;
 
                     // 获取预约信息
