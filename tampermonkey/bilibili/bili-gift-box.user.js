@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Bilibili 盲盒统计
 // @namespace    Schwi
-// @version      0.8
-// @description  调用 API 来收集自己的 Bilibili 盲盒概率，公示概率真的准确吗？（受API限制，获取的记录大约只有最近2个自然月，本脚本会本地持久化储存记录）
+// @version      0.9
+// @description  调用 API 来收集自己的 Bilibili 盲盒概率，公示概率和你的概率一致吗？（受API限制，获取的记录大约只有最近2个自然月，本脚本会本地持久化储存记录）
 // @author       Schwi
 // @match        *://*.bilibili.com/*
 // @connect      api.live.bilibili.com
@@ -270,7 +270,7 @@
       if (!giftMap[originalGiftId]) {
         giftMap[originalGiftId] = { name: originalGiftName };
       }
-      const giftInfoEntry = giftInfo[originalGiftId]?.gifts.find(g => g.id === giftId || Object.values(g.subGifts).some(gift => gift.id === giftId));
+      const giftInfoEntry = giftInfo.box.find(box => box.id === originalGiftId)?.gifts.find(g => g.id === giftId || Object.values(g.subGifts).some(gift => gift.id === giftId));
       if (!giftInfoEntry) {
         giftMap[originalGiftId][giftId] = giftName;
       }
@@ -291,7 +291,7 @@
 
       // 检查 giftId 是否属于 subGifts
       let mainGiftId = giftId;
-      const giftInfoEntry = giftInfo[originalGiftId]?.gifts.find(g => g.id === giftId || Object.values(g.subGifts).some(gift => gift.id === giftId));
+      const giftInfoEntry = giftInfo.box.find(box => box.id === originalGiftId)?.gifts.find(g => g.id === giftId || Object.values(g.subGifts).some(gift => gift.id === giftId));
       if (giftInfoEntry) {
         mainGiftId = giftInfoEntry.id;
       }
@@ -376,15 +376,15 @@
 
       // 获取排序后的 gifts 数组
       const sortedGifts = Object.entries(group.gifts).sort(([giftIdA, giftA], [giftIdB, giftB]) => {
-        const giftInfoA = giftInfo[originalGiftId]?.gifts.find(g => g.id === parseInt(giftIdA));
-        const giftInfoB = giftInfo[originalGiftId]?.gifts.find(g => g.id === parseInt(giftIdB));
+        const giftInfoA = giftInfo.box.find(box => box.id === originalGiftId)?.gifts.find(g => g.id === parseInt(giftIdA));
+        const giftInfoB = giftInfo.box.find(box => box.id === originalGiftId)?.gifts.find(g => g.id === parseInt(giftIdB));
 
         if (!giftInfoA && !giftInfoB) return 0;
         if (!giftInfoA) return 1;
         if (!giftInfoB) return -1;
 
-        const indexA = giftInfo[originalGiftId].gifts.indexOf(giftInfoA);
-        const indexB = giftInfo[originalGiftId].gifts.indexOf(giftInfoB);
+        const indexA = giftInfo.box.find(box => box.id === originalGiftId)?.gifts.indexOf(giftInfoA);
+        const indexB = giftInfo.box.find(box => box.id === originalGiftId)?.gifts.indexOf(giftInfoB);
         return indexA - indexB;
       });
 
@@ -405,7 +405,7 @@
         cell3.textContent = gift.percentage;
 
         // 获取公示概率
-        const officialPercentage = giftInfo[originalGiftId]?.gifts.find(g => g.id === parseInt(giftId))?.percentage;
+        const officialPercentage = giftInfo.box.find(box => box.id === originalGiftId)?.gifts.find(g => g.id === parseInt(giftId))?.percentage;
         cell4.textContent = officialPercentage ? officialPercentage + '%' : 'N/A';
 
         [cell1, cell2, cell3, cell4].forEach(cell => {
