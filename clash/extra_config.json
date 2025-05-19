@@ -9,7 +9,7 @@
     "DOMAIN-SUFFIX,mega.co.nz,Proxies",
     "DOMAIN-SUFFIX,w3.org,Proxies",
     "DOMAIN-SUFFIX,bfeac.com,Proxies",
-    "DOMAIN-SUFFIX,gamer.com.tw,TW",
+    "DOMAIN-SUFFIX,.tw,TW",
     "DOMAIN,checkip.amazonaws.com,DIRECT",
     "DOMAIN-SUFFIX,playnite.link,Proxies",
     "DOMAIN-SUFFIX,itch.io,Proxies",
