@@ -8,17 +8,17 @@
 
 ## 目录结构
 
-  - [`bili-digital-card.user.js`](./bilibili/bili-digital-card.user.js)：Bilibili 收藏集奖励筛查  
-    [README](./bilibili/bili-digital-card)
+  - [`bili-digital-card.user.js`](./bili-digital-card.user.js)：Bilibili 收藏集奖励筛查  
+    [README](./bili-digital-card)
     [Greasyfork](https://greasyfork.org/zh-CN/scripts/523758-bilibili-%E6%94%B6%E8%97%8F%E9%9B%86%E5%A5%96%E5%8A%B1%E7%AD%9B%E6%9F%A5%E8%84%9A%E6%9C%AC)
-  - [`bili-gift-box.user.js`](./bilibili/bili-gift-box.user.js)：Bilibili 盲盒统计  
-    [README](./bilibili/bili-gift-box)
+  - [`bili-gift-box.user.js`](./bili-gift-box.user.js)：Bilibili 盲盒统计  
+    [README](./bili-gift-box)
     [Greasyfork](https://greasyfork.org/zh-CN/scripts/534331-bilibili-%E7%9B%B2%E7%9B%92%E7%BB%9F%E8%AE%A1)
-  - [`bilibili-dynamic-screening.user.js`](./bilibili/bilibili-dynamic-screening.user.js)：Bilibili 动态筛选  
-    [README](./bilibili/bilibili-dynamic-screening)
+  - [`bilibili-dynamic-screening.user.js`](./bilibili-dynamic-screening.user.js)：Bilibili 动态筛选  
+    [README](./bilibili-dynamic-screening)
     [Greasyfork](https://greasyfork.org/zh-CN/scripts/524990-bilibili-%E5%8A%A8%E6%80%81%E7%AD%9B%E9%80%89)
-  - [`bilibili-party-square.user.js`](./bilibili/bilibili-party-square.user.js)：Bilibili 庆会广场  
-    [README](./bilibili/bilibili-party-square)
+  - [`bilibili-party-square.user.js`](./bilibili-party-square.user.js)：Bilibili 庆会广场  
+    [README](./bilibili-party-square)
     [Greasyfork](https://greasyfork.org/zh-CN/scripts/527547-bilibili-%E5%BA%86%E4%BC%9A%E5%B9%BF%E5%9C%BA)
 
 详细脚本说明请参见各子目录下的 README 或根目录 [README](../../)。
