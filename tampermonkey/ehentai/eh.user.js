@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         e站收藏统计
 // @namespace    Schwi
-// @version      1.6
+// @version      1.7
 // @description  获取e站所有收藏，以及对所有标签进行排序以找到你最爱的标签，可按namespace分组，支持翻译
 // @author       Schwi
 // @match        *://e-hentai.org/*
@@ -293,7 +293,7 @@
 
         const createTable = (data, headers) => {
             const table = document.createElement('table');
-            table.border = '1';
+            table.style.border = '1px';
             table.style.width = '100%';
             table.style.borderCollapse = 'collapse';
             table.style.textAlign = 'center';
@@ -330,7 +330,7 @@
 
         const createGroupedTable = (data, headers) => {
             const table = document.createElement('table');
-            table.border = '1';
+            table.style.border = '1px';
             table.style.width = '100%';
             table.style.borderCollapse = 'collapse';
             table.style.textAlign = 'center';
