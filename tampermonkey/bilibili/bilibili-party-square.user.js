@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 庆会广场
 // @namespace    Schwi
-// @version      0.5
+// @version      0.6
 // @description  Bilibili 庆会广场查询
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -361,7 +361,7 @@
             typeComment.style.padding = "5px";
             typeComment.style.marginBottom = "5px";
             typeComment.style.textAlign = "center";
-            typeComment.innerHTML = `${authorLink.outerHTML} 的 ${party.party_name}${hasLottery ? ' 🎁' : ''}${isLive ? ' 🎥':''}`;
+            typeComment.innerHTML = `${authorLink.outerHTML} 的 ${party.party_name}${hasLottery ? ' 🎁' : ''}${isLive ? ' 🎥' : ''}`;
 
             // 显示预约时间
             const publishTime = document.createElement("div");
@@ -470,7 +470,6 @@
     async function collectparty() {
         partyList = [];
         collectedCount = 0;
-        let shouldContinue = true; // 引入标志位
         const collectedPartyIds = new Set(); // 新增：用于去重
 
         let { dialog, contentArea } = createDialog('progressDialog', '任务进度', `<p>已收集庆会数：<span id='collectedCount'>0</span>/<span id='totalCount'>0</span></p><p>已获取最后庆会时间：<span id='earliestTime'>N/A</span></p>`);
@@ -482,13 +481,26 @@
         dialog.querySelector('p').style.fontWeight = 'bold';
         dialog.querySelector('p').style.marginTop = '20px';
 
+        let shouldContinue = true; // 引入标志位
         let page = 1;
+        let errorCount = 0;
+        const maxErrorCount = 5;
         while (shouldContinue) { // 使用标志位控制循环
             const api = `https://api.live.bilibili.com/xlive/general-interface/v2/party/square?page=${page++}&page_size=100`;
 
             try {
                 const data = await apiRequest(api);
-                const items = data?.data?.list || [];
+                const items = data?.data?.list;
+
+                if (!items) {
+                    errorCount++;
+                    if (errorCount >= maxErrorCount) {
+                        console.error(`获取数据失败，已重试 ${maxErrorCount} 次，停止任务。`);
+                        break;
+                    }
+                    continue;
+                }
+                errorCount = 0;
 
                 for (let item of items) {
                     // 新增：根据 party_id 去重

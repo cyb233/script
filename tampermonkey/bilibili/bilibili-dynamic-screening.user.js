@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 动态筛选
 // @namespace    Schwi
-// @version      3.3
+// @version      3.4
 // @description  Bilibili 动态筛选，快速找出感兴趣的动态
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -747,7 +747,6 @@
         let offset = '';
         dynamicList = [];
         collectedCount = 0;
-        let shouldContinue = true; // 引入标志位
 
         // 新增：用于去重
         const collectedIdSet = new Set();
@@ -764,6 +763,9 @@
         await getUserData()
 
         let shouldInclude = false;
+        let shouldContinue = true;
+        let errorCount = 0;
+        const maxErrorCount = 5;
         while (shouldContinue) { // 使用标志位控制循环
             const api = isSelf ?
                 `https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?host_mid=${userData.profile.mid}&offset=${offset}&features=itemOpusStyle,listOnlyfans,opusBigCover,onlyfansVote,decorationCard,onlyfansAssetsV2,forwardListHidden,ugcDelete,onlyfansQaCard,commentsNewVersion` :
@@ -772,6 +774,16 @@
             try {
                 const data = await apiRequest(api);
                 const items = data?.data?.items || [];
+
+                if (!items) {
+                    errorCount++;
+                    if (errorCount >= maxErrorCount) {
+                        console.error(`获取数据失败，已重试 ${maxErrorCount} 次，停止任务。`);
+                        break;
+                    }
+                    continue;
+                }
+                errorCount = 0;
 
                 if (!shouldInclude) {
                     shouldInclude = items.some(item => item.modules.module_author.pub_ts > 0 && item.modules.module_author.pub_ts < (endTime + 24 * 60 * 60));
