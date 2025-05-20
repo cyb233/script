@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 盲盒统计
 // @namespace    Schwi
-// @version      1.1
+// @version      1.2
 // @description  调用 API 来收集自己的 Bilibili 盲盒概率，公示概率和你的概率一致吗？（受API限制，获取的记录大约只有最近2个自然月，本脚本会本地持久化储存记录）
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -428,6 +428,89 @@
     };
   }
 
+  // 盲盒数据分组统计函数
+  function groupGiftStats(giftList, giftInfo) {
+    // {originalGiftId: {giftId: giftName}} 格式化，仅保存giftInfo中gifts及subGifts中不存在的礼物
+    const giftMap = {};
+    giftList.forEach(gift => {
+      const { originalGiftId, originalGiftName, giftId, giftName } = gift;
+      if (!giftMap[originalGiftId]) {
+        giftMap[originalGiftId] = { name: originalGiftName };
+      }
+      const giftInfoEntry = giftInfo.box.find(box => box.id === parseInt(originalGiftId))?.gifts.find(g => g.id === giftId || Object.values(g.subGifts).some(gift => gift.id === giftId));
+      if (!giftInfoEntry) {
+        giftMap[originalGiftId][giftId] = giftName;
+      }
+    });
+    // 根据 originalGiftId 分组统计 giftId 数量
+    const groupedGiftStats = {};
+    giftList.forEach(gift => {
+      const { originalGiftId, originalGiftName, giftId, giftName, giftNum } = gift;
+      if (!groupedGiftStats[originalGiftId]) {
+        groupedGiftStats[originalGiftId] = {
+          originalGiftName,
+          totalCount: 0,
+          gifts: {}
+        };
+      }
+      // 检查 giftId 是否属于 subGifts
+      let mainGiftId = giftId;
+      const giftInfoEntry = giftInfo.box.find(box => box.id === parseInt(originalGiftId))?.gifts.find(g => g.id === giftId || Object.values(g.subGifts).some(gift => gift.id === giftId));
+      if (giftInfoEntry) {
+        mainGiftId = giftInfoEntry.id;
+      }
+      if (!groupedGiftStats[originalGiftId].gifts[mainGiftId]) {
+        groupedGiftStats[originalGiftId].gifts[mainGiftId] = {
+          giftName: giftInfoEntry?.name || giftName,
+          count: 0,
+          percentage: 0
+        };
+      }
+      groupedGiftStats[originalGiftId].totalCount += giftNum;
+      groupedGiftStats[originalGiftId].gifts[mainGiftId].count += giftNum;
+    });
+    // 计算每个 giftId 的百分比概率
+    Object.values(groupedGiftStats).forEach(group => {
+      Object.values(group.gifts).forEach(gift => {
+        gift.percentage = group.totalCount > 0 ? ((gift.count / group.totalCount) * 100).toFixed(2) + '%' : '0%';
+      });
+    });
+    return groupedGiftStats;
+  }
+
+  // 礼物筛选条件
+  const defaultFilters = {
+    // 你可以根据需要扩展更多筛选条件
+    // '全部': { type: 'checkbox', filter: () => true },
+    '正收益礼物': {
+      type: 'checkbox', filter: (item, input, giftInfo) => {
+        // 以价格大于等于100为例
+        const box = giftInfo.box.find(box => box.id === item.originalGiftId);
+        const gift = box?.gifts.find(g => g.id === item.giftId);
+        return gift ? gift.price >= box.price : false;
+      }
+    },
+    '负收益礼物': {
+      type: 'checkbox', filter: (item, input, giftInfo) => {
+        const box = giftInfo.box.find(box => box.id === item.originalGiftId);
+        const gift = box?.gifts.find(g => g.id === item.giftId);
+        return gift ? gift.price < box.price : false;
+      }
+    },
+    '搜索': {
+      type: 'text',
+      attribute: { placeholder: '输入主播的完整uid或昵称', list: 'box-search-list', autocomplete: 'off' },
+      filter: (item, input, giftInfo) => {
+        if (!input) return true;
+        const searchText = input.trim().toUpperCase().split(' ');
+        return (
+          (item.ruid && searchText.some(text => item.ruid.toUpperCase() === text)) ||
+          (item.rname && searchText.some(text => item.rname.toUpperCase() === text))
+        );
+      }
+    }
+  };
+
   // 循环请求盲盒数据
   async function fetchAllBlindBoxes() {
     let nextId = 0;
@@ -478,177 +561,234 @@
     const mergedGiftList = saveGiftList(allGiftList);
     console.log('合并后的盲盒数据:', mergedGiftList);
 
-    const giftInfo = await getGiftInfo()
-
-    // {originalGiftId: {giftId: giftName}} 格式化，仅保存giftInfo中gifts及subGifts中不存在的礼物
-    const giftMap = {};
+    // 相关主播列表去重输出
+    const anchorSet = new Map();
     mergedGiftList.forEach(gift => {
-      const { originalGiftId, originalGiftName, giftId, giftName } = gift;
-      if (!giftMap[originalGiftId]) {
-        giftMap[originalGiftId] = { name: originalGiftName };
-      }
-      const giftInfoEntry = giftInfo.box.find(box => box.id === parseInt(originalGiftId))?.gifts.find(g => g.id === giftId || Object.values(g.subGifts).some(gift => gift.id === giftId));
-      if (!giftInfoEntry) {
-        giftMap[originalGiftId][giftId] = giftName;
+      if (gift.ruid && gift.rname) {
+        anchorSet.set(gift.ruid, gift.rname);
       }
     });
-    console.log('礼物 ID 映射（按 originalGiftId 分组）:', giftMap);
+    console.log('相关主播列表', Array.from(anchorSet, ([uid, name]) => ({ uid, name })));
 
-    // 根据 originalGiftId 分组统计 giftId 数量
-    const groupedGiftStats = {};
-    mergedGiftList.forEach(gift => {
-      const { originalGiftId, originalGiftName, giftId, giftName, giftNum } = gift;
-      if (!groupedGiftStats[originalGiftId]) {
-        groupedGiftStats[originalGiftId] = {
-          originalGiftName,
-          totalCount: 0,
-          gifts: {}
-        };
-      }
+    document.getElementById('box-search-list')?.remove();
+    const datalist = document.createElement('datalist');
+    datalist.id = 'box-search-list';
+    for (const [uid, name] of anchorSet.entries()) {
+      const option = document.createElement('option');
+      option.value = name + ' ' + uid;
+      datalist.appendChild(option);
+    }
+    document.body.appendChild(datalist);
 
-      // 检查 giftId 是否属于 subGifts
-      let mainGiftId = giftId;
-      const giftInfoEntry = giftInfo.box.find(box => box.id === parseInt(originalGiftId))?.gifts.find(g => g.id === giftId || Object.values(g.subGifts).some(gift => gift.id === giftId));
-      if (giftInfoEntry) {
-        mainGiftId = giftInfoEntry.id;
-      }
+    const giftInfo = await getGiftInfo();
 
-      if (!groupedGiftStats[originalGiftId].gifts[mainGiftId]) {
-        groupedGiftStats[originalGiftId].gifts[mainGiftId] = {
-          giftName: giftInfoEntry?.name || giftName,
-          count: 0,
-          percentage: 0
-        };
-      }
-
-      groupedGiftStats[originalGiftId].totalCount += giftNum;
-      groupedGiftStats[originalGiftId].gifts[mainGiftId].count += giftNum;
-    });
-
-    // 计算每个 giftId 的百分比概率
-    Object.values(groupedGiftStats).forEach(group => {
-      Object.values(group.gifts).forEach(gift => {
-        gift.percentage = ((gift.count / group.totalCount) * 100).toFixed(2) + '%';
-      });
-    });
+    // 分组统计
+    const groupedGiftStats = groupGiftStats(mergedGiftList, giftInfo);
 
     console.log('按 originalGiftId 分组的盲盒统计:', groupedGiftStats);
 
     // 显示结果弹窗
-    showResultsDialog(groupedGiftStats);
+    showResultsDialog(mergedGiftList, giftInfo);
   }
 
-  // 显示结果 dialog
-  async function showResultsDialog(groupedGiftStats) {
+  // 显示结果 dialog，支持筛选
+  async function showResultsDialog(allGiftList, giftInfo) {
     const { dialog, titleElement, closeButton, contentArea } = createDialog('resultsDialog', '盲盒统计结果', '');
-    const giftInfo = await getGiftInfo()
-    // 获取排序后的 originalGiftId 数组
-    const sortedOriginalGiftIds = Object.entries(groupedGiftStats)
-      .sort(([originalGiftIdA, groupA], [originalGiftIdB, groupB]) => {
-        const nameA = groupA.originalGiftName;
-        const nameB = groupB.originalGiftName;
 
-        const indexA = boxOrder.indexOf(nameA);
-        const indexB = boxOrder.indexOf(nameB);
+    // 筛选按钮区域
+    let filterButtonsContainer = document.createElement('div');
+    filterButtonsContainer.style.marginBottom = '10px';
+    filterButtonsContainer.style.display = 'flex';
+    filterButtonsContainer.style.flexWrap = 'wrap';
+    filterButtonsContainer.style.gap = '10px';
+    filterButtonsContainer.style.padding = '10px';
+    filterButtonsContainer.style.alignItems = 'center';
 
-        if (indexA === -1 && indexB === -1) return 0;
-        if (indexA === -1) return 1;
-        if (indexB === -1) return -1;
-
-        return indexA - indexB;
-      })
-      .map(([originalGiftId]) => originalGiftId);
-
-    // 循环创建每个盲盒的表格
-    sortedOriginalGiftIds.forEach(originalGiftId => {
-      const group = groupedGiftStats[originalGiftId];
-
-      // 创建标题，增加锚链接
-      let title = document.createElement('h2');
-      let titleLink = document.createElement('a');
-      titleLink.href = `https://gift.shuvi.moe/#${originalGiftId}`;
-      titleLink.textContent = `${group.originalGiftName} (总抽数: ${group.totalCount})`;
-      titleLink.target = '_blank';
-      title.appendChild(titleLink);
-      title.style.marginTop = '20px';
-      contentArea.appendChild(title);
-
-      // 创建表格
-      let table = document.createElement('table');
-      table.style.width = '100%';
-      table.style.borderCollapse = 'collapse';
-      table.style.margin = '10px 0';
-
-      // 创建表头
-      let thead = table.createTHead();
-      let headerRow = thead.insertRow();
-      let headers = ['礼物名称', '数量', '你的概率', null];
-      headers.forEach((headerText, idx) => {
-        let th = document.createElement('th');
-        if (idx === 3) {
-          // 公示概率列，使用超链接
-          let link = document.createElement('a');
-          link.href = `https://gift.shuvi.moe/box#${originalGiftId}`;
-          link.textContent = '公示概率 (取基础概率，点击查看完整概率)';
-          link.target = '_blank';
-          th.appendChild(link);
-        } else {
-          th.textContent = headerText;
+    // 生成筛选按钮
+    function createFilterButtons(filters, giftList, giftInfo) {
+      let mainContainer = document.createElement('div');
+      mainContainer.style.display = 'flex';
+      mainContainer.style.flexWrap = 'wrap';
+      mainContainer.style.width = '100%';
+      for (let key in filters) {
+        let filter = filters[key];
+        let input = document.createElement('input');
+        input.type = filter.type;
+        input.id = key;
+        input.style.marginRight = '5px';
+        if (filter.type === 'text') {
+          input.style.border = '1px solid #ccc';
+          input.style.padding = '5px';
+          input.style.borderRadius = '5px';
         }
-        th.style.padding = '8px';
-        th.style.border = '1px solid #ddd';
-        th.style.textAlign = 'left';
-        headerRow.appendChild(th);
-      });
+        for (let attr in filter.attribute) {
+          input.setAttribute(attr, filter.attribute[attr]);
+        }
+        let label = document.createElement('label');
+        label.htmlFor = key;
+        label.textContent = key;
+        label.style.display = 'flex';
+        label.style.alignItems = 'center';
+        label.style.marginRight = '5px';
+        let container = document.createElement('div');
+        container.style.display = 'flex';
+        container.style.alignItems = 'center';
+        container.style.marginRight = '10px';
+        if (['checkbox', 'radio'].includes(filter.type)) {
+          input.addEventListener('change', () => deal());
+          container.appendChild(input);
+          container.appendChild(label);
+        } else {
+          let timeout;
+          input.addEventListener('input', () => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => deal(), 500);
+          });
+          container.appendChild(label);
+          container.appendChild(input);
+        }
+        mainContainer.appendChild(container);
+      }
+      return mainContainer;
+    }
 
-      // 创建表体
-      let tbody = table.createTBody();
-      const boxInfo = giftInfo.box.find(box => box.id === parseInt(originalGiftId))
+    filterButtonsContainer.appendChild(createFilterButtons(defaultFilters, allGiftList, giftInfo));
+    contentArea.appendChild(filterButtonsContainer);
 
-      // 获取排序后的 gifts 数组
-      const sortedGifts = Object.entries(group.gifts).sort(([giftIdA, giftA], [giftIdB, giftB]) => {
-        const giftInfoA = boxInfo?.gifts.find(g => g.id === parseInt(giftIdA));
-        const giftInfoB = boxInfo?.gifts.find(g => g.id === parseInt(giftIdB));
+    // 结果区域
+    let resultArea = document.createElement('div');
+    contentArea.appendChild(resultArea);
 
-        if (!giftInfoA && !giftInfoB) return 0;
-        if (!giftInfoA) return 1;
-        if (!giftInfoB) return -1;
+    // 筛选和重算逻辑
+    function deal() {
+      // 获取所有筛选条件
+      let checkedFilters = [];
+      for (let key in defaultFilters) {
+        const f = defaultFilters[key];
+        const input = filterButtonsContainer.querySelector(`#${key}`);
+        let checkedFilter;
+        switch (f.type) {
+          case 'checkbox':
+            checkedFilter = { ...f, value: input.checked };
+            break;
+          case 'text':
+            checkedFilter = { ...f, value: input.value };
+            break;
+        }
+        checkedFilters.push({ ...checkedFilter, key });
+      }
+      // 过滤礼物
+      let filteredGiftList = allGiftList.filter(item =>
+        checkedFilters.every(f => {
+          if (f.key === '全部') return true;
+          if (f.type === 'checkbox' && !f.value) return true;
+          if (f.type === 'checkbox' && f.value) return f.filter(item, f.value, giftInfo);
+          if (f.type === 'text') return f.filter(item, f.value, giftInfo);
+          return true;
+        })
+      );
+      // 统计
+      const groupedGiftStats = groupGiftStats(filteredGiftList, giftInfo);
+      renderResult(groupedGiftStats, giftInfo);
+    }
 
-        const indexA = boxInfo?.gifts.indexOf(giftInfoA);
-        const indexB = boxInfo?.gifts.indexOf(giftInfoB);
-        return indexA - indexB;
-      });
+    // 渲染统计结果
+    function renderResult(groupedGiftStats, giftInfo) {
+      resultArea.innerHTML = '';
+      // 获取排序后的 originalGiftId 数组
+      const sortedOriginalGiftIds = Object.entries(groupedGiftStats)
+        .sort(([originalGiftIdA, groupA], [originalGiftIdB, groupB]) => {
+          const nameA = groupA.originalGiftName;
+          const nameB = groupB.originalGiftName;
+          const indexA = boxOrder.indexOf(nameA);
+          const indexB = boxOrder.indexOf(nameB);
+          if (indexA === -1 && indexB === -1) return 0;
+          if (indexA === -1) return 1;
+          if (indexB === -1) return -1;
+          return indexA - indexB;
+        })
+        .map(([originalGiftId]) => originalGiftId);
 
-      sortedGifts.forEach(([giftId, gift]) => {
-        let row = tbody.insertRow();
-        let cell1 = row.insertCell();
-        let cell2 = row.insertCell();
-        let cell3 = row.insertCell();
-        let cell4 = row.insertCell();
+      sortedOriginalGiftIds.forEach(originalGiftId => {
+        const group = groupedGiftStats[originalGiftId];
+        let title = document.createElement('h2');
+        let titleLink = document.createElement('a');
+        titleLink.href = `https://gift.shuvi.moe/#${originalGiftId}`;
+        titleLink.textContent = `${group.originalGiftName} (总抽数: ${group.totalCount})`;
+        titleLink.target = '_blank';
+        title.appendChild(titleLink);
+        title.style.marginTop = '20px';
+        resultArea.appendChild(title);
 
-        let giftLink = document.createElement('a');
-        giftLink.href = `https://gift.shuvi.moe/#${giftId}`;
-        giftLink.textContent = gift.giftName;
-        giftLink.target = '_blank'; // 在新标签页中打开
-        cell1.appendChild(giftLink);
+        let table = document.createElement('table');
+        table.style.width = '100%';
+        table.style.borderCollapse = 'collapse';
+        table.style.margin = '10px 0';
 
-        cell2.textContent = gift.count;
-        cell3.textContent = gift.percentage;
-
-        // 获取公示概率（数组格式，拼接为字符串）
-        const officialPercentageArr = boxInfo?.gifts.find(g => g.id === parseInt(giftId))?.percentage;
-        cell4.textContent = officialPercentageArr ? officialPercentageArr[0] + '%' : 'N/A';
-
-        [cell1, cell2, cell3, cell4].forEach(cell => {
-          cell.style.padding = '8px';
-          cell.style.border = '1px solid #ddd';
-          cell.style.textAlign = 'left';
+        let thead = table.createTHead();
+        let headerRow = thead.insertRow();
+        let headers = ['礼物名称', '数量', '你的概率', null];
+        headers.forEach((headerText, idx) => {
+          let th = document.createElement('th');
+          if (idx === 3) {
+            let link = document.createElement('a');
+            link.href = `https://gift.shuvi.moe/box#${originalGiftId}`;
+            link.textContent = '公示概率 (取基础概率，点击查看完整概率)';
+            link.target = '_blank';
+            th.appendChild(link);
+          } else {
+            th.textContent = headerText;
+          }
+          th.style.padding = '8px';
+          th.style.border = '1px solid #ddd';
+          th.style.textAlign = 'left';
+          headerRow.appendChild(th);
         });
-      });
 
-      // 将表格添加到弹窗内容区域
-      contentArea.appendChild(table);
-    });
+        let tbody = table.createTBody();
+        const boxInfo = giftInfo.box.find(box => box.id === parseInt(originalGiftId));
+        const sortedGifts = Object.entries(group.gifts).sort(([giftIdA, giftA], [giftIdB, giftB]) => {
+          const giftInfoA = boxInfo?.gifts.find(g => g.id === parseInt(giftIdA));
+          const giftInfoB = boxInfo?.gifts.find(g => g.id === parseInt(giftIdB));
+          if (!giftInfoA && !giftInfoB) return 0;
+          if (!giftInfoA) return 1;
+          if (!giftInfoB) return -1;
+          const indexA = boxInfo?.gifts.indexOf(giftInfoA);
+          const indexB = boxInfo?.gifts.indexOf(giftInfoB);
+          return indexA - indexB;
+        });
+
+        sortedGifts.forEach(([giftId, gift]) => {
+          let row = tbody.insertRow();
+          let cell1 = row.insertCell();
+          let cell2 = row.insertCell();
+          let cell3 = row.insertCell();
+          let cell4 = row.insertCell();
+
+          let giftLink = document.createElement('a');
+          giftLink.href = `https://gift.shuvi.moe/#${giftId}`;
+          giftLink.textContent = gift.giftName;
+          giftLink.target = '_blank';
+          cell1.appendChild(giftLink);
+
+          cell2.textContent = gift.count;
+          cell3.textContent = gift.percentage;
+
+          const officialPercentageArr = boxInfo?.gifts.find(g => g.id === parseInt(giftId))?.percentage;
+          cell4.textContent = officialPercentageArr ? officialPercentageArr[0] + '%' : 'N/A';
+
+          [cell1, cell2, cell3, cell4].forEach(cell => {
+            cell.style.padding = '8px';
+            cell.style.border = '1px solid #ddd';
+            cell.style.textAlign = 'left';
+          });
+        });
+
+        resultArea.appendChild(table);
+      });
+    }
+
+    deal();
 
     dialog.style.display = 'block';
   }
