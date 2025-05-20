@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         e站收藏统计
 // @namespace    Schwi
-// @version      1.8.1
+// @version      1.9
 // @description  获取e站所有收藏，以及对所有标签进行排序以找到你最爱的标签，可按namespace分组，支持翻译
 // @author       Schwi
 // @match        *://e-hentai.org/*
@@ -291,7 +291,7 @@
 
         resultDiv.appendChild(buttonContainer);
 
-        const createTable = (data, headers) => {
+        const createTable = (data, headers, total = false) => {
             const table = document.createElement('table');
             table.style.border = '1px solid';
             table.style.width = '100%';
@@ -329,6 +329,23 @@
 
                 table.appendChild(tr);
             });
+            if (total) {
+                const totalRow = document.createElement('tr');
+                totalRow.style.height = '30px';
+                totalRow.style.border = '1px solid';
+                const totalTd = document.createElement('td');
+                totalTd.colSpan = headers.length - 1;
+                totalTd.innerText = 'Total';
+                totalTd.style.fontWeight = 'bold';
+                totalTd.style.border = '1px solid';
+                totalRow.appendChild(totalTd);
+                const countTd = document.createElement('td');
+                countTd.innerText = data.reduce((sum, row) => sum + row.count, 0);
+                countTd.style.fontWeight = 'bold';
+                countTd.style.border = '1px solid';
+                totalRow.appendChild(countTd);
+                table.appendChild(totalRow);
+            }
 
             return table;
         };
@@ -418,7 +435,7 @@
         const rawReclassTitle = document.createElement('h4');
         rawReclassTitle.innerText = 'Reclass List';
         rawResultDiv.appendChild(rawReclassTitle);
-        rawResultDiv.appendChild(createTable(result.reclassList, ['Index', 'Reclass', 'Translate', 'Count']));
+        rawResultDiv.appendChild(createTable(result.reclassList, ['Index', 'Reclass', 'Translate', 'Count'], true));
 
         const rawTagTitle = document.createElement('h4');
         rawTagTitle.innerText = 'Tag List';
