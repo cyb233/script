@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         e站收藏统计
 // @namespace    Schwi
-// @version      1.8
+// @version      1.8.1
 // @description  获取e站所有收藏，以及对所有标签进行排序以找到你最爱的标签，可按namespace分组，支持翻译
 // @author       Schwi
 // @match        *://e-hentai.org/*
@@ -293,17 +293,17 @@
 
         const createTable = (data, headers) => {
             const table = document.createElement('table');
-            table.style.border = '1px';
+            table.style.border = '1px solid';
             table.style.width = '100%';
             table.style.borderCollapse = 'collapse';
             table.style.textAlign = 'center';
 
             const headerRow = document.createElement('tr');
             headerRow.style.height = '30px';
-            headerRow.style.border = '1px';
+            headerRow.style.border = '1px solid';
             headers.forEach(header => {
                 const th = document.createElement('th');
-                th.style.border = '1px';
+                th.style.border = '1px solid';
                 th.innerText = header;
                 headerRow.appendChild(th);
             });
@@ -312,7 +312,7 @@
             data.forEach((row, index) => {
                 const tr = document.createElement('tr');
                 tr.style.height = '30px';
-                tr.style.border = '1px';
+                tr.style.border = '1px solid';
                 tr.title = row.intro || '';
 
                 const indexTd = document.createElement('td');
@@ -322,7 +322,7 @@
                 headers.forEach(header => {
                     if (header === 'Index') return; // Skip index column
                     const td = document.createElement('td');
-                    td.style.border = '1px';
+                    td.style.border = '1px solid';
                     td.innerText = row[header.toLowerCase()];
                     tr.appendChild(td);
                 });
@@ -335,17 +335,17 @@
 
         const createGroupedTable = (data, headers) => {
             const table = document.createElement('table');
-            table.style.border = '1px';
+            table.style.border = '1px solid';
             table.style.width = '100%';
             table.style.borderCollapse = 'collapse';
             table.style.textAlign = 'center';
 
             const headerRow = document.createElement('tr');
             headerRow.style.height = '30px';
-            headerRow.style.border = '1px';
+            headerRow.style.border = '1px solid';
             headers.forEach(header => {
                 const th = document.createElement('th');
-                th.style.border = '1px';
+                th.style.border = '1px solid';
                 th.innerText = header;
                 headerRow.appendChild(th);
             });
@@ -356,41 +356,41 @@
                 tags.forEach((tag, tagIndex) => {
                     const tr = document.createElement('tr');
                     tr.style.height = '30px';
-                    tr.style.border = '1px';
+                    tr.style.border = '1px solid';
 
                     if (tagIndex === 0) {
                         const namespaceTd = document.createElement('td');
-                        namespaceTd.style.border = '1px';
+                        namespaceTd.style.border = '1px solid';
                         namespaceTd.rowSpan = tags.length;
                         namespaceTd.innerText = group.namespace;
                         tr.appendChild(namespaceTd);
                         const namespaceTranslateTd = document.createElement('td');
-                        namespaceTranslateTd.style.border = '1px';
+                        namespaceTranslateTd.style.border = '1px solid';
                         namespaceTranslateTd.rowSpan = tags.length;
                         namespaceTranslateTd.innerText = group.translate;
                         tr.appendChild(namespaceTranslateTd);
                     }
 
                     const indexTd = document.createElement('td');
-                    indexTd.style.border = '1px';
+                    indexTd.style.border = '1px solid';
                     indexTd.innerText = tagIndex + 1;
                     indexTd.title = tag.intro || '';
                     tr.appendChild(indexTd);
 
                     const tagTd = document.createElement('td');
-                    tagTd.style.border = '1px';
+                    tagTd.style.border = '1px solid';
                     tagTd.innerText = tag.tag;
                     tagTd.title = tag.intro || '';
                     tr.appendChild(tagTd);
 
                     const translateTd = document.createElement('td');
-                    translateTd.style.border = '1px';
+                    translateTd.style.border = '1px solid';
                     translateTd.innerText = tag.translate;
                     translateTd.title = tag.intro || '';
                     tr.appendChild(translateTd);
 
                     const countTd = document.createElement('td');
-                    countTd.style.border = '1px';
+                    countTd.style.border = '1px solid';
                     countTd.innerText = tag.count;
                     countTd.title = tag.intro || '';
                     tr.appendChild(countTd);
