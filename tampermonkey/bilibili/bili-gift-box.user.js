@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 盲盒统计
 // @namespace    Schwi
-// @version      1.0
+// @version      1.1
 // @description  调用 API 来收集自己的 Bilibili 盲盒概率，公示概率和你的概率一致吗？（受API限制，获取的记录大约只有最近2个自然月，本脚本会本地持久化储存记录）
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -56,6 +56,7 @@
 
       try {
         giftInfo = await apiRequest('https://gift.shuvi.moe/bili-gift-box.json');
+        console.log('获取盲盒信息成功:', giftInfo);
         return giftInfo;
       } catch (error) {
         console.error('获取盲盒信息失败:', error);
@@ -486,7 +487,7 @@
       if (!giftMap[originalGiftId]) {
         giftMap[originalGiftId] = { name: originalGiftName };
       }
-      const giftInfoEntry = giftInfo.box.find(box => box.id === originalGiftId)?.gifts.find(g => g.id === giftId || Object.values(g.subGifts).some(gift => gift.id === giftId));
+      const giftInfoEntry = giftInfo.box.find(box => box.id === parseInt(originalGiftId))?.gifts.find(g => g.id === giftId || Object.values(g.subGifts).some(gift => gift.id === giftId));
       if (!giftInfoEntry) {
         giftMap[originalGiftId][giftId] = giftName;
       }
@@ -507,7 +508,7 @@
 
       // 检查 giftId 是否属于 subGifts
       let mainGiftId = giftId;
-      const giftInfoEntry = giftInfo.box.find(box => box.id === originalGiftId)?.gifts.find(g => g.id === giftId || Object.values(g.subGifts).some(gift => gift.id === giftId));
+      const giftInfoEntry = giftInfo.box.find(box => box.id === parseInt(originalGiftId))?.gifts.find(g => g.id === giftId || Object.values(g.subGifts).some(gift => gift.id === giftId));
       if (giftInfoEntry) {
         mainGiftId = giftInfoEntry.id;
       }
@@ -562,9 +563,13 @@
     sortedOriginalGiftIds.forEach(originalGiftId => {
       const group = groupedGiftStats[originalGiftId];
 
-      // 创建标题
+      // 创建标题，增加锚链接
       let title = document.createElement('h2');
-      title.textContent = `${group.originalGiftName} (总抽数: ${group.totalCount})`;
+      let titleLink = document.createElement('a');
+      titleLink.href = `https://gift.shuvi.moe/#${originalGiftId}`;
+      titleLink.textContent = `${group.originalGiftName} (总抽数: ${group.totalCount})`;
+      titleLink.target = '_blank';
+      title.appendChild(titleLink);
       title.style.marginTop = '20px';
       contentArea.appendChild(title);
 
@@ -577,10 +582,19 @@
       // 创建表头
       let thead = table.createTHead();
       let headerRow = thead.insertRow();
-      let headers = ['礼物名称', '数量', '你的概率', '公示概率'];
-      headers.forEach(headerText => {
+      let headers = ['礼物名称', '数量', '你的概率', null];
+      headers.forEach((headerText, idx) => {
         let th = document.createElement('th');
-        th.textContent = headerText;
+        if (idx === 3) {
+          // 公示概率列，使用超链接
+          let link = document.createElement('a');
+          link.href = `https://gift.shuvi.moe/box#${originalGiftId}`;
+          link.textContent = '公示概率 (取基础概率，点击查看完整概率)';
+          link.target = '_blank';
+          th.appendChild(link);
+        } else {
+          th.textContent = headerText;
+        }
         th.style.padding = '8px';
         th.style.border = '1px solid #ddd';
         th.style.textAlign = 'left';
@@ -589,18 +603,19 @@
 
       // 创建表体
       let tbody = table.createTBody();
+      const boxInfo = giftInfo.box.find(box => box.id === parseInt(originalGiftId))
 
       // 获取排序后的 gifts 数组
       const sortedGifts = Object.entries(group.gifts).sort(([giftIdA, giftA], [giftIdB, giftB]) => {
-        const giftInfoA = giftInfo.box.find(box => box.id === originalGiftId)?.gifts.find(g => g.id === parseInt(giftIdA));
-        const giftInfoB = giftInfo.box.find(box => box.id === originalGiftId)?.gifts.find(g => g.id === parseInt(giftIdB));
+        const giftInfoA = boxInfo?.gifts.find(g => g.id === parseInt(giftIdA));
+        const giftInfoB = boxInfo?.gifts.find(g => g.id === parseInt(giftIdB));
 
         if (!giftInfoA && !giftInfoB) return 0;
         if (!giftInfoA) return 1;
         if (!giftInfoB) return -1;
 
-        const indexA = giftInfo.box.find(box => box.id === originalGiftId)?.gifts.indexOf(giftInfoA);
-        const indexB = giftInfo.box.find(box => box.id === originalGiftId)?.gifts.indexOf(giftInfoB);
+        const indexA = boxInfo?.gifts.indexOf(giftInfoA);
+        const indexB = boxInfo?.gifts.indexOf(giftInfoB);
         return indexA - indexB;
       });
 
@@ -621,7 +636,7 @@
         cell3.textContent = gift.percentage;
 
         // 获取公示概率（数组格式，拼接为字符串）
-        const officialPercentageArr = giftInfo.box.find(box => box.id === originalGiftId)?.gifts.find(g => g.id === parseInt(giftId))?.percentage;
+        const officialPercentageArr = boxInfo?.gifts.find(g => g.id === parseInt(giftId))?.percentage;
         cell4.textContent = officialPercentageArr ? officialPercentageArr[0] + '%' : 'N/A';
 
         [cell1, cell2, cell3, cell4].forEach(cell => {
