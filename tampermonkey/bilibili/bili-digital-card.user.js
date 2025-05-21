@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 收藏集奖励筛查脚本
 // @namespace    Schwi
-// @version      1.6
+// @version      1.7
 // @description  调用 API 来收集自己的 Bilibili 收藏集，并筛选未领取的奖励。注意，一套收藏集中至少存在一张卡牌才能本项目的接口被检测到!
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -225,24 +225,37 @@
     }
 
     // 发起 API 请求的函数
-    function apiRequest(url, callback) {
-        console.debug(`正在请求: ${url}`);
+    function apiRequest(url, callback, retryCount = 0) {
+        // 为url添加时间戳参数防范风控
+        const ts = Date.now();
+        let urlObj = new URL(url, location.origin);
+        urlObj.searchParams.set('_ts', ts);
+        const finalUrl = urlObj.toString();
+
+        console.debug(`正在请求: ${finalUrl}`);
         GM_xmlhttpRequest({
             method: "GET",
-            url: url,
+            url: finalUrl,
             onload: function (response) {
                 try {
                     const data = JSON.parse(response.responseText);
-                    console.debug(`来自 ${url} 的响应:`, data);
+                    console.debug(`来自 ${finalUrl} 的响应:`, data);
                     callback(data);
                 } catch (error) {
-                    console.error(`解析来自 ${url} 的响应时出错:`, error);
+                    console.error(`解析来自 ${finalUrl} 的响应时出错:`, error);
                     callback(null);
                 }
             },
             onerror: function (error) {
-                console.error(`请求 ${url} 失败:`, error);
-                callback(null);
+                console.error(`请求 ${finalUrl} 失败:`, error);
+                // 失败重试，最多3次，每次等待1秒
+                if (retryCount < 3) {
+                    setTimeout(() => {
+                        apiRequest(url, callback, retryCount + 1);
+                    }, 1000);
+                } else {
+                    callback(null);
+                }
             },
         });
     }

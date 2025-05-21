@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 动态筛选
 // @namespace    Schwi
-// @version      3.4
+// @version      3.5
 // @description  Bilibili 动态筛选，快速找出感兴趣的动态
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -311,11 +311,15 @@
 
     // API 请求函数
     async function apiRequest(url, retry = 3) {
+        function appendTimestamp(u) {
+            const ts = `_ts=${Date.now()}`;
+            return u.includes('?') ? `${u}&${ts}` : `${u}?${ts}`;
+        }
         for (let attempt = 1; attempt <= retry; attempt++) {
             try {
                 const response = await GM.xmlHttpRequest({
                     method: 'GET',
-                    url: url,
+                    url: appendTimestamp(url),
                 });
                 const data = JSON.parse(response.responseText);
                 return data;
@@ -324,6 +328,7 @@
                 if (attempt === retry) {
                     throw e;
                 }
+                await new Promise(res => setTimeout(res, 1000));
             }
         }
     }

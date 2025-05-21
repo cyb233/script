@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 庆会广场
 // @namespace    Schwi
-// @version      0.6
+// @version      0.7
 // @description  Bilibili 庆会广场查询
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -109,18 +109,24 @@
 
     // API 请求函数
     async function apiRequest(url, retry = 3) {
+        function appendTimestamp(u) {
+            const ts = `_ts=${Date.now()}`;
+            return u.includes('?') ? `${u}&${ts}` : `${u}?${ts}`;
+        }
         for (let attempt = 1; attempt <= retry; attempt++) {
             try {
                 const response = await GM.xmlHttpRequest({
                     method: 'GET',
-                    url: url,
+                    url: appendTimestamp(url),
                 });
                 const data = JSON.parse(response.responseText);
                 return data;
             } catch (e) {
+                console.error(`API ${url} 请求失败，正在重试...`, e);
                 if (attempt === retry) {
                     throw e;
                 }
+                await new Promise(res => setTimeout(res, 1000));
             }
         }
     }

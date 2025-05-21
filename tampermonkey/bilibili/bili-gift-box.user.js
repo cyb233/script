@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 盲盒统计
 // @namespace    Schwi
-// @version      1.2
+// @version      1.3
 // @description  调用 API 来收集自己的 Bilibili 盲盒概率，公示概率和你的概率一致吗？（受API限制，获取的记录大约只有最近2个自然月，本脚本会本地持久化储存记录）
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -29,18 +29,24 @@
 
   // API 请求函数
   async function apiRequest(url, retry = 3) {
+    function appendTimestamp(u) {
+      const ts = `_ts=${Date.now()}`;
+      return u.includes('?') ? `${u}&${ts}` : `${u}?${ts}`;
+    }
     for (let attempt = 1; attempt <= retry; attempt++) {
       try {
         const response = await GM.xmlHttpRequest({
           method: 'GET',
-          url: url,
+          url: appendTimestamp(url),
         });
         const data = JSON.parse(response.responseText);
         return data;
       } catch (e) {
+        console.error(`API ${url} 请求失败，正在重试...`, e);
         if (attempt === retry) {
           throw e;
         }
+        await new Promise(res => setTimeout(res, 1000));
       }
     }
   }
