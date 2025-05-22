@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 盲盒统计
 // @namespace    Schwi
-// @version      1.4.2
+// @version      1.4.3
 // @description  调用 API 来收集自己的 Bilibili 盲盒概率，公示概率和你的概率一致吗？（受API限制，获取的记录大约只有最近2个自然月，本脚本会本地持久化储存记录）
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -14,7 +14,7 @@
 // @grant        GM_registerMenuCommand
 // @grant        GM_setValue
 // @grant        GM_getValue
-// @grant        GM_removeValue
+// @grant        GM_deleteValue
 // @grant        GM_listValues
 // @noframes
 // @supportURL   https://github.com/cyb233/script
@@ -383,7 +383,7 @@
       const oldGifts = GM_getValue(oldKey, []);
       storedGifts = [...oldGifts, ...storedGifts];
       GM_setValue(uid, storedGifts);
-      GM_removeValue(oldKey);
+      GM_deleteValue(oldKey);
     }
     const mergedGifts = [...storedGifts, ...newGifts].reduce((acc, gift) => {
       if (!acc.some(existingGift => existingGift.id === gift.id)) {
