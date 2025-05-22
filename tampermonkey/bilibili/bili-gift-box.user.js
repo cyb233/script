@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 盲盒统计
 // @namespace    Schwi
-// @version      1.5
+// @version      1.5.1
 // @description  调用 API 来收集自己的 Bilibili 盲盒概率，公示概率和你的概率一致吗？（受API限制，获取的记录大约只有最近2个自然月，本脚本会本地持久化储存记录）
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -16,6 +16,7 @@
 // @grant        GM_getValue
 // @grant        GM_deleteValue
 // @grant        GM_listValues
+// @grant        unsafeWindow
 // @noframes
 // @supportURL   https://github.com/cyb233/script
 // @icon         https://www.bilibili.com/favicon.ico
@@ -828,7 +829,7 @@
 
   // 注册菜单项
   if (document.location.host === 'gift.shuvi.moe') {
-    window.setUserGiftList(getAllGiftList());
+    unsafeWindow.setUserGiftList(getAllGiftList());
   } else {
     GM_registerMenuCommand("检查盲盒数据", fetchAllBlindBoxes);
   }
