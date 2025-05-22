@@ -1,16 +1,19 @@
 // ==UserScript==
 // @name         Bilibili 盲盒统计
 // @namespace    Schwi
-// @version      1.3
+// @version      1.4
 // @description  调用 API 来收集自己的 Bilibili 盲盒概率，公示概率和你的概率一致吗？（受API限制，获取的记录大约只有最近2个自然月，本脚本会本地持久化储存记录）
 // @author       Schwi
 // @match        *://*.bilibili.com/*
+// @match        https://gift.shuvi.moe/box
+// @match        https://gift.shuvi.moe/box.html
 // @connect      api.live.bilibili.com
 // @connect      shuvi.moe
 // @grant        GM_xmlhttpRequest
 // @grant        GM_registerMenuCommand
 // @grant        GM_setValue
 // @grant        GM_getValue
+// @grant        GM_removeValue
 // @noframes
 // @supportURL   https://github.com/cyb233/script
 // @icon         https://www.bilibili.com/favicon.ico
@@ -51,6 +54,16 @@
     }
   }
 
+  // 获取用户UID
+  const getUserData = (() => {
+    let userData = null;
+    return async () => {
+      if (!userData) {
+        userData = (await apiRequest('https://api.bilibili.com/x/space/v2/myinfo')).data;
+      }
+      return userData;
+    };
+  })();
 
   // 盲盒信息，percentage为官方公示概率（不包含活动倍率）
   const getGiftInfo = (() => {
@@ -360,16 +373,28 @@
   })();
 
   // 去重合并记录并存储
-  function saveGiftList(newGifts) {
-    const storedGifts = GM_getValue('allGiftList', []);
+  function saveGiftList(uid, newGifts) {
+    // 兼容性迁移：如果存在 allGiftList，则迁移到当前 uid 下，并删除 allGiftList
+    const oldKey = 'allGiftList';
+    let storedGifts = GM_getValue(uid, []);
+    if (GM_getValue(oldKey)) {
+      const oldGifts = GM_getValue(oldKey, []);
+      storedGifts = [...oldGifts, ...storedGifts];
+      GM_setValue(uid, storedGifts);
+      GM_removeValue(oldKey);
+    }
     const mergedGifts = [...storedGifts, ...newGifts].reduce((acc, gift) => {
       if (!acc.some(existingGift => existingGift.id === gift.id)) {
         acc.push(gift);
       }
       return acc;
-    }, []);
-    GM_setValue('allGiftList', mergedGifts);
+    }, []).sort((a, b) => b.id - a.id);
+    GM_setValue(uid, mergedGifts);
     return mergedGifts;
+  }
+
+  function getAllGiftList() {
+    return GM_listValues().map(key => { return { key, gifts: GM_getValue(key, []) } });
   }
 
   // 工具函数：创建 dialog
@@ -564,7 +589,7 @@
     progressDialog.remove();
 
     // 去重并存储
-    const mergedGiftList = saveGiftList(allGiftList);
+    const mergedGiftList = saveGiftList((await getUserData()).profile.mid, allGiftList);
     console.log('合并后的盲盒数据:', mergedGiftList);
 
     // 相关主播列表去重输出
@@ -800,6 +825,12 @@
   }
 
   // 注册菜单项
-  GM_registerMenuCommand("检查盲盒数据", fetchAllBlindBoxes);
+  if (document.location.host === 'gift.shuvi.moe') {
+    const userGiftList = getAllGiftList();
+    console.log(userGiftList);
+    // todo
+  } else {
+    GM_registerMenuCommand("检查盲盒数据", fetchAllBlindBoxes);
+  }
 
 })();
