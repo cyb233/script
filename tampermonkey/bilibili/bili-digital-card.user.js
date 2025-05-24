@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 收藏集奖励筛查脚本
 // @namespace    Schwi
-// @version      1.7
+// @version      1.8
 // @description  调用 API 来收集自己的 Bilibili 收藏集，并筛选未领取的奖励。注意，一套收藏集中至少存在一张卡牌才能本项目的接口被检测到!
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -119,6 +119,17 @@
                     }))
             }
         },
+        排序: {
+            type: "select",
+            options: [
+                { value: "按拥有卡片数量", text: "按拥有卡片数量", sort: (a, b) => b.num - a.num },
+                { value: "按名称", text: "按名称", sort: (a, b) => a.title.localeCompare(b.title) },
+                { value: "按卡池大小", text: "按卡池大小", sort: (a, b) => b.total - a.total },
+                { value: "按集齐卡片数量", text: "按集齐卡片数量", sort: (a, b) => b.owned - a.owned },
+                { value: "按销量", text: "按销量", sort: (a, b) => b.sale - a.sale }
+            ],
+            filter: (item, input) => true
+        }
     };
 
     // 创建进度条容器
@@ -275,6 +286,7 @@
 
         const deal = (collectList) => {
             let checkedFilters = [];
+            let sortOption = defaultFilters["排序"].options[0]; // 默认排序
             for (let key in defaultFilters) {
                 const f = defaultFilters[key];
                 const filter = filterButtonsContainer.querySelector(`#${key}`);
@@ -286,12 +298,20 @@
                     case 'text':
                         checkedFilter = { ...f, value: filter.value };
                         break;
+                    case 'select':
+                        checkedFilter = { ...f, value: filter.value };
+                        // 记录当前排序选项
+                        sortOption = f.options.find(opt => opt.value === filter.value) || f.options[0];
+                        break;
                 }
                 checkedFilters.push(checkedFilter);
             }
             collectList.forEach(item => {
-                item.display = checkedFilters.every(f => f.value ? f.filter(item, f.value) : true);
+                item.display = checkedFilters.every(f => f.type === "select" ? true : (f.value ? f.filter(item, f.value) : true));
             });
+
+            // 排序
+            collectList.sort(sortOption.sort);
 
             const filteredList = collectList.filter(item => item.display);
             const filteredTotalCards = filteredList.reduce((sum, item) => sum + item.num, 0); // 计算筛选后的总卡片张数
@@ -312,14 +332,27 @@
 
             for (let key in filters) {
                 let filter = filters[key];
-                let input = document.createElement('input');
-                input.type = filter.type;
-                input.id = key;
-                input.style.marginRight = '5px';
-                if (filter.type === 'text') {
-                    input.style.border = '1px solid #ccc';
-                    input.style.padding = '5px';
-                    input.style.borderRadius = '5px';
+                let input;
+                if (filter.type === 'select') {
+                    input = document.createElement('select');
+                    input.id = key;
+                    input.style.marginRight = '5px';
+                    filter.options.forEach(opt => {
+                        let option = document.createElement('option');
+                        option.value = opt.value;
+                        option.textContent = opt.text;
+                        input.appendChild(option);
+                    });
+                } else {
+                    input = document.createElement('input');
+                    input.type = filter.type;
+                    input.id = key;
+                    input.style.marginRight = '5px';
+                    if (filter.type === 'text') {
+                        input.style.border = '1px solid #ccc';
+                        input.style.padding = '5px';
+                        input.style.borderRadius = '5px';
+                    }
                 }
 
                 let label = document.createElement('label');
@@ -334,12 +367,18 @@
                 container.style.alignItems = 'center';
                 container.style.marginRight = '10px';
 
-                if (['checkbox', 'radio'].includes(filter.type)) {
+                if (filter.type === 'checkbox' || filter.type === 'radio') {
                     (function (list, filter, input) {
                         input.addEventListener('change', () => deal(list));
                     })(list, filter, input);
                     container.appendChild(input);
                     container.appendChild(label);
+                } else if (filter.type === 'select') {
+                    (function (list, filter, input) {
+                        input.addEventListener('change', () => deal(list));
+                    })(list, filter, input);
+                    container.appendChild(label);
+                    container.appendChild(input);
                 } else {
                     let timeout;
                     (function (list, filter, input) {
