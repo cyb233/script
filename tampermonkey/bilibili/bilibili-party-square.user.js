@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 庆会广场
 // @namespace    Schwi
-// @version      0.7
+// @version      0.8
 // @description  Bilibili 庆会广场查询
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -528,7 +528,7 @@
                 }
 
                 if (shouldContinue) { // 检查标志位
-                    if (partyList.length >= data.data.total) shouldContinue = false; // 没有更多数据时结束循环
+                    if (partyList.length >= data.data.total || items.length === 0) shouldContinue = false; // 没有更多数据时结束循环
                 }
             } catch (e) {
                 console.error(`Error fetching data: ${e.message}`);
