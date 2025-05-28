@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 盲盒统计
 // @namespace    Schwi
-// @version      1.5.2
+// @version      1.6
 // @description  调用 API 来收集自己的 Bilibili 盲盒概率，公示概率和你的概率一致吗？（受API限制，获取的记录大约只有最近2个自然月，本脚本会本地持久化储存记录）
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -96,49 +96,49 @@
                   "name": "小蛋糕",
                   "price": 15,
                   "percentage": [20],
-                  "subGifts": {}
+                  "subGifts": []
                 },
                 {
                   "id": 32694,
                   "name": "星与月",
                   "price": 25,
                   "percentage": [24.3],
-                  "subGifts": {}
+                  "subGifts": []
                 },
                 {
                   "id": 32075,
                   "name": "情书",
                   "price": 52,
                   "percentage": [23.15],
-                  "subGifts": {}
+                  "subGifts": []
                 },
                 {
                   "id": 34188,
                   "name": "少女祈祷",
                   "price": 66,
                   "percentage": [20],
-                  "subGifts": {}
+                  "subGifts": []
                 },
                 {
                   "id": 32695,
                   "name": "冲鸭",
                   "price": 99,
                   "percentage": [10.3],
-                  "subGifts": {}
+                  "subGifts": []
                 },
                 {
                   "id": 32700,
                   "name": "星河入梦",
                   "price": 199,
                   "percentage": [2],
-                  "subGifts": {}
+                  "subGifts": []
                 },
                 {
                   "id": 32692,
                   "name": "落樱缤纷",
                   "price": 600,
                   "percentage": [0.25],
-                  "subGifts": {}
+                  "subGifts": []
                 }
               ]
             },
@@ -153,49 +153,49 @@
                   "name": "电影票",
                   "price": 20,
                   "percentage": [6],
-                  "subGifts": {}
+                  "subGifts": []
                 },
                 {
                   "id": 32126,
                   "name": "棉花糖",
                   "price": 90,
                   "percentage": [42.56],
-                  "subGifts": {}
+                  "subGifts": []
                 },
                 {
                   "id": 32128,
                   "name": "爱心抱枕",
                   "price": 160,
                   "percentage": [47.5],
-                  "subGifts": {}
+                  "subGifts": []
                 },
                 {
                   "id": 32281,
                   "name": "绮彩权杖",
                   "price": 400,
                   "percentage": [3.7],
-                  "subGifts": {}
+                  "subGifts": []
                 },
                 {
                   "id": 34082,
                   "name": "时空之站",
                   "price": 1000,
                   "percentage": [0.12],
-                  "subGifts": {}
+                  "subGifts": []
                 },
                 {
                   "id": 34894,
                   "name": "蛇形护符",
                   "price": 2000,
                   "percentage": [0.08],
-                  "subGifts": {}
+                  "subGifts": []
                 },
                 {
                   "id": 32132,
                   "name": "浪漫城堡",
                   "price": 22330,
                   "percentage": [0.04],
-                  "subGifts": {}
+                  "subGifts": []
                 }
               ]
             },
@@ -210,49 +210,49 @@
                   "name": "魔力球",
                   "price": 50,
                   "percentage": [5],
-                  "subGifts": {}
+                  "subGifts": []
                 },
                 {
                   "id": 34058,
                   "name": "精灵兔",
                   "price": 100,
                   "percentage": [41.67],
-                  "subGifts": {}
+                  "subGifts": []
                 },
                 {
                   "id": 34057,
                   "name": "许愿神灯",
                   "price": 400,
                   "percentage": [49],
-                  "subGifts": {}
+                  "subGifts": []
                 },
                 {
                   "id": 34530,
                   "name": "梦幻花车",
                   "price": 1000,
                   "percentage": [4],
-                  "subGifts": {}
+                  "subGifts": []
                 },
                 {
                   "id": 34055,
                   "name": "奇遇巴士",
                   "price": 2000,
                   "percentage": [0.13],
-                  "subGifts": {}
+                  "subGifts": []
                 },
                 {
                   "id": 34054,
                   "name": "星愿飞船",
                   "price": 8000,
                   "percentage": [0.1],
-                  "subGifts": {}
+                  "subGifts": []
                 },
                 {
                   "id": 32683,
                   "name": "奇幻古堡",
                   "price": 28880,
                   "percentage": [0.1],
-                  "subGifts": {}
+                  "subGifts": []
                 }
               ]
             },
@@ -267,49 +267,49 @@
                   "name": "璀璨钻石",
                   "price": 200,
                   "percentage": [9.96],
-                  "subGifts": {}
+                  "subGifts": []
                 },
                 {
                   "id": 32359,
                   "name": "旅行日记",
                   "price": 300,
                   "percentage": [36],
-                  "subGifts": {}
+                  "subGifts": []
                 },
                 {
                   "id": 34000,
                   "name": "机械幻想",
                   "price": 510,
                   "percentage": [50.1],
-                  "subGifts": {}
+                  "subGifts": []
                 },
                 {
                   "id": 34082,
                   "name": "时空之站",
                   "price": 1000,
                   "percentage": [3.4],
-                  "subGifts": {}
+                  "subGifts": []
                 },
                 {
                   "id": 34894,
                   "name": "蛇形护符",
                   "price": 2000,
                   "percentage": [0.28],
-                  "subGifts": {}
+                  "subGifts": []
                 },
                 {
                   "id": 34895,
                   "name": "金蛇献福",
                   "price": 5000,
                   "percentage": [0.16],
-                  "subGifts": {}
+                  "subGifts": []
                 },
                 {
                   "id": 32356,
                   "name": "幻影飞船",
                   "price": 30000,
                   "percentage": [0.1],
-                  "subGifts": {}
+                  "subGifts": []
                 }
               ]
             },
@@ -324,49 +324,49 @@
                   "name": "璀璨钻石",
                   "price": 200,
                   "percentage": [0.1],
-                  "subGifts": {}
+                  "subGifts": []
                 },
                 {
                   "id": 32281,
                   "name": "绮彩权杖",
                   "price": 400,
                   "percentage": [22.75],
-                  "subGifts": {}
+                  "subGifts": []
                 },
                 {
                   "id": 32363,
                   "name": "许愿精灵",
                   "price": 888,
                   "percentage": [35],
-                  "subGifts": {}
+                  "subGifts": []
                 },
                 {
                   "id": 33999,
                   "name": "星际启航",
                   "price": 1010,
                   "percentage": [40.14],
-                  "subGifts": {}
+                  "subGifts": []
                 },
                 {
                   "id": 34894,
                   "name": "蛇形护符",
                   "price": 2000,
                   "percentage": [1.45],
-                  "subGifts": {}
+                  "subGifts": []
                 },
                 {
                   "id": 34895,
                   "name": "金蛇献福",
                   "price": 5000,
                   "percentage": [0.32],
-                  "subGifts": {}
+                  "subGifts": []
                 },
                 {
                   "id": 32361,
                   "name": "奇幻之城",
                   "price": 32000,
                   "percentage": [0.24],
-                  "subGifts": {}
+                  "subGifts": []
                 }
               ]
             }]
@@ -471,7 +471,7 @@
       if (!giftMap[originalGiftId]) {
         giftMap[originalGiftId] = { name: originalGiftName };
       }
-      const giftInfoEntry = giftInfo.box.find(box => box.id === parseInt(originalGiftId))?.gifts.find(g => g.id === giftId || Object.values(g.subGifts).some(gift => gift.id === giftId));
+      const giftInfoEntry = giftInfo.box.find(box => box.id === parseInt(originalGiftId))?.gifts.find(g => g.id === giftId || g.subGifts.some(gift => gift.id === giftId));
       if (!giftInfoEntry) {
         giftMap[originalGiftId][giftId] = giftName;
       }
@@ -489,7 +489,7 @@
       }
       // 检查 giftId 是否属于 subGifts
       let mainGiftId = giftId;
-      const giftInfoEntry = giftInfo.box.find(box => box.id === parseInt(originalGiftId))?.gifts.find(g => g.id === giftId || Object.values(g.subGifts).some(gift => gift.id === giftId));
+      const giftInfoEntry = giftInfo.box.find(box => box.id === parseInt(originalGiftId))?.gifts.find(g => g.id === giftId || g.subGifts.some(gift => gift.id === giftId));
       if (giftInfoEntry) {
         mainGiftId = giftInfoEntry.id;
       }
