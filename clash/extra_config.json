@@ -15,6 +15,7 @@
     "DOMAIN-SUFFIX,itch.io,Proxies",
     "DOMAIN-SUFFIX,cloudflarestorage.com,Proxies",
     "DOMAIN-SUFFIX,steamcommunity.com,Proxies",
-    "DOMAIN-SUFFIX,shuvi.moe,DIRECT"
+    "DOMAIN-SUFFIX,shuvi.moe,DIRECT",
+    "DOMAIN-SUFFIX,api.github.com,DIRECT"
   ]
 }
