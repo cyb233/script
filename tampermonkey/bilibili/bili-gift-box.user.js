@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 盲盒统计
 // @namespace    Schwi
-// @version      1.6.1
+// @version      1.7
 // @description  调用 API 来收集自己的 Bilibili 盲盒概率，公示概率和你的概率一致吗？（受API限制，获取的记录大约只有最近2个自然月，本脚本会本地持久化储存记录）
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -464,22 +464,27 @@
 
   // 盲盒数据分组统计函数
   function groupGiftStats(giftList, giftInfo) {
-    // {originalGiftId: {giftId: giftName}} 格式化，仅保存giftInfo中gifts及subGifts中不存在的礼物
-    const giftMap = {};
-    giftList.forEach(gift => {
-      const { originalGiftId, originalGiftName, giftId, giftName } = gift;
-      if (!giftMap[originalGiftId]) {
-        giftMap[originalGiftId] = { name: originalGiftName };
-      }
-      const giftInfoEntry = giftInfo.box.find(box => box.id === parseInt(originalGiftId))?.gifts.find(g => g.id === giftId || g.subGifts.some(gift => gift.id === giftId));
-      if (!giftInfoEntry) {
-        giftMap[originalGiftId][giftId] = giftName;
-      }
-    });
-    // 根据 originalGiftId 分组统计 giftId 数量
+    // 统计结构
     const groupedGiftStats = {};
     giftList.forEach(gift => {
       const { originalGiftId, originalGiftName, giftId, giftName, giftNum } = gift;
+      // 查找主礼物ID（如果giftId是subGift，则归属于主礼物）
+      const box = giftInfo.box.find(box => box.id === parseInt(originalGiftId));
+      let mainGift = null;
+      let mainGiftId = giftId;
+      if (box) {
+        mainGift = box.gifts.find(g => g.id === giftId);
+        if (!mainGift) {
+          // 查找subGift
+          for (const g of box.gifts) {
+            if (g.subGifts && g.subGifts.some(sub => sub.id === giftId)) {
+              mainGift = g;
+              mainGiftId = g.id;
+              break;
+            }
+          }
+        }
+      }
       if (!groupedGiftStats[originalGiftId]) {
         groupedGiftStats[originalGiftId] = {
           originalGiftName,
@@ -487,15 +492,9 @@
           gifts: {}
         };
       }
-      // 检查 giftId 是否属于 subGifts
-      let mainGiftId = giftId;
-      const giftInfoEntry = giftInfo.box.find(box => box.id === parseInt(originalGiftId))?.gifts.find(g => g.id === giftId || g.subGifts.some(gift => gift.id === giftId));
-      if (giftInfoEntry) {
-        mainGiftId = giftInfoEntry.id;
-      }
       if (!groupedGiftStats[originalGiftId].gifts[mainGiftId]) {
         groupedGiftStats[originalGiftId].gifts[mainGiftId] = {
-          giftName: giftInfoEntry?.name || giftName,
+          giftName: mainGift?.name || giftName,
           count: 0,
           percentage: 0
         };
