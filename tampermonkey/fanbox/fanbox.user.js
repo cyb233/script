@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      4.0
+// @version      4.1
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -908,18 +908,47 @@
         dialog.appendChild(header)
 
         const planSummary = document.createElement('p');
+        // 优化：visible=true时为按钮，点击可全选/反选对应fee投稿
         planSummary.innerHTML = '各档位投稿数量: ' + Object.entries(planPostCount).sort(([a], [b]) => a - b).map(([fee, plan]) => {
             if (fee === "-2") {
                 return `${plan.title}: ${plan.count} 个`;
             }
             const color = plan.visible ? 'green' : 'red';
             if (fee === "-1") {
-                return `<span style="color: ${color};">${plan.title}: ${plan.count} 个</span>`;
+                return `<span style=\"color: ${color};\">${plan.title}: ${plan.count} 个</span>`;
             }
-            return `<span style="color: ${color};">${plan.title} 档位(${plan.fee} 日元): ${plan.count} 个</span>`;
+            if (plan.visible) {
+                // 按钮样式，data-fee属性
+                return `<button class=\"plan-fee-btn\" data-fee=\"${plan.fee}\" style=\"color:white;background-color:${color};border:none;border-radius:5px;padding:2px 8px;cursor:pointer;margin:0 2px;\">${plan.title} 档位(${plan.fee} 日元): ${plan.count} 个</button>`;
+            }
+            return `<span style=\"color: ${color};\">${plan.title} 档位(${plan.fee} 日元): ${plan.count} 个</span>`;
         }).join(' | ');
         planSummary.style.marginBottom = '20px'; // 调整内边距
         dialog.appendChild(planSummary);
+
+        // 事件委托：点击档位按钮全选/反选对应fee投稿
+        planSummary.addEventListener('click', function (e) {
+            if (e.target.classList.contains('plan-fee-btn')) {
+                const fee = Number(e.target.dataset.fee);
+                const checkboxes = dialog.querySelectorAll('input[type="checkbox"]');
+                const postElements = dialog.querySelectorAll('.post-element');
+                // 判断当前fee投稿是否全选
+                let allChecked = true;
+                checkboxes.forEach((checkbox, idx) => {
+                    if (allPost[checkbox.dataset.index].minFeeRequired === fee && !checkbox.checked) {
+                        allChecked = false;
+                    }
+                });
+                // 切换选中/反选
+                checkboxes.forEach((checkbox, idx) => {
+                    if (allPost[checkbox.dataset.index].minFeeRequired === fee) {
+                        checkbox.checked = !allChecked;
+                        postElements[idx].style.backgroundColor = checkbox.checked ? 'lightblue' : 'white';
+                    }
+                });
+                updateTitle();
+            }
+        });
 
         const controls = document.createElement('div')
         controls.style.display = 'flex'
