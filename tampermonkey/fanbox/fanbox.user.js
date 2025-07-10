@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      4.1
+// @version      4.2
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -203,6 +203,18 @@
                     const file = resp.body.body.fileMap;
                     const embed = resp.body.body.embedMap;
                     const urlEmbed = resp.body.body.urlEmbedMap;
+
+                    let index = resp.body.body.images.length;
+                    const totalLength = String(index + Object.keys(image).length).length;
+                    for (const key in image) {
+                        const paddedIndex = String(index + 1).padStart(totalLength, '0');
+                        resp.body.body.images.push({ ...image[key], id: `${paddedIndex}_${image[key].id}`, rawId: image[key].id });
+                        index++;
+                    }
+                    for (const key in file) {
+                        resp.body.body.files.push({ ...file[key], rawId: file[key].id })
+                    }
+
                     let html =
                         `
                         <!DOCTYPE html>
@@ -235,11 +247,12 @@
                         } else if (block.type === 'header') {
                             html += `<h2>${block.text}</h2>`
                         } else if (block.type === 'image') {
-                            const blockImg = image[block.imageId]
-                            html += `<p><img src="${blockImg.originalUrl}" alt="${blockImg.id}"></p>`
+                            const blockImg = resp.body.body.images.find(img => img.rawId === block.imageId)
+                            html += `<p><img src="./${blockImg.id}.${blockImg.extension}" alt="${blockImg.id}"></p>`
                         } else if (block.type === 'file') {
-                            const blockFile = file[block.fileId]
-                            html += `<p><a href="${blockFile.url}" download="${blockFile.name}.${blockFile.extension}">${blockFile.name}.${blockFile.extension}</a></p>`
+                            const blockFile = resp.body.body.files.find(file => file.rawId === block.fileId)
+                            // 修改为本地文件路径
+                            html += `<p><a href="./${blockFile.name}.${blockFile.extension}" download="${blockFile.name}.${blockFile.extension}">${blockFile.name}.${blockFile.extension}</a></p>`
                         } else if (block.type === 'embed') {
                             const blockEmbed = embed[block.embedId]
                             const url = postType.video.getFullUrl(blockEmbed)
@@ -262,16 +275,6 @@
                         }
                     }
                     html += `</body></html>`
-                    let index = resp.body.body.images.length;
-                    const totalLength = String(index + Object.keys(image).length).length;
-                    for (const key in image) {
-                        const paddedIndex = String(index + 1).padStart(totalLength, '0');
-                        resp.body.body.images.push({ ...image[key], id: `${paddedIndex}_${image[key].id}` });
-                        index++;
-                    }
-                    for (const key in file) {
-                        resp.body.body.files.push(file[key])
-                    }
                     resp.body.body.html = html;
                 } else {
                     console.log(`${nextId}:${resp.body.title} 未知类型 ${resp.body.type}`)
