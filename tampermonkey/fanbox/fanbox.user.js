@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      4.2
+// @version      4.3
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -918,13 +918,9 @@
             }
             const color = plan.visible ? 'green' : 'red';
             if (fee === "-1") {
-                return `<span style=\"color: ${color};\">${plan.title}: ${plan.count} 个</span>`;
+                return `<span style="color: ${color};">${plan.title}: ${plan.count} 个</span>`;
             }
-            if (plan.visible) {
-                // 按钮样式，data-fee属性
-                return `<button class=\"plan-fee-btn\" data-fee=\"${plan.fee}\" style=\"color:white;background-color:${color};border:none;border-radius:5px;padding:2px 8px;cursor:pointer;margin:0 2px;\">${plan.title} 档位(${plan.fee} 日元): ${plan.count} 个</button>`;
-            }
-            return `<span style=\"color: ${color};\">${plan.title} 档位(${plan.fee} 日元): ${plan.count} 个</span>`;
+            return `<button class="plan-fee-btn" data-fee="${plan.fee}" style="color:white;background-color:${color};border:none;border-radius:5px;padding:2px 8px;cursor:pointer;margin:0 2px;">${plan.title} 档位(${plan.fee} 日元): ${plan.count} 个</button>`;
         }).join(' | ');
         planSummary.style.marginBottom = '20px'; // 调整内边距
         dialog.appendChild(planSummary);
