@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      4.3
+// @version      4.4
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -37,6 +37,82 @@
 
     const defaultFormat = `{postId}_{title}/{filename}`
 
+    /** Helper function to pause execution for a given time. */
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+    /**
+     * A wrapper for the fetch API that includes retry logic with exponential backoff for 429 errors and other network issues.
+     * @param {string} url - The URL to fetch.
+     * @param {object} options - The options for the fetch request.
+     * @param {number} [maxRetries=5] - The maximum number of retries.
+     * @param {number} [initialDelay=2000] - The initial delay in milliseconds for retries.
+     * @param {boolean} [addBaseDelay=false] - Whether to add a small delay before the first attempt (useful for requests in a loop).
+     * @returns {Promise<any>} - A promise that resolves with the JSON response.
+     */
+    async function fetchWithRetry(url, options, maxRetries = 5, initialDelay = 2000, addBaseDelay = false) {
+        let attempt = 0;
+
+        if (addBaseDelay) {
+            await sleep(500); // Add a small, consistent delay to be nice to the API
+        }
+
+        while (attempt < maxRetries) {
+            try {
+                const response = await fetch(url, options);
+
+                if (response.status === 429) {
+                    // API Rate Limited
+                    const retryAfterHeader = response.headers.get('Retry-After');
+                    let waitTime = initialDelay * Math.pow(2, attempt); // Default exponential backoff
+
+                    if (retryAfterHeader) {
+                        const retryAfterSeconds = parseInt(retryAfterHeader, 10);
+                        if (!isNaN(retryAfterSeconds)) {
+                            // Header gives seconds to wait
+                            waitTime = retryAfterSeconds * 1000;
+                        } else {
+                            // Header might be a date string
+                            const retryAfterDate = new Date(retryAfterHeader);
+                            if (!isNaN(retryAfterDate.getTime())) {
+                                waitTime = retryAfterDate.getTime() - Date.now();
+                            }
+                        }
+                    }
+
+                    waitTime = Math.max(waitTime, 1000); // Ensure waitTime is not negative and at least 1s
+                    console.warn(`API rate limit hit (429). Retrying after ${Math.round(waitTime / 1000)}s...`);
+                    await sleep(waitTime);
+                    attempt++;
+                    continue; // Retry the request
+                }
+
+                if (!response.ok) {
+                    // Handle other HTTP errors
+                    throw new Error(`HTTP error! status: ${response.status} ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                if (data.error) {
+                    // Handle API-level errors returned in the JSON body
+                    throw new Error(`API returned an error: ${data.message || JSON.stringify(data.body)}`);
+                }
+                return data;
+
+            } catch (error) {
+                console.error(`Request to ${url} failed on attempt ${attempt + 1}/${maxRetries}:`, error.message);
+                attempt++;
+                if (attempt >= maxRetries) {
+                    console.error(`Max retries reached for ${url}. Aborting.`);
+                    throw error; // Re-throw the error after max retries
+                }
+                // Wait before the next retry for generic network/API errors
+                await sleep(initialDelay * Math.pow(2, attempt - 1));
+            }
+        }
+        throw new Error(`Failed to fetch ${url} after ${maxRetries} attempts.`);
+    }
+
+
     const postType = {
         text: { type: 'text', name: '文本' },
         image: { type: 'image', name: '图片' },
@@ -71,7 +147,7 @@
                 baseUrl = `https://www.fanbox.cc/@${creatorId}`;
             }
 
-            const creator = await fetch(api.creator(creatorId), { credentials: 'include' }).then(response => response.json()).catch(e => console.error(e));
+            const creator = await fetchWithRetry(api.creator(creatorId), { credentials: 'include' });
             const nickname = creator.body.user.name;
 
             cachedInfo = { creatorId, baseUrl, nickname };
@@ -87,7 +163,7 @@
     }
 
     async function getAllPost(progressBar) {
-        const planData = await fetch(api.plan((await baseinfo()).creatorId), { credentials: 'include' }).then(response => response.json()).catch(e => console.error(e));
+        const planData = await fetchWithRetry(api.plan((await baseinfo()).creatorId), { credentials: 'include' });
         const yourPlan = planData.body.filter(plan => plan.paymentMethod)
         const yourFee = yourPlan.length === 0 ? 0 : yourPlan[0].fee
         const planPostCount = {
@@ -136,13 +212,14 @@
             return acc;
         }, planPostCount);
 
-        const data = await fetch(api.creatorPost((await baseinfo()).creatorId), { credentials: 'include' }).then(response => response.json()).catch(e => console.error(e));
+        const data = await fetchWithRetry(api.creatorPost((await baseinfo()).creatorId), { credentials: 'include' });
         let nextId = data.body[0]?.id
         const postArray = []
         let i = 0
         while (nextId) {
-            console.log(`请求第${++i}个`)
-            const resp = await fetch(api.post(nextId), { credentials: 'include' }).then(response => response.json()).catch(e => console.error(e));
+            console.log(`请求第${++i}个, Post ID: ${nextId}`);
+            // Use the retry wrapper and add a base delay for each request in the loop
+            const resp = await fetchWithRetry(api.post(nextId), { credentials: 'include' }, 5, 2000, true);
             const feeRequired = resp.body.feeRequired || 0
             const minFeeRequired = getMinKey(planPostCount, feeRequired)
             resp.body.minFeeRequired = minFeeRequired;
@@ -420,21 +497,45 @@
             let attempts = 0;
             while (attempts < 3) {
                 try {
-                    const resp = await GM.xmlHttpRequest({
-                        url: file.url, responseType: 'blob', onprogress: (event) => {
-                            if (isCancelled) throw new Error('下载已取消');
-                            if (event.lengthComputable) {
-                                downloadProgressDialog.updateFileProgress(event.loaded, event.total);
-                                const elapsedTime = (new Date() - startTime) / 1000;
-                                const speed = (totalDownloadedSize + event.loaded) / elapsedTime;
-                                downloadProgressDialog.updateSpeed(speed);
+                    const resp = await new Promise((resolve, reject) => {
+                        GM_xmlhttpRequest({
+                            method: "GET",
+                            url: file.url,
+                            responseType: 'blob',
+                            onload: (response) => {
+                                if (isCancelled) {
+                                    reject(new Error('下载已取消'));
+                                    return;
+                                }
+                                if (response.status >= 200 && response.status < 300) {
+                                    resolve(response);
+                                } else {
+                                    reject(new Error(`HTTP error! status: ${response.status}`));
+                                }
+                            },
+                            onprogress: (event) => {
+                                if (isCancelled) {
+                                    reject(new Error('下载已取消'));
+                                    return;
+                                }
+                                if (event.lengthComputable) {
+                                    downloadProgressDialog.updateFileProgress(event.loaded, event.total);
+                                    const elapsedTime = (new Date() - startTime) / 1000;
+                                    const speed = (totalDownloadedSize + event.loaded) / elapsedTime;
+                                    downloadProgressDialog.updateSpeed(speed);
+                                }
+                            },
+                            onerror: (error) => {
+                                console.error("GM_xmlhttpRequest error:", error);
+                                reject(error);
+                            },
+                            ontimeout: () => {
+                                reject(new Error("Request timed out."));
                             }
-                        },
-                        onerror: (e) => {
-                            console.error(e);
-                            throw e;
-                        }
+                        });
                     });
+
+
                     if (!resp.response?.size) {
                         throw new Error('文件大小为0');
                     }
@@ -461,6 +562,7 @@
                         failedFiles.push({ filename: file.filename, error: e.message, url: file.url });
                         downloadProgressDialog.updateFailedFiles(failedFiles); // 实时更新失败文件列表
                     }
+                     await sleep(1000 * attempts); // Wait before retrying
                 }
             }
         }
@@ -470,7 +572,12 @@
             while (attempts < 3) {
                 try {
                     downloadProgressDialog.updateFileProgress(0, 0);
-                    const coverBlob = await fetch(cover.url).then(response => response.blob()).catch(e => console.error(e));
+                    // Using standard fetch for covers as it's simpler and doesn't need progress
+                    const coverBlob = await fetch(cover.url).then(response => {
+                        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                        return response.blob();
+                    });
+
                     if (!coverBlob.size) {
                         throw new Error('文件大小为0');
                     }
@@ -498,6 +605,7 @@
                         failedFiles.push({ filename: cover.filename, error: e.message, url: cover.url });
                         downloadProgressDialog.updateFailedFiles(failedFiles); // 实时更新失败文件列表
                     }
+                    await sleep(1000 * attempts); // Wait before retrying
                 }
             }
         }
@@ -1224,16 +1332,27 @@
     }
 
     async function fmain() {
-        if (allPost.length === 0 || (await baseinfo(true)).creatorId !== (await baseinfo(false)).creatorId) {
-            // 创建进度条
-            const progressBar = createProgressBar()
-            // 获取所有投稿
-            const { postArray, planPostCount } = await getAllPost(progressBar).catch(e => console.error(e))
-            allPost = postArray
-            planCount = planPostCount
+        try {
+            if (allPost.length === 0 || (await baseinfo(true)).creatorId !== (await baseinfo(false)).creatorId) {
+                // 创建进度条
+                const progressBar = createProgressBar();
+                // 获取所有投稿
+                const result = await getAllPost(progressBar);
+                if (!result) {
+                    console.error("Failed to get posts. Aborting.");
+                    alert("获取投稿失败，请查看控制台获取更多信息。");
+                    progressBar.close();
+                    return;
+                }
+                allPost = result.postArray;
+                planCount = result.planPostCount;
+            }
+            // 创建结果弹窗
+            createResultDialog(allPost, planCount);
+        } catch (error) {
+            console.error("An error occurred in the main process:", error);
+            alert(`脚本运行出错: ${error.message}\n请检查控制台以获取详细信息。`);
         }
-        // 创建结果弹窗
-        const resultDialog = createResultDialog(allPost, planCount)
     }
 
     GM_registerMenuCommand('查询投稿', fmain)
