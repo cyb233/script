@@ -9,7 +9,7 @@
 // @grant        GM_registerMenuCommand
 // @grant        GM_getValue
 // @grant        GM_setValue
-// @grant        GM_xmlhttpRequest
+// @grant        GM.xmlHttpRequest
 // @noframes
 // @connect      api.fanbox.cc
 // @connect      downloads.fanbox.cc
@@ -495,46 +495,28 @@
         for (const file of downloadFiles) {
             if (isCancelled) break; // 如果取消下载，则跳出循环
             let attempts = 0;
+            const resp = await fetch(api.post(nextId), { credentials: 'include' }).then(response => response.json()).catch(e => console.error(e));
+            const feeRequired = resp.body.feeRequired || 0
+            const minFeeRequired = getMinKey(planPostCount, feeRequired)
+            resp.body.minFeeRequired = minFeeRequired;
+            let attempts = 0;
             while (attempts < 3) {
                 try {
-                    const resp = await new Promise((resolve, reject) => {
-                        GM_xmlhttpRequest({
-                            method: "GET",
-                            url: file.url,
-                            responseType: 'blob',
-                            onload: (response) => {
-                                if (isCancelled) {
-                                    reject(new Error('下载已取消'));
-                                    return;
-                                }
-                                if (response.status >= 200 && response.status < 300) {
-                                    resolve(response);
-                                } else {
-                                    reject(new Error(`HTTP error! status: ${response.status}`));
-                                }
-                            },
-                            onprogress: (event) => {
-                                if (isCancelled) {
-                                    reject(new Error('下载已取消'));
-                                    return;
-                                }
-                                if (event.lengthComputable) {
-                                    downloadProgressDialog.updateFileProgress(event.loaded, event.total);
-                                    const elapsedTime = (new Date() - startTime) / 1000;
-                                    const speed = (totalDownloadedSize + event.loaded) / elapsedTime;
-                                    downloadProgressDialog.updateSpeed(speed);
-                                }
-                            },
-                            onerror: (error) => {
-                                console.error("GM_xmlhttpRequest error:", error);
-                                reject(error);
-                            },
-                            ontimeout: () => {
-                                reject(new Error("Request timed out."));
+                    const resp = await GM.xmlHttpRequest({
+                        url: file.url, responseType: 'blob', onprogress: (event) => {
+                            if (isCancelled) throw new Error('下载已取消');
+                            if (event.lengthComputable) {
+                                downloadProgressDialog.updateFileProgress(event.loaded, event.total);
+                                const elapsedTime = (new Date() - startTime) / 1000;
+                                const speed = (totalDownloadedSize + event.loaded) / elapsedTime;
+                                downloadProgressDialog.updateSpeed(speed);
                             }
-                        });
+                        },
+                        onerror: (e) => {
+                            console.error(e);
+                            throw e;
+                        }
                     });
-
 
                     if (!resp.response?.size) {
                         throw new Error('文件大小为0');
