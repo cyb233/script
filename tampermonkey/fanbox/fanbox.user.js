@@ -499,7 +499,6 @@
             const feeRequired = resp.body.feeRequired || 0
             const minFeeRequired = getMinKey(planPostCount, feeRequired)
             resp.body.minFeeRequired = minFeeRequired;
-            let attempts = 0;
             while (attempts < 3) {
                 try {
                     const resp = await GM.xmlHttpRequest({
