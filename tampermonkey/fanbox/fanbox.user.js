@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      4.4
+// @version      4.5
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -495,10 +495,6 @@
         for (const file of downloadFiles) {
             if (isCancelled) break; // 如果取消下载，则跳出循环
             let attempts = 0;
-            const resp = await fetch(api.post(nextId), { credentials: 'include' }).then(response => response.json()).catch(e => console.error(e));
-            const feeRequired = resp.body.feeRequired || 0
-            const minFeeRequired = getMinKey(planPostCount, feeRequired)
-            resp.body.minFeeRequired = minFeeRequired;
             while (attempts < 3) {
                 try {
                     const resp = await GM.xmlHttpRequest({
