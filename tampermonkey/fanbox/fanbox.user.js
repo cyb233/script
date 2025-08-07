@@ -495,11 +495,6 @@
         for (const file of downloadFiles) {
             if (isCancelled) break; // 如果取消下载，则跳出循环
             let attempts = 0;
-            const resp = await fetch(api.post(nextId), { credentials: 'include' }).then(response => response.json()).catch(e => console.error(e));
-            const feeRequired = resp.body.feeRequired || 0
-            const minFeeRequired = getMinKey(planPostCount, feeRequired)
-            resp.body.minFeeRequired = minFeeRequired;
-            let attempts = 0;
             while (attempts < 3) {
                 try {
                     const resp = await GM.xmlHttpRequest({
@@ -554,7 +549,6 @@
             while (attempts < 3) {
                 try {
                     downloadProgressDialog.updateFileProgress(0, 0);
-                    // Using standard fetch for covers as it's simpler and doesn't need progress
                     const coverBlob = await fetch(cover.url).then(response => {
                         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                         return response.blob();
