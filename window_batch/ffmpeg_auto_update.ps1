@@ -29,7 +29,7 @@ function Get-IniValue {
 
     $reader = [System.IO.File]::OpenText($file)
     try {
-        while (($line = $reader.ReadLine()) -ne $null) {
+        while ($null -ne ($line = $reader.ReadLine())) {
             if ($line -match "^\s*$key\s*=\s*(.*)$") {
                 return $matches[1].Trim()
             }
