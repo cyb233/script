@@ -49,7 +49,6 @@ start "" %PATH_TO_PROXIFIER%
 if %errorlevel% neq 0 (
     echo 启动 Proxifier.exe 失败，请手动启动。
 )
-pause
 goto end
 
 :stop
@@ -59,7 +58,6 @@ taskkill /f /im Proxifier.exe
 echo.
 echo 正在停止 ProxifierDrv 服务...
 sc stop ProxifierDrv
-pause
 goto end
 
 :exit
@@ -68,4 +66,15 @@ echo 已退出。
 goto end
 
 :end
+echo.
+setlocal enabledelayedexpansion
+set COUNTDOWN=3
+:countdown
+if !COUNTDOWN! gtr 0 (
+    echo 程序将在 !COUNTDOWN! 秒后自动退出...
+    timeout /t 1 >nul
+    set /a COUNTDOWN-=1
+    goto countdown
+)
+endlocal
 exit /b
