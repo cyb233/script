@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 盲盒统计
 // @namespace    Schwi
-// @version      1.7
+// @version      1.7.1
 // @description  调用 API 来收集自己的 Bilibili 盲盒概率，公示概率和你的概率一致吗？（受API限制，获取的记录大约只有最近2个自然月，本脚本会本地持久化储存记录）
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -86,63 +86,6 @@
         return {
           "box": [
             {
-              "id": 32649,
-              "name": "星月盲盒",
-              "price": 50,
-              "level": ["初始倍"],
-              "gifts": [
-                {
-                  "id": 32698,
-                  "name": "小蛋糕",
-                  "price": 15,
-                  "percentage": [20],
-                  "subGifts": []
-                },
-                {
-                  "id": 32694,
-                  "name": "星与月",
-                  "price": 25,
-                  "percentage": [24.3],
-                  "subGifts": []
-                },
-                {
-                  "id": 32075,
-                  "name": "情书",
-                  "price": 52,
-                  "percentage": [23.15],
-                  "subGifts": []
-                },
-                {
-                  "id": 34188,
-                  "name": "少女祈祷",
-                  "price": 66,
-                  "percentage": [20],
-                  "subGifts": []
-                },
-                {
-                  "id": 32695,
-                  "name": "冲鸭",
-                  "price": 99,
-                  "percentage": [10.3],
-                  "subGifts": []
-                },
-                {
-                  "id": 32700,
-                  "name": "星河入梦",
-                  "price": 199,
-                  "percentage": [2],
-                  "subGifts": []
-                },
-                {
-                  "id": 32692,
-                  "name": "落樱缤纷",
-                  "price": 600,
-                  "percentage": [0.25],
-                  "subGifts": []
-                }
-              ]
-            },
-            {
               "id": 32251,
               "name": "心动盲盒",
               "price": 150,
@@ -200,172 +143,101 @@
               ]
             },
             {
-              "id": 34052,
-              "name": "奇遇盲盒",
-              "price": 330,
+              "id": 35206,
+              "name": "幸运盲盒",
+              "price": 50,
               "level": ["初始倍"],
               "gifts": [
                 {
-                  "id": 34059,
-                  "name": "魔力球",
-                  "price": 50,
+                  "id": 35207,
+                  "name": "幸运泡泡",
+                  "price": 15,
+                  "percentage": [14.8],
+                  "subGifts": []
+                },
+                {
+                  "id": 34704,
+                  "name": "幸运草",
+                  "price": 25,
+                  "percentage": [25],
+                  "subGifts": []
+                },
+                {
+                  "id": 35208,
+                  "name": "星光铃铛",
+                  "price": 52,
+                  "percentage": [52.1],
+                  "subGifts": []
+                },
+                {
+                  "id": 35209,
+                  "name": "梦雾纸签",
+                  "price": 100,
                   "percentage": [5],
                   "subGifts": []
                 },
                 {
-                  "id": 34058,
-                  "name": "精灵兔",
-                  "price": 100,
-                  "percentage": [41.67],
+                  "id": 35210,
+                  "name": "福灵小兽",
+                  "price": 200,
+                  "percentage": [2.7],
                   "subGifts": []
                 },
                 {
-                  "id": 34057,
-                  "name": "许愿神灯",
-                  "price": 400,
-                  "percentage": [49],
-                  "subGifts": []
-                },
-                {
-                  "id": 34530,
-                  "name": "梦幻花车",
-                  "price": 1000,
-                  "percentage": [4],
-                  "subGifts": []
-                },
-                {
-                  "id": 34055,
-                  "name": "奇遇巴士",
-                  "price": 2000,
-                  "percentage": [0.13],
-                  "subGifts": []
-                },
-                {
-                  "id": 34054,
-                  "name": "星愿飞船",
-                  "price": 8000,
-                  "percentage": [0.1],
-                  "subGifts": []
-                },
-                {
-                  "id": 32683,
-                  "name": "奇幻古堡",
-                  "price": 28880,
-                  "percentage": [0.1],
+                  "id": 35211,
+                  "name": "星愿花园",
+                  "price": 600,
+                  "percentage": [0.4],
                   "subGifts": []
                 }
               ]
             },
             {
-              "id": 32368,
-              "name": "闪耀盲盒",
+              "id": 35212,
+              "name": "幸运盲盒S",
               "price": 500,
               "level": ["初始倍"],
               "gifts": [
                 {
-                  "id": 32360,
-                  "name": "璀璨钻石",
-                  "price": 200,
-                  "percentage": [9.96],
+                  "id": 35213,
+                  "name": "初兆光符",
+                  "price": 160,
+                  "percentage": [10],
                   "subGifts": []
                 },
                 {
-                  "id": 32359,
-                  "name": "旅行日记",
+                  "id": 33593,
+                  "name": "幸运之露",
                   "price": 300,
-                  "percentage": [36],
+                  "percentage": [33.8],
                   "subGifts": []
                 },
                 {
-                  "id": 34000,
-                  "name": "机械幻想",
-                  "price": 510,
-                  "percentage": [50.1],
+                  "id": 35214,
+                  "name": "福引转轮",
+                  "price": 520,
+                  "percentage": [52.55],
                   "subGifts": []
                 },
                 {
-                  "id": 34082,
-                  "name": "时空之站",
+                  "id": 35215,
+                  "name": "光羽预言",
                   "price": 1000,
-                  "percentage": [3.4],
+                  "percentage": [3],
                   "subGifts": []
                 },
                 {
-                  "id": 34894,
-                  "name": "蛇形护符",
-                  "price": 2000,
-                  "percentage": [0.28],
-                  "subGifts": []
-                },
-                {
-                  "id": 34895,
-                  "name": "金蛇献福",
+                  "id": 35216,
+                  "name": "幽镜之门",
                   "price": 5000,
-                  "percentage": [0.16],
+                  "percentage": [0.55],
                   "subGifts": []
                 },
                 {
-                  "id": 32356,
-                  "name": "幻影飞船",
+                  "id": 35217,
+                  "name": "命契幻境",
                   "price": 30000,
                   "percentage": [0.1],
-                  "subGifts": []
-                }
-              ]
-            },
-            {
-              "id": 32369,
-              "name": "至尊盲盒",
-              "price": 1000,
-              "level": ["初始倍"],
-              "gifts": [
-                {
-                  "id": 32360,
-                  "name": "璀璨钻石",
-                  "price": 200,
-                  "percentage": [0.1],
-                  "subGifts": []
-                },
-                {
-                  "id": 32281,
-                  "name": "绮彩权杖",
-                  "price": 400,
-                  "percentage": [22.75],
-                  "subGifts": []
-                },
-                {
-                  "id": 32363,
-                  "name": "许愿精灵",
-                  "price": 888,
-                  "percentage": [35],
-                  "subGifts": []
-                },
-                {
-                  "id": 33999,
-                  "name": "星际启航",
-                  "price": 1010,
-                  "percentage": [40.14],
-                  "subGifts": []
-                },
-                {
-                  "id": 34894,
-                  "name": "蛇形护符",
-                  "price": 2000,
-                  "percentage": [1.45],
-                  "subGifts": []
-                },
-                {
-                  "id": 34895,
-                  "name": "金蛇献福",
-                  "price": 5000,
-                  "percentage": [0.32],
-                  "subGifts": []
-                },
-                {
-                  "id": 32361,
-                  "name": "奇幻之城",
-                  "price": 32000,
-                  "percentage": [0.24],
                   "subGifts": []
                 }
               ]
