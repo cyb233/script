@@ -74,6 +74,8 @@ if ($selectedFiles.Count -gt 1) {
         Add-Content -Path $inputListFile -Value "file '$image'"
         Add-Content -Path $inputListFile -Value "duration $durationPerImage"
     }
+    Write-Host "图片列表文件内容："
+    Get-Content -Path $inputListFile
 
     $totalDuration720p = 6 # 总时长为6秒
     $durationPerImage720p = $totalDuration720p / $imageCount
@@ -83,18 +85,20 @@ if ($selectedFiles.Count -gt 1) {
         Add-Content -Path $inputListFile720p -Value "file '$image'"
         Add-Content -Path $inputListFile720p -Value "duration $durationPerImage720p"
     }
+    Write-Host "图片列表文件内容720p："
+    Get-Content -Path $inputListFile720p
 
     # 生成视频
-    ffmpeg -f concat -safe 0 -i "$inputListFile"  -s 3840x2160 -r 24 -t 3 -y "$runPath\intro.webm"
-    ffmpeg -f concat -safe 0 -i "$inputListFile720p" -s 1280x720 -r 60 -t 6 -y "$runPath\intro720p.webm"
+    ffmpeg -f concat -safe 0 -i "$inputListFile"  -s 3840x2160 -r 24 -t 3 -crf 18 -y "$runPath\intro.webm"
+    ffmpeg -f concat -safe 0 -i "$inputListFile720p" -s 1280x720 -r 60 -t 6 -crf 18 -y "$runPath\intro720p.webm"
     Remove-Item -ErrorAction SilentlyContinue $inputListFile
     Remove-Item -ErrorAction SilentlyContinue $inputListFile720p
 }
 else {
     Write-Host "单张图片模式：使用 -loop 1 合成固定时长视频"
     $singleImage = $selectedFiles[0]
-    ffmpeg -loop 1 -i "$singleImage" -s 3840x2160 -r 24 -t 3 -y "$runPath\intro.webm"
-    ffmpeg -loop 1 -i "$singleImage" -s 1280x720 -r 60 -t 6 -y "$runPath\intro720p.webm"
+    ffmpeg -loop 1 -i "$singleImage" -s 3840x2160 -r 24 -t 3 -crf 18 -y "$runPath\intro.webm"
+    ffmpeg -loop 1 -i "$singleImage" -s 1280x720 -r 60 -t 6 -crf 18 -y "$runPath\intro720p.webm"
 }
 
 Copy-Item "$runPath\intro.webm" "$runPath\intro-perfectworld.webm"
