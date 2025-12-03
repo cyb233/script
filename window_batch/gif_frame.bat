@@ -1,4 +1,12 @@
 @echo off&chcp 65001>nul
+
+where ffmpeg >nul 2>&1
+if errorlevel 1 (
+    echo 未找到ffmpeg，请确保已安装并配置环境变量。
+    pause > nul
+    exit /b 1
+)
+
 setlocal enabledelayedexpansion
 
 REM 获取GIF路径
@@ -55,4 +63,4 @@ echo 正在提取帧...
 ffmpeg -y -i "%gif_path%" %vf_param% "%out_path%"
 
 echo 完成，帧已输出到: %out_dir%
-pause
+pause > nul
