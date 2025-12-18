@@ -1,6 +1,5 @@
-rem PC_INFO.bat - Gather and display PC information, saving it to a UTF-8 encoded text file.
-
 @echo off&title PC Information
+rem PC_INFO.bat - Gather and display PC information, saving it to a UTF-8 encoded text file.
 
 setlocal enabledelayedexpansion
 
