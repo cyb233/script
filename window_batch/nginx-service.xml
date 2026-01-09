@@ -1,0 +1,10 @@
+﻿<?xml version='1.0' encoding='utf-8'?>
+<service>
+    <id>nginx</id>
+    <name>nginx</name>
+    <description>nginx 服务</description>
+    <executable>nginx</executable>
+    <arguments></arguments>
+    <log mode='roll' />
+    <onfailure action='restart' />
+</service>
