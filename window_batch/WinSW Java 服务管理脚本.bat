@@ -188,7 +188,7 @@ if not "!CMD!" == "status" (
 
 if "!CMD!" == "uninstall" (
     choice /m "ÊÇ·ñÉ¾³ý service.xml£¿"
-    if errorlevel 1 (
+    if %errorlevel% == 1 (
         del "%SERVICE_XML%"
     )
 )
