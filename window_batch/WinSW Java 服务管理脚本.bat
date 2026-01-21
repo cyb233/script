@@ -97,7 +97,7 @@ if not exist "%SERVICE_XML%" (
     echo 正在生成 UTF-8 编码的 service.xml ...
     echo.
 
-    powershell -NoProfile -Command "$xml='<?xml version=''1.0'' encoding=''utf-8''?><service><id>!SID!</id><name>!SNAME!</name><description>!SDESC!</description><executable>java</executable><arguments>!JVM_OPTS! -jar ""!JAR!"" !APP_ARGS!</arguments><log mode=''roll'' /><onfailure action=''restart'' /></service>'; [System.IO.File]::WriteAllText('!SERVICE_XML!', $xml, [System.Text.Encoding]::UTF8)"
+    powershell -NoProfile -Command "$xml='<?xml version=''1.0'' encoding=''utf-8''?><service><id>!SID!</id><name>!SNAME!</name><description>!SDESC!</description><executable>java</executable><arguments>!JVM_OPTS! -jar !JAR! !APP_ARGS!</arguments><log mode=''roll'' /><onfailure action=''restart'' /></service>'; [System.IO.File]::WriteAllText('!SERVICE_XML!', $xml, [System.Text.Encoding]::UTF8)"
 
     if not exist "%SERVICE_XML%" (
         echo.
