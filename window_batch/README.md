@@ -9,6 +9,7 @@
 
 ## 目录结构
 - [`Cut_Video.bat`](./Cut_Video.bat)：简单视频切片，按指定时间段分割视频文件
+- [`download_server.bat`](./download_server.bat)：SteamCMD下载服务器
 - [`ffmpeg_auto_update.ps1`](./ffmpeg_auto_update.ps1)：自动检测并更新 ffmpeg 到最新版
 - [`FFmpeg_Batch_Convert.bat`](./FFmpeg_Batch_Convert.bat)：批量转换视频/音频格式
 - [`make_CS2_OP_with_img.ps1`](./make_CS2_OP_with_img.ps1)：根据图片自动生成 CS2 游戏开场动画
