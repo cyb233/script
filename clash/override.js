@@ -6,10 +6,19 @@ const FALLBACK_MAP = {
   KR: ["kr", "korea", "korean", "south korea", "韩国", "韩", "首尔", "汉城", "seoul"],
   SG: ["sg", "singapore", "新加坡"],
   US: ["us", "usa", "united states", "america", "美国", "美"],
+  UK: ["uk", "united kingdom", "britain", "great britain", "england", "英国", "英", "伦敦", "london"],
+  DE: ["de", "germany", "deutschland", "德国", "德", "法兰克福", "柏林", "frankfurt", "berlin"],
+  FR: ["fr", "france", "法国", "法", "巴黎", "paris"],
+  CA: ["ca", "canada", "加拿大", "加", "多伦多", "温哥华", "toronto", "vancouver"],
+  AU: ["au", "australia", "aussie", "澳大利亚", "澳洲", "澳", "悉尼", "墨尔本", "sydney", "melbourne"],
+  NL: ["nl", "netherlands", "holland", "荷兰", "阿姆斯特丹", "amsterdam"],
+  IN: ["in", "india", "印度", "孟买", "新德里", "mumbai", "new delhi"],
+  TR: ["tr", "turkey", "turkiye", "土耳其", "伊斯坦布尔", "istanbul"],
+  RU: ["ru", "russia", "俄罗斯", "莫斯科", "moscow"],
   OTHER: ["other", "others", "其他"],
 };
 
-const REGION_KEYS = ["TW", "JP", "HK", "KR", "SG", "US"];
+const REGION_KEYS = ["TW", "JP", "HK", "KR", "SG", "US", "UK", "DE", "FR", "CA", "AU", "NL", "IN", "TR", "RU"];
 const REGION_GROUP_NAME_MAP = {
   TW: "TW",
   JP: "JP",
@@ -17,6 +26,15 @@ const REGION_GROUP_NAME_MAP = {
   KR: "KR",
   SG: "SG",
   US: "US",
+  UK: "UK",
+  DE: "DE",
+  FR: "FR",
+  CA: "CA",
+  AU: "AU",
+  NL: "NL",
+  IN: "IN",
+  TR: "TR",
+  RU: "RU",
   OTHER: "其他",
 };
 
@@ -37,6 +55,7 @@ function main(config) {
   const proxies = Array.isArray(config.proxies) ? config.proxies : [];
   const proxyGroups = Array.isArray(config["proxy-groups"]) ? config["proxy-groups"] : [];
   const rules = Array.isArray(config.rules) ? config.rules : [];
+  const originalGroupFirstEntryMap = {};
 
   const proxyNameSet = new Set();
   const proxyGroupNameSet = new Set();
@@ -52,6 +71,9 @@ function main(config) {
     if (!group?.name) continue;
     proxyGroupNameSet.add(group.name);
     names.add(group.name);
+    if (Array.isArray(group.proxies) && group.proxies.length > 0) {
+      originalGroupFirstEntryMap[group.name] = group.proxies[0];
+    }
   }
 
   log(
@@ -260,8 +282,15 @@ function main(config) {
       nodeEntries.push(entry);
     }
 
-    const insertedGeneratedEntries = generatedRegionGroupNames.filter(name => !seen.has(name));
+    const insertedGeneratedEntries = generatedRegionGroupNames.filter(
+      name => !seen.has(name) && name !== group.name
+    );
     group.proxies = [...groupEntries, ...insertedGeneratedEntries, ...builtinEntries, ...nodeEntries];
+
+    if (group.proxies.includes(group.name)) {
+      group.proxies = group.proxies.filter(entry => entry !== group.name);
+      log("warn", `removed self reference from group "${group.name}"`);
+    }
 
     if (insertedGeneratedEntries.length > 0) {
       log(
@@ -271,6 +300,40 @@ function main(config) {
     } else {
       log("debug", `no generated region groups inserted into "${group.name}"`);
     }
+  }
+
+  for (const group of proxyGroups) {
+    if (!group?.name || group.type !== "select" || !Array.isArray(group.proxies)) continue;
+
+    let expectedDefaultPolicy = null;
+    const originalFirstEntry = originalGroupFirstEntryMap[group.name];
+
+    if (builtinTargets.has(originalFirstEntry)) {
+      expectedDefaultPolicy = originalFirstEntry;
+      log(
+        "debug",
+        `group "${group.name}" uses original first builtin target "${expectedDefaultPolicy}" as default policy`
+      );
+    }
+
+    if (!expectedDefaultPolicy) continue;
+
+    const existingEntries = [...new Set(group.proxies)];
+    const reorderedEntries = existingEntries.filter(entry => entry !== expectedDefaultPolicy);
+
+    if (!builtinTargets.has(expectedDefaultPolicy)) {
+      log("warn", `skip default policy reorder for "${group.name}": "${expectedDefaultPolicy}" is not builtin`);
+      continue;
+    }
+
+    group.proxies = [expectedDefaultPolicy, ...reorderedEntries];
+
+    if (group.proxies.includes(group.name)) {
+      group.proxies = group.proxies.filter(entry => entry !== group.name);
+      log("warn", `removed self reference from group "${group.name}" after default policy reorder`);
+    }
+
+    log("info", `ensured default policy "${expectedDefaultPolicy}" is first in group "${group.name}"`);
   }
 
   const allNames = [...names];
