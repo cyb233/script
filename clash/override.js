@@ -1,25 +1,123 @@
+/**
+ * Clash/Mihomo override script.
+ *
+ * 功能概览：
+ * 1. 在处理规则前，先根据节点名称与已有策略组自动识别地区。
+ * 2. 若缺少对应地区策略组，则自动生成地区组，并将未识别节点归入“其他”。
+ * 3. 将新生成的地区组插入到非地区类 select 策略组中的“已有组”和“节点”之间。
+ * 4. 处理 rules 时优先匹配策略组，其次匹配单个节点，并保留 DIRECT / REJECT 等内置目标。
+ * 5. 对 select 策略组做基础安全整理，例如避免组内包含自身名称。
+ *
+ * GitHub:
+ * https://github.com/cyb233/script/blob/main/clash/override.js
+ */
 const FALLBACK_MAP = {
   Proxies: ["proxies", "proxy", "选择", "节点", "手动", "select", "auto"],
-  TW: ["tw", "taiwan", "台湾", "台", "台北", "taipei", "taibei"],
-  JP: ["jp", "japan", "日本", "日", "东京", "tokyo"],
-  HK: ["hk", "hongkong", "hong kong", "香港"],
-  KR: ["kr", "korea", "korean", "south korea", "韩国", "韩", "首尔", "汉城", "seoul"],
-  SG: ["sg", "singapore", "新加坡"],
-  US: ["us", "usa", "united states", "america", "美国", "美"],
-  UK: ["uk", "united kingdom", "britain", "great britain", "england", "英国", "英", "伦敦", "london"],
-  DE: ["de", "germany", "deutschland", "德国", "德", "法兰克福", "柏林", "frankfurt", "berlin"],
-  FR: ["fr", "france", "法国", "法", "巴黎", "paris"],
-  CA: ["ca", "canada", "加拿大", "加", "多伦多", "温哥华", "toronto", "vancouver"],
-  AU: ["au", "australia", "aussie", "澳大利亚", "澳洲", "澳", "悉尼", "墨尔本", "sydney", "melbourne"],
-  NL: ["nl", "netherlands", "holland", "荷兰", "阿姆斯特丹", "amsterdam"],
-  IN: ["in", "india", "印度", "孟买", "新德里", "mumbai", "new delhi"],
-  TR: ["tr", "turkey", "turkiye", "土耳其", "伊斯坦布尔", "istanbul"],
-  RU: ["ru", "russia", "俄罗斯", "莫斯科", "moscow"],
+  // 排序约定：
+  // [emoji, 国家2字母缩写, 中文国家全称, 英文国家全称, 自身语言国家全称(如有), 地区1中文, 地区1英文, 地区1自身语言(如有), 地区1缩写(如有), ...]
+  // 额外别名会尽量贴近对应国家或地区项放置，方便后续维护与扩展。
+  CN: [
+    "🇨🇳", "cn",
+    "中国", "china", "zhongguo",
+    "北京", "beijing",
+    "上海", "shanghai",
+    "广州", "guangzhou",
+    "深圳", "shenzhen",
+    "大陆", "prc",
+  ],
+  TW: [
+    "🇹🇼", "tw",
+    "台湾", "taiwan", "taiwanese",
+    "台北", "taipei", "taibei",
+    "台",
+  ],
+  JP: [
+    "🇯🇵", "jp",
+    "日本", "japan", "にほん", "にっぽん", "nihon", "nippon",
+    "东京", "tokyo",
+    "日",
+  ],
+  HK: [
+    "🇭🇰", "hk",
+    "香港", "hong kong", "hongkong", "heungkong", "xianggang",
+  ],
+  KR: [
+    "🇰🇷", "kr",
+    "韩国", "south korea", "대한민국", "한국", "korea", "korean", "hanguk",
+    "首尔", "seoul",
+    "汉城",
+    "韩",
+  ],
+  SG: [
+    "🇸🇬", "sg",
+    "新加坡", "singapore", "singapura",
+  ],
+  US: [
+    "🇺🇸", "us",
+    "美国", "united states", "united states of america", "america", "usa",
+    "美",
+  ],
+  UK: [
+    "🇬🇧", "uk",
+    "英国", "united kingdom", "great britain", "britain", "england", "british",
+    "伦敦", "london",
+    "英",
+  ],
+  DE: [
+    "🇩🇪", "de",
+    "德国", "germany", "deutschland", "deutsch",
+    "法兰克福", "frankfurt",
+    "柏林", "berlin",
+    "德",
+  ],
+  FR: [
+    "🇫🇷", "fr",
+    "法国", "france", "francais", "français",
+    "巴黎", "paris",
+    "法",
+  ],
+  CA: [
+    "🇨🇦", "ca",
+    "加拿大", "canada", "canadian",
+    "多伦多", "toronto",
+    "温哥华", "vancouver",
+    "加",
+  ],
+  AU: [
+    "🇦🇺", "au",
+    "澳大利亚", "australia", "australian", "aussie",
+    "悉尼", "sydney",
+    "墨尔本", "melbourne",
+    "澳洲",
+    "澳",
+  ],
+  NL: [
+    "🇳🇱", "nl",
+    "荷兰", "netherlands", "nederland", "nederlands", "holland",
+    "阿姆斯特丹", "amsterdam",
+  ],
+  IN: [
+    "🇮🇳", "in",
+    "印度", "india", "bharat",
+    "孟买", "mumbai",
+    "新德里", "new delhi",
+  ],
+  TR: [
+    "🇹🇷", "tr",
+    "土耳其", "turkey", "turkiye", "türkiye",
+    "伊斯坦布尔", "istanbul",
+  ],
+  RU: [
+    "🇷🇺", "ru",
+    "俄罗斯", "russia", "россия",
+    "莫斯科", "moscow",
+  ],
   OTHER: ["other", "others", "其他"],
 };
 
-const REGION_KEYS = ["TW", "JP", "HK", "KR", "SG", "US", "UK", "DE", "FR", "CA", "AU", "NL", "IN", "TR", "RU"];
+const REGION_KEYS = ["CN", "TW", "JP", "HK", "KR", "SG", "US", "UK", "DE", "FR", "CA", "AU", "NL", "IN", "TR", "RU"];
 const REGION_GROUP_NAME_MAP = {
+  CN: "CN",
   TW: "TW",
   JP: "JP",
   HK: "HK",
@@ -37,6 +135,10 @@ const REGION_GROUP_NAME_MAP = {
   RU: "RU",
   OTHER: "其他",
 };
+
+function isRegionalIndicatorSymbolPair(value) {
+  return /^(?:\uD83C[\uDDE6-\uDDFF]){2}$/u.test(String(value || "").trim());
+}
 
 function main(config) {
   const LOG_LEVEL = "debug";
@@ -61,6 +163,7 @@ function main(config) {
   const proxyGroupNameSet = new Set();
   const names = new Set();
 
+  // 收集所有节点名和策略组名，后续规则修复与模糊匹配都会复用这份索引。
   for (const proxy of proxies) {
     if (!proxy?.name) continue;
     proxyNameSet.add(proxy.name);
@@ -104,15 +207,18 @@ function main(config) {
 
       for (const keyword of ks) {
         let matched = false;
+        const regionalIndicatorBonus = isRegionalIndicatorSymbolPair(keyword) ? 60 : 0;
 
+        // 国旗 Regional Indicator Symbol 命中时额外加权，
+        // 使其在同类国家词条中拥有更高优先级。
         if (raw === keyword || normalized === keyword) {
-          score += 100;
+          score += 100 + regionalIndicatorBonus;
           matched = true;
         } else if (raw.includes(keyword)) {
-          score += 10 + keyword.length;
+          score += 10 + keyword.length + regionalIndicatorBonus;
           matched = true;
         } else if (normalized.includes(keyword)) {
-          score += 8 + keyword.length;
+          score += 8 + keyword.length + regionalIndicatorBonus;
           matched = true;
         }
 
@@ -135,6 +241,7 @@ function main(config) {
   }
 
   function detectRegionKey(name) {
+    // 使用统一的地区关键词表识别节点或策略组归属地区。
     for (const regionKey of REGION_KEYS) {
       const keywords = FALLBACK_MAP[regionKey] || [];
       const matched = findBestMatch(keywords, [name]);
@@ -147,6 +254,7 @@ function main(config) {
   const regionGroupNameMap = {};
   let existingOtherGroup = null;
 
+  // 先识别配置里已经存在的地区策略组，避免重复创建。
   for (const group of proxyGroups) {
     if (!group?.name) continue;
 
@@ -157,6 +265,7 @@ function main(config) {
     log("info", `detected existing region group: ${regionKey} -> "${group.name}"`);
   }
 
+  // 单独识别“其他”兜底组，便于把未识别节点统一归档进去。
   for (const group of proxyGroups) {
     if (!group?.name) continue;
 
@@ -171,6 +280,7 @@ function main(config) {
   const regionProxyMap = {};
   const unmatchedProxyNames = [];
 
+  // 根据节点名称自动识别地区，并暂存到各地区分组候选列表中。
   for (const proxy of proxies) {
     if (!proxy?.name) continue;
 
@@ -188,6 +298,7 @@ function main(config) {
 
   const generatedRegionGroupNames = [];
 
+  // 仅为“已有节点、但缺少地区组”的地区自动创建 select 组。
   for (const regionKey of REGION_KEYS) {
     const matchedProxyNames = regionProxyMap[regionKey] || [];
     if (matchedProxyNames.length === 0) continue;
@@ -250,6 +361,8 @@ function main(config) {
 
   const generatedGroupNameSet = new Set(generatedRegionGroupNames);
 
+  // 将新生成的地区组插入到非地区类 select 组中，
+  // 排序保持为：已有组 -> 新地区组 -> 内置目标/节点。
   for (const group of proxyGroups) {
     if (!group?.name || group.type !== "select" || !Array.isArray(group.proxies)) continue;
 
@@ -308,6 +421,7 @@ function main(config) {
     let expectedDefaultPolicy = null;
     const originalFirstEntry = originalGroupFirstEntryMap[group.name];
 
+    // 默认策略只以原始首项是否为内置目标为准，不再依赖组名猜测。
     if (builtinTargets.has(originalFirstEntry)) {
       expectedDefaultPolicy = originalFirstEntry;
       log(
@@ -343,6 +457,11 @@ function main(config) {
   function resolveTarget(target) {
     const originalTarget = String(target || "").trim();
 
+    // 规则目标解析顺序：
+    // 1. 内置目标
+    // 2. 已存在的策略组
+    // 3. 已存在的单节点
+    // 4. fallbackMap 模糊匹配，且优先命中策略组
     if (builtinTargets.has(originalTarget)) {
       return originalTarget;
     }
@@ -393,6 +512,7 @@ function main(config) {
   let removed = 0;
   let replaced = 0;
 
+  // 逐条修正规则中的目标对象，无法解析的规则直接移除并记录日志。
   config.rules = rules
     .map((rule, index) => {
       if (typeof rule !== "string") {
