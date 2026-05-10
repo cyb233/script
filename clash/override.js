@@ -220,40 +220,128 @@ const REGION_GROUP_NAME_MAP = {
   OTHER: "其他",
 };
 
+const LOG_LEVEL = "debug";
+
+// Clash/Mihomo 内置策略目标不是节点或策略组，匹配与重排时需要单独保留。
+const BUILTIN_TARGETS = new Set(["DIRECT", "REJECT"]);
+
 function isRegionalIndicatorSymbolPair(value) {
   return /^(?:\uD83C[\uDDE6-\uDDFF]){2}$/u.test(String(value || "").trim());
 }
 
+function shouldLog(level) {
+  const order = { debug: 10, info: 20, warn: 30, error: 40 };
+  return order[level] >= order[LOG_LEVEL];
+}
+
+function formatLogTime(date = new Date()) {
+  const pad = value => String(value).padStart(2, "0");
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+  ].join("-") + " " + [
+    pad(date.getHours()),
+    pad(date.getMinutes()),
+    pad(date.getSeconds()),
+  ].join(":");
+}
+
+function log(level, message) {
+  if (!shouldLog(level)) return;
+  console.log(`[${formatLogTime()}][clash-override][${level}] ${message}`);
+}
+
+function normalize(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "");
+}
+
+function isShortAsciiKeyword(keyword) {
+  return /^[a-z0-9]{1,3}$/.test(keyword);
+}
+
+function hasKeywordBoundary(value, keyword) {
+  const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // 短 ASCII 地区码只允许在非字母数字边界上命中，降低线路编号或运营商名误判。
+  return new RegExp(`(^|[^a-z0-9])${escapedKeyword}($|[^a-z0-9])`, "i").test(value);
+}
+
+function findBestMatch(keywords, candidateNames) {
+  const ks = keywords.map(normalize).filter(Boolean);
+  const candidates = Array.isArray(candidateNames) ? candidateNames : [];
+
+  let bestName = null;
+  let bestScore = -1;
+
+  // 使用简单评分而不是首个命中，兼顾精确匹配、边界匹配和多关键词命中数量。
+  for (const name of candidates) {
+    const raw = String(name || "").trim().toLowerCase();
+    const normalized = raw.replace(/\s+/g, "");
+
+    let score = 0;
+    let hitCount = 0;
+
+    for (const keyword of ks) {
+      let matched = false;
+      const regionalIndicatorBonus = isRegionalIndicatorSymbolPair(keyword) ? 60 : 0;
+
+      // 国旗 Regional Indicator Symbol 命中时额外加权，
+      // 使其在同类国家词条中拥有更高优先级。
+      if (raw === keyword || normalized === keyword) {
+        score += 100 + regionalIndicatorBonus;
+        matched = true;
+      } else if (isShortAsciiKeyword(keyword) && hasKeywordBoundary(raw, keyword)) {
+        score += 10 + keyword.length + regionalIndicatorBonus;
+        matched = true;
+      } else if (isShortAsciiKeyword(keyword)) {
+        // 短地区码需要明确边界，避免 CN2、US1、HKBN 等线路/运营商词被误判为地区。
+        matched = false;
+      } else if (raw.includes(keyword)) {
+        score += 10 + keyword.length + regionalIndicatorBonus;
+        matched = true;
+      } else if (normalized.includes(keyword)) {
+        score += 8 + keyword.length + regionalIndicatorBonus;
+        matched = true;
+      }
+
+      if (matched) hitCount++;
+    }
+
+    // 命中的关键词越多越优先。
+    score += hitCount * 20;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestName = name;
+    } else if (score === bestScore && bestName && name.length < bestName.length) {
+      // 分数一致时优先更短的名称，通常更接近主策略组。
+      bestName = name;
+    }
+  }
+
+  return bestScore > 0 ? bestName : null;
+}
+
+function detectRegionKey(name) {
+  // 使用统一的地区关键词表识别节点或策略组归属地区。
+  for (const regionKey of REGION_KEYS) {
+    const keywords = FALLBACK_MAP[regionKey] || [];
+    const matched = findBestMatch(keywords, [name]);
+    if (matched) return regionKey;
+  }
+
+  return null;
+}
+
 function main(config) {
-  const LOG_LEVEL = "debug";
-  const builtinTargets = new Set(["DIRECT", "REJECT"]);
-
-  function shouldLog(level) {
-    const order = { debug: 10, info: 20, warn: 30, error: 40 };
-    return order[level] >= order[LOG_LEVEL];
-  }
-
-  function formatLogTime(date = new Date()) {
-    const pad = value => String(value).padStart(2, "0");
-    return [
-      date.getFullYear(),
-      pad(date.getMonth() + 1),
-      pad(date.getDate()),
-    ].join("-") + " " + [
-      pad(date.getHours()),
-      pad(date.getMinutes()),
-      pad(date.getSeconds()),
-    ].join(":");
-  }
-
-  function log(level, message) {
-    if (!shouldLog(level)) return;
-    console.log(`[${formatLogTime()}][clash-override][${level}] ${message}`);
-  }
-
   const proxies = Array.isArray(config.proxies) ? config.proxies : [];
   const proxyGroups = Array.isArray(config["proxy-groups"]) ? config["proxy-groups"] : [];
   const rules = Array.isArray(config.rules) ? config.rules : [];
+
+  // 后续会改写组内顺序，因此先保存原始首项，用来恢复 DIRECT/REJECT 这类默认策略。
   const originalGroupFirstEntryMap = {};
 
   const proxyNameSet = new Set();
@@ -280,88 +368,6 @@ function main(config) {
     "debug",
     `start: proxies=${proxies.length}, groups=${proxyGroups.length}, rules=${rules.length}, candidates=${names.size}`
   );
-
-  function normalize(value) {
-    return String(value || "")
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, "");
-  }
-
-  function isShortAsciiKeyword(keyword) {
-    return /^[a-z0-9]{1,3}$/.test(keyword);
-  }
-
-  function hasKeywordBoundary(value, keyword) {
-    const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    return new RegExp(`(^|[^a-z0-9])${escapedKeyword}($|[^a-z0-9])`, "i").test(value);
-  }
-
-  function findBestMatch(keywords, candidateNames) {
-    const ks = keywords.map(normalize).filter(Boolean);
-    const candidates = Array.isArray(candidateNames) ? candidateNames : [...names];
-
-    let bestName = null;
-    let bestScore = -1;
-
-    for (const name of candidates) {
-      const raw = String(name || "").trim().toLowerCase();
-      const normalized = raw.replace(/\s+/g, "");
-
-      let score = 0;
-      let hitCount = 0;
-
-      for (const keyword of ks) {
-        let matched = false;
-        const regionalIndicatorBonus = isRegionalIndicatorSymbolPair(keyword) ? 60 : 0;
-
-        // 国旗 Regional Indicator Symbol 命中时额外加权，
-        // 使其在同类国家词条中拥有更高优先级。
-        if (raw === keyword || normalized === keyword) {
-          score += 100 + regionalIndicatorBonus;
-          matched = true;
-        } else if (isShortAsciiKeyword(keyword) && hasKeywordBoundary(raw, keyword)) {
-          score += 10 + keyword.length + regionalIndicatorBonus;
-          matched = true;
-        } else if (isShortAsciiKeyword(keyword)) {
-          // 短地区码需要明确边界，避免 CN2、US1、HKBN 等线路/运营商词被误判为地区。
-          matched = false;
-        } else if (raw.includes(keyword)) {
-          score += 10 + keyword.length + regionalIndicatorBonus;
-          matched = true;
-        } else if (normalized.includes(keyword)) {
-          score += 8 + keyword.length + regionalIndicatorBonus;
-          matched = true;
-        }
-
-        if (matched) hitCount++;
-      }
-
-      // 命中的关键词越多越优先。
-      score += hitCount * 20;
-
-      if (score > bestScore) {
-        bestScore = score;
-        bestName = name;
-      } else if (score === bestScore && bestName && name.length < bestName.length) {
-        // 分数一致时优先更短的名称，通常更接近主策略组。
-        bestName = name;
-      }
-    }
-
-    return bestScore > 0 ? bestName : null;
-  }
-
-  function detectRegionKey(name) {
-    // 使用统一的地区关键词表识别节点或策略组归属地区。
-    for (const regionKey of REGION_KEYS) {
-      const keywords = FALLBACK_MAP[regionKey] || [];
-      const matched = findBestMatch(keywords, [name]);
-      if (matched) return regionKey;
-    }
-
-    return null;
-  }
 
   const regionGroupNameMap = {};
   let existingOtherGroup = null;
@@ -490,6 +496,7 @@ function main(config) {
     const nodeEntries = [];
     const seen = new Set();
 
+    // 先按原有条目类型分桶，避免插入地区组时破坏已有策略组的相对顺序。
     for (const entry of existingEntries) {
       if (seen.has(entry)) continue;
       seen.add(entry);
@@ -499,7 +506,7 @@ function main(config) {
         continue;
       }
 
-      if (builtinTargets.has(entry)) {
+      if (BUILTIN_TARGETS.has(entry)) {
         builtinEntries.push(entry);
         continue;
       }
@@ -534,7 +541,7 @@ function main(config) {
     const originalFirstEntry = originalGroupFirstEntryMap[group.name];
 
     // 默认策略只以原始首项是否为内置目标为准，不再依赖组名猜测。
-    if (builtinTargets.has(originalFirstEntry)) {
+    if (BUILTIN_TARGETS.has(originalFirstEntry)) {
       expectedDefaultPolicy = originalFirstEntry;
       log(
         "debug",
@@ -547,7 +554,7 @@ function main(config) {
     const existingEntries = [...new Set(group.proxies)];
     const reorderedEntries = existingEntries.filter(entry => entry !== expectedDefaultPolicy);
 
-    if (!builtinTargets.has(expectedDefaultPolicy)) {
+    if (!BUILTIN_TARGETS.has(expectedDefaultPolicy)) {
       log("warn", `skip default policy reorder for "${group.name}": "${expectedDefaultPolicy}" is not builtin`);
       continue;
     }
@@ -574,7 +581,7 @@ function main(config) {
     // 2. 已存在的策略组
     // 3. 已存在的单节点
     // 4. fallbackMap 模糊匹配，且优先命中策略组
-    if (builtinTargets.has(originalTarget)) {
+    if (BUILTIN_TARGETS.has(originalTarget)) {
       return originalTarget;
     }
 
