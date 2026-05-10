@@ -1,0 +1,4 @@
+payload:
+  - DOMAIN,checkip.amazonaws.com
+  - DOMAIN-SUFFIX,time.is
+  - DOMAIN-SUFFIX,shuvi.moe
