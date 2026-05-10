@@ -102,6 +102,32 @@ const FALLBACK_MAP = {
     "孟买", "mumbai",
     "新德里", "new delhi",
   ],
+  ID: [
+    "🇮🇩", "id",
+    "印度尼西亚", "印尼", "indonesia",
+    "雅加达", "jakarta",
+  ],
+  VN: [
+    "🇻🇳", "vn",
+    "越南", "vietnam",
+    "河内", "hanoi",
+    "胡志明", "ho chi minh", "saigon",
+  ],
+  PH: [
+    "🇵🇭", "ph",
+    "菲律宾", "philippines", "philippine",
+    "马尼拉", "manila",
+  ],
+  TH: [
+    "🇹🇭", "th",
+    "泰国", "thailand", "thai",
+    "曼谷", "bangkok",
+  ],
+  MY: [
+    "🇲🇾", "my",
+    "马来西亚", "malaysia",
+    "吉隆坡", "kuala lumpur",
+  ],
   TR: [
     "🇹🇷", "tr",
     "土耳其", "turkey", "turkiye", "türkiye",
@@ -112,27 +138,85 @@ const FALLBACK_MAP = {
     "俄罗斯", "russia", "россия",
     "莫斯科", "moscow",
   ],
+  UA: [
+    "🇺🇦", "ua",
+    "乌克兰", "ukraine",
+    "基辅", "kyiv", "kiev",
+  ],
+  SA: [
+    "🇸🇦", "sa",
+    "沙特阿拉伯", "沙特", "saudi arabia", "saudi",
+    "利雅得", "riyadh",
+  ],
+  PK: [
+    "🇵🇰", "pk",
+    "巴基斯坦", "pakistan",
+    "卡拉奇", "karachi",
+    "伊斯兰堡", "islamabad",
+  ],
+  EG: [
+    "🇪🇬", "eg",
+    "埃及", "egypt",
+    "开罗", "cairo",
+  ],
+  MX: [
+    "🇲🇽", "mx",
+    "墨西哥", "mexico",
+    "墨西哥城", "mexico city",
+  ],
+  BR: [
+    "🇧🇷", "br",
+    "巴西", "brazil", "brasil",
+    "圣保罗", "sao paulo", "são paulo",
+    "里约", "rio",
+  ],
+  AR: [
+    "🇦🇷", "ar",
+    "阿根廷", "argentina",
+    "布宜诺斯艾利斯", "buenos aires",
+  ],
+  NZ: [
+    "🇳🇿", "nz",
+    "新西兰", "new zealand",
+    "奥克兰", "auckland",
+  ],
   OTHER: ["other", "others", "其他"],
 };
 
-const REGION_KEYS = ["CN", "TW", "JP", "HK", "KR", "SG", "US", "UK", "DE", "FR", "CA", "AU", "NL", "IN", "TR", "RU"];
+const REGION_KEYS = [
+  "CN", "TW", "JP", "HK", "KR", "SG", "US", "UK", "DE", "FR", "CA", "AU", "NL", "IN",
+  "ID", "VN", "PH", "TH", "MY", "TR", "RU", "UA", "SA", "PK", "EG", "MX", "BR", "AR", "NZ",
+];
 const REGION_GROUP_NAME_MAP = {
-  CN: "CN",
-  TW: "TW",
-  JP: "JP",
-  HK: "HK",
-  KR: "KR",
-  SG: "SG",
-  US: "US",
-  UK: "UK",
-  DE: "DE",
-  FR: "FR",
-  CA: "CA",
-  AU: "AU",
-  NL: "NL",
-  IN: "IN",
-  TR: "TR",
-  RU: "RU",
+  CN: "中国",
+  TW: "台湾",
+  JP: "日本",
+  HK: "香港",
+  KR: "韩国",
+  SG: "新加坡",
+  US: "美国",
+  UK: "英国",
+  DE: "德国",
+  FR: "法国",
+  CA: "加拿大",
+  AU: "澳大利亚",
+  NL: "荷兰",
+  IN: "印度",
+  ID: "印度尼西亚",
+  VN: "越南",
+  PH: "菲律宾",
+  TH: "泰国",
+  MY: "马来西亚",
+  TR: "土耳其",
+  RU: "俄罗斯",
+  UA: "乌克兰",
+  SA: "沙特阿拉伯",
+  PK: "巴基斯坦",
+  EG: "埃及",
+  MX: "墨西哥",
+  BR: "巴西",
+  AR: "阿根廷",
+  NZ: "新西兰",
   OTHER: "其他",
 };
 
@@ -149,9 +233,22 @@ function main(config) {
     return order[level] >= order[LOG_LEVEL];
   }
 
+  function formatLogTime(date = new Date()) {
+    const pad = value => String(value).padStart(2, "0");
+    return [
+      date.getFullYear(),
+      pad(date.getMonth() + 1),
+      pad(date.getDate()),
+    ].join("-") + " " + [
+      pad(date.getHours()),
+      pad(date.getMinutes()),
+      pad(date.getSeconds()),
+    ].join(":");
+  }
+
   function log(level, message) {
     if (!shouldLog(level)) return;
-    console.log(`[clash-override][${level}] ${message}`);
+    console.log(`[${formatLogTime()}][clash-override][${level}] ${message}`);
   }
 
   const proxies = Array.isArray(config.proxies) ? config.proxies : [];
@@ -191,6 +288,15 @@ function main(config) {
       .replace(/\s+/g, "");
   }
 
+  function isShortAsciiKeyword(keyword) {
+    return /^[a-z0-9]{1,3}$/.test(keyword);
+  }
+
+  function hasKeywordBoundary(value, keyword) {
+    const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`(^|[^a-z0-9])${escapedKeyword}($|[^a-z0-9])`, "i").test(value);
+  }
+
   function findBestMatch(keywords, candidateNames) {
     const ks = keywords.map(normalize).filter(Boolean);
     const candidates = Array.isArray(candidateNames) ? candidateNames : [...names];
@@ -214,6 +320,12 @@ function main(config) {
         if (raw === keyword || normalized === keyword) {
           score += 100 + regionalIndicatorBonus;
           matched = true;
+        } else if (isShortAsciiKeyword(keyword) && hasKeywordBoundary(raw, keyword)) {
+          score += 10 + keyword.length + regionalIndicatorBonus;
+          matched = true;
+        } else if (isShortAsciiKeyword(keyword)) {
+          // 短地区码需要明确边界，避免 CN2、US1、HKBN 等线路/运营商词被误判为地区。
+          matched = false;
         } else if (raw.includes(keyword)) {
           score += 10 + keyword.length + regionalIndicatorBonus;
           matched = true;
