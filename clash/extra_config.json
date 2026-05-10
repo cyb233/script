@@ -3,47 +3,42 @@
   "mixed-port": 7890,
   "allow-lan": false,
   "rule-providers": {
-    "local-reject": {
+    "schwi-reject": {
       "type": "http",
       "behavior": "classical",
-      "url": "https://shuvi.moe/script/clash/rulesets/local-reject.yaml",
-      "interval": 86400,
-      "path": "./rulesets/local-reject.yaml"
+      "url": "https://shuvi.moe/script/clash/rulesets/schwi-reject.yaml",
+      "interval": 86400
     },
-    "local-proxies": {
+    "schwi-proxies": {
       "type": "http",
       "behavior": "classical",
-      "url": "https://shuvi.moe/script/clash/rulesets/local-proxies.yaml",
-      "interval": 86400,
-      "path": "./rulesets/local-proxies.yaml"
+      "url": "https://shuvi.moe/script/clash/rulesets/schwi-proxies.yaml",
+      "interval": 86400
     },
-    "local-tw": {
+    "schwi-tw": {
       "type": "http",
       "behavior": "classical",
-      "url": "https://shuvi.moe/script/clash/rulesets/local-tw.yaml",
-      "interval": 86400,
-      "path": "./rulesets/local-tw.yaml"
+      "url": "https://shuvi.moe/script/clash/rulesets/schwi-tw.yaml",
+      "interval": 86400
     },
-    "local-jp": {
+    "schwi-jp": {
       "type": "http",
       "behavior": "classical",
-      "url": "https://shuvi.moe/script/clash/rulesets/local-jp.yaml",
-      "interval": 86400,
-      "path": "./rulesets/local-jp.yaml"
+      "url": "https://shuvi.moe/script/clash/rulesets/schwi-jp.yaml",
+      "interval": 86400
     },
-    "local-direct": {
+    "schwi-direct": {
       "type": "http",
       "behavior": "classical",
-      "url": "https://shuvi.moe/script/clash/rulesets/local-direct.yaml",
-      "interval": 86400,
-      "path": "./rulesets/local-direct.yaml"
+      "url": "https://shuvi.moe/script/clash/rulesets/schwi-direct.yaml",
+      "interval": 86400
     }
   },
   "rules": [
-    "RULE-SET,local-reject,REJECT",
-    "RULE-SET,local-proxies,Proxies",
-    "RULE-SET,local-tw,TW",
-    "RULE-SET,local-jp,JP",
-    "RULE-SET,local-direct,DIRECT"
+    "RULE-SET,schwi-reject,REJECT",
+    "RULE-SET,schwi-proxies,Proxies",
+    "RULE-SET,schwi-tw,TW",
+    "RULE-SET,schwi-jp,JP",
+    "RULE-SET,schwi-direct,DIRECT"
   ]
 }
