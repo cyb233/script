@@ -9,6 +9,12 @@
       "url": "https://shuvi.moe/script/clash/rulesets/schwi-reject.yaml",
       "interval": 86400
     },
+    "schwi-direct": {
+      "type": "http",
+      "behavior": "classical",
+      "url": "https://shuvi.moe/script/clash/rulesets/schwi-direct.yaml",
+      "interval": 86400
+    },
     "schwi-proxies": {
       "type": "http",
       "behavior": "classical",
@@ -26,19 +32,13 @@
       "behavior": "classical",
       "url": "https://shuvi.moe/script/clash/rulesets/schwi-jp.yaml",
       "interval": 86400
-    },
-    "schwi-direct": {
-      "type": "http",
-      "behavior": "classical",
-      "url": "https://shuvi.moe/script/clash/rulesets/schwi-direct.yaml",
-      "interval": 86400
     }
   },
   "rules": [
     "RULE-SET,schwi-reject,REJECT",
+    "RULE-SET,schwi-direct,DIRECT",
     "RULE-SET,schwi-proxies,Proxies",
     "RULE-SET,schwi-tw,TW",
-    "RULE-SET,schwi-jp,JP",
-    "RULE-SET,schwi-direct,DIRECT"
+    "RULE-SET,schwi-jp,JP"
   ]
 }
