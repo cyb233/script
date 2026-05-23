@@ -25,6 +25,9 @@ $StateFile = Join-Path $InstallDir "TwitchDropsMiner_auto_update_state.json"
 # 临时下载文件路径。每次运行会先删除旧的临时文件
 $ArchivePath = Join-Path $env:TEMP "Twitch.Drops.Miner.Windows.zip"
 
+# 临时解压目录。先解压到这里，再把实际文件复制到安装目录，避免多出一层文件夹
+$ExtractDir = Join-Path $env:TEMP "Twitch.Drops.Miner.Windows.extract"
+
 # 7-Zip 可执行程序。若 7z.exe 不在 PATH 中，可改成完整路径，例如:
 # $SevenZipExe = "C:\Program Files\7-Zip\7z.exe"
 $SevenZipExe = "7z.exe"
@@ -179,6 +182,11 @@ try {
         Remove-Item -LiteralPath $ArchivePath -Force
     }
 
+    if (Test-Path -LiteralPath $ExtractDir) {
+        Remove-Item -LiteralPath $ExtractDir -Recurse -Force
+    }
+    New-Item -ItemType Directory -Path $ExtractDir -Force | Out-Null
+
     Write-Host "步骤 3: 下载 dev-build 压缩包"
     $downloadParams = @{
         Uri = $DownloadUrl
@@ -195,24 +203,37 @@ try {
     Write-Host "步骤 4: 结束正在运行的 Twitch Drops Miner 进程"
     Stop-TwitchDropsMiner -ExePath $ExecutablePath -ExeName $ExecutableName
 
-    Write-Host "步骤 5: 使用 7-Zip 覆盖解压到安装目录"
-    & $SevenZipExe x $ArchivePath "-o$InstallDir" -y
+    Write-Host "步骤 5: 使用 7-Zip 解压到临时目录"
+    & $SevenZipExe x $ArchivePath "-o$ExtractDir" -y
     if ($LASTEXITCODE -ne 0) {
         throw "7-Zip 解压失败，退出码: $LASTEXITCODE"
     }
 
-    Write-Host "步骤 6: 校验主程序并保存状态"
+    # 如果压缩包内只有一个顶层文件夹，则把该文件夹作为实际复制来源。
+    # 这样可以避免安装目录下多出一层 TwitchDropsMiner 或类似目录。
+    $extractItems = @(Get-ChildItem -LiteralPath $ExtractDir -Force)
+    if (($extractItems.Count -eq 1) -and $extractItems[0].PSIsContainer) {
+        $copySource = $extractItems[0].FullName
+    } else {
+        $copySource = $ExtractDir
+    }
+
+    Write-Host "步骤 6: 覆盖复制文件到安装目录"
+    Copy-Item -Path (Join-Path $copySource "*") -Destination $InstallDir -Recurse -Force
+
+    Write-Host "步骤 7: 校验主程序并保存状态"
     if (-not (Test-Path -LiteralPath $ExecutablePath)) {
         throw "更新后未找到主程序: $ExecutablePath"
     }
 
     Set-LocalSha -Path $StateFile -Sha $remoteSha
 
-    Write-Host "步骤 7: 启动 Twitch Drops Miner"
+    Write-Host "步骤 8: 启动 Twitch Drops Miner"
     Start-Process -FilePath $ExecutablePath -WorkingDirectory $InstallDir
 
-    Write-Host "步骤 8: 清理临时压缩包"
+    Write-Host "步骤 9: 清理临时文件"
     Remove-Item -LiteralPath $ArchivePath -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $ExtractDir -Recurse -Force -ErrorAction SilentlyContinue
 
     Write-Host "Twitch Drops Miner update success!"
     exit 0
@@ -222,6 +243,10 @@ try {
 
     if (Test-Path -LiteralPath $ArchivePath) {
         Remove-Item -LiteralPath $ArchivePath -Force -ErrorAction SilentlyContinue
+    }
+
+    if (Test-Path -LiteralPath $ExtractDir) {
+        Remove-Item -LiteralPath $ExtractDir -Recurse -Force -ErrorAction SilentlyContinue
     }
 
     exit 1
