@@ -1,5 +1,7 @@
 payload:
   - DOMAIN,checkip.amazonaws.com
+  - DOMAIN-SUFFIX,cocogoat.cn
+  - DOMAIN-SUFFIX,cocogoat.work
   - DOMAIN-SUFFIX,imgchr.com
   - DOMAIN-SUFFIX,time.is
   - DOMAIN-SUFFIX,shuvi.moe
