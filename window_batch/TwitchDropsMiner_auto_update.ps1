@@ -6,11 +6,11 @@
 # 可按需修改的常量
 # ----------------------------
 
-# GitHub dev-build 固定下载地址
-$DownloadUrl = "https://github.com/DevilXD/TwitchDropsMiner/releases/download/dev-build/Twitch.Drops.Miner.Windows.zip"
+# GitHub dev-build release 检查地址
+$ReleaseApiUrl = "https://api.github.com/repos/DevilXD/TwitchDropsMiner/releases/tags/dev-build"
 
-# master 分支最新 commit 检查地址；只取 1 条即可
-$CommitApiUrl = "https://api.github.com/repos/DevilXD/TwitchDropsMiner/commits?sha=master&per_page=1"
+# dev-build 中的 Windows 压缩包资产名称
+$WindowsAssetName = "Twitch.Drops.Miner.Windows.zip"
 
 # 安装目录。压缩包内容会直接覆盖解压到这里
 $InstallDir = "D:\Program Files Green\Twitch Drops Miner"
@@ -19,11 +19,11 @@ $InstallDir = "D:\Program Files Green\Twitch Drops Miner"
 $ExecutableName = "Twitch Drops Miner (by DevilXD).exe"
 $ExecutablePath = Join-Path $InstallDir $ExecutableName
 
-# 本脚本保存上次已安装 commit SHA 的状态文件
+# 本脚本保存上次已安装 dev-build release 信息的状态文件
 $StateFile = Join-Path $InstallDir "TwitchDropsMiner_auto_update_state.json"
 
 # 临时下载文件路径。每次运行会先删除旧的临时文件
-$ArchivePath = Join-Path $env:TEMP "Twitch.Drops.Miner.Windows.zip"
+$ArchivePath = Join-Path $env:TEMP $WindowsAssetName
 
 # 临时解压目录。先解压到这里，再把实际文件复制到安装目录，避免多出一层文件夹
 $ExtractDir = Join-Path $env:TEMP "Twitch.Drops.Miner.Windows.extract"
@@ -31,6 +31,10 @@ $ExtractDir = Join-Path $env:TEMP "Twitch.Drops.Miner.Windows.extract"
 # 7-Zip 可执行程序。若 7z.exe 不在 PATH 中，可改成完整路径，例如:
 # $SevenZipExe = "C:\Program Files\7-Zip\7z.exe"
 $SevenZipExe = "7z.exe"
+
+# 结束 Twitch Drops Miner 后等待进程退出和主程序文件解锁的最长时间
+$ProcessExitTimeoutSeconds = 30
+$FileUnlockTimeoutSeconds = 30
 
 # GitHub API 建议带 User-Agent
 $UserAgent = "TwitchDropsMiner-auto-update-pwsh"
@@ -49,7 +53,7 @@ $HttpProxy = ""
 # 辅助函数
 # ----------------------------
 
-function Get-LocalSha {
+function Get-LocalReleaseState {
     param(
         [string]$Path
     )
@@ -59,34 +63,38 @@ function Get-LocalSha {
     }
 
     try {
-        $state = Get-Content -LiteralPath $Path -Raw -Encoding UTF8 | ConvertFrom-Json
-        return $state.sha
+        return Get-Content -LiteralPath $Path -Raw -Encoding UTF8 | ConvertFrom-Json
     } catch {
         Write-Host "状态文件读取失败，将按未安装当前版本处理: $($_.Exception.Message)"
         return $null
     }
 }
 
-function Set-LocalSha {
+function Set-LocalReleaseState {
     param(
         [string]$Path,
-        [string]$Sha
+        [psobject]$ReleaseInfo,
+        [string]$ExecutablePath
     )
 
+    $executable = Get-Item -LiteralPath $ExecutablePath -ErrorAction Stop
+
     $state = [ordered]@{
-        sha = $Sha
+        reference_commit = $ReleaseInfo.ReferenceCommit
+        release_published_at = $ReleaseInfo.ReleasePublishedAt
+        asset_name = $ReleaseInfo.AssetName
+        asset_updated_at = $ReleaseInfo.AssetUpdatedAt
+        executable_last_write_time = $executable.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss zzz")
         updated_at = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss zzz")
     }
 
     $state | ConvertTo-Json | Set-Content -LiteralPath $Path -Encoding UTF8
 }
 
-function Get-RemoteSha {
+function Get-GitHubApiHeaders {
     param(
-        [string]$Url,
         [string]$Agent,
-        [string]$Authorization,
-        [string]$Proxy
+        [string]$Authorization
     )
 
     $headers = @{
@@ -98,6 +106,20 @@ function Get-RemoteSha {
         $headers["Authorization"] = "Bearer $Authorization"
     }
 
+    return $headers
+}
+
+function Get-DevBuildReleaseInfo {
+    param(
+        [string]$Url,
+        [string]$AssetName,
+        [string]$Agent,
+        [string]$Authorization,
+        [string]$Proxy
+    )
+
+    $headers = Get-GitHubApiHeaders -Agent $Agent -Authorization $Authorization
+
     $requestParams = @{
         Uri = $Url
         Headers = $headers
@@ -108,20 +130,106 @@ function Get-RemoteSha {
         $requestParams["Proxy"] = $Proxy
     }
 
-    $commits = Invoke-RestMethod @requestParams
-    $latestCommit = @($commits)[0]
+    $release = Invoke-RestMethod @requestParams
 
-    if (-not $latestCommit.sha) {
-        throw "GitHub API 响应中没有找到 commit sha"
+    if ($release.tag_name -ne "dev-build") {
+        throw "GitHub API 响应中的 release tag 不是 dev-build: $($release.tag_name)"
     }
 
-    return $latestCommit.sha
+    $referenceCommitMatch = [regex]::Match($release.body, "Reference commit:\s*([0-9a-fA-F]{40})")
+    if (-not $referenceCommitMatch.Success) {
+        throw "dev-build release body 中没有找到 Reference commit"
+    }
+
+    $asset = @($release.assets) | Where-Object { $_.name -eq $AssetName } | Select-Object -First 1
+    if (-not $asset) {
+        throw "dev-build release 中没有找到 Windows 资产: $AssetName"
+    }
+
+    if ($asset.state -and ($asset.state -ne "uploaded")) {
+        throw "Windows 资产尚未上传完成，当前状态: $($asset.state)"
+    }
+
+    if (-not $asset.browser_download_url) {
+        throw "Windows 资产中没有 browser_download_url"
+    }
+
+    return [pscustomobject]@{
+        ReferenceCommit = $referenceCommitMatch.Groups[1].Value.ToLowerInvariant()
+        DownloadUrl = $asset.browser_download_url
+        ReleasePublishedAt = $release.published_at
+        AssetName = $asset.name
+        AssetUpdatedAt = $asset.updated_at
+    }
+}
+
+function Wait-ProcessExit {
+    param(
+        [int]$ProcessId,
+        [int]$TimeoutSeconds
+    )
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        if (-not (Get-Process -Id $ProcessId -ErrorAction SilentlyContinue)) {
+            return
+        }
+
+        Start-Sleep -Milliseconds 500
+    }
+
+    if (Get-Process -Id $ProcessId -ErrorAction SilentlyContinue) {
+        throw "进程 PID=$ProcessId 在 $TimeoutSeconds 秒内未退出"
+    }
+}
+
+function Test-FileUnlocked {
+    param(
+        [string]$Path
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return $true
+    }
+
+    try {
+        $stream = [System.IO.File]::Open(
+            $Path,
+            [System.IO.FileMode]::Open,
+            [System.IO.FileAccess]::ReadWrite,
+            [System.IO.FileShare]::None
+        )
+        $stream.Close()
+        return $true
+    } catch {
+        return $false
+    }
+}
+
+function Wait-FileUnlocked {
+    param(
+        [string]$Path,
+        [int]$TimeoutSeconds
+    )
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        if (Test-FileUnlocked -Path $Path) {
+            return
+        }
+
+        Start-Sleep -Milliseconds 500
+    }
+
+    throw "文件在 $TimeoutSeconds 秒内仍被占用: $Path"
 }
 
 function Stop-TwitchDropsMiner {
     param(
         [string]$ExePath,
-        [string]$ExeName
+        [string]$ExeName,
+        [int]$ExitTimeoutSeconds,
+        [int]$UnlockTimeoutSeconds
     )
 
     # 优先按完整可执行文件路径结束，避免误伤同名进程。
@@ -143,8 +251,11 @@ function Stop-TwitchDropsMiner {
         if ($processId) {
             Write-Host "结束进程 PID=$processId"
             Stop-Process -Id $processId -Force -ErrorAction Stop
+            Wait-ProcessExit -ProcessId $processId -TimeoutSeconds $ExitTimeoutSeconds
         }
     }
+
+    Wait-FileUnlocked -Path $ExePath -TimeoutSeconds $UnlockTimeoutSeconds
 }
 
 # ----------------------------
@@ -157,20 +268,27 @@ try {
         throw "找不到 $SevenZipExe，请确认 7-Zip 已安装并加入 PATH，或在脚本顶部配置完整路径。"
     }
 
-    Write-Host "步骤 1: 获取远程 master 最新 commit SHA"
-    $remoteSha = Get-RemoteSha -Url $CommitApiUrl -Agent $UserAgent -Authorization $GitHubAuthorization -Proxy $HttpProxy
-    Write-Host "远程 SHA: $remoteSha"
+    Write-Host "步骤 1: 获取远程 dev-build release 信息"
+    $remoteRelease = Get-DevBuildReleaseInfo -Url $ReleaseApiUrl -AssetName $WindowsAssetName -Agent $UserAgent -Authorization $GitHubAuthorization -Proxy $HttpProxy
+    Write-Host "远程 Reference commit: $($remoteRelease.ReferenceCommit)"
+    Write-Host "远程发布时间: $($remoteRelease.ReleasePublishedAt)"
+    Write-Host "远程资产: $($remoteRelease.AssetName)"
 
-    $localSha = Get-LocalSha -Path $StateFile
-    if ($localSha) {
-        Write-Host "本地 SHA: $localSha"
+    $localState = Get-LocalReleaseState -Path $StateFile
+    $localReferenceCommit = $localState.reference_commit
+    if ($localReferenceCommit) {
+        Write-Host "本地 Reference commit: $localReferenceCommit"
     } else {
-        Write-Host "本地 SHA: 无记录，将执行更新"
+        Write-Host "本地 Reference commit: 无记录，将执行更新"
     }
 
-    if ($localSha -and ($localSha -eq $remoteSha)) {
-        Write-Host "Twitch Drops Miner 已是最新，无需更新。"
-        exit 0
+    if ($localReferenceCommit -and ($localReferenceCommit -eq $remoteRelease.ReferenceCommit)) {
+        if ($localState.executable_last_write_time) {
+            Write-Host "Twitch Drops Miner 已是最新，无需更新。"
+            exit 0
+        }
+
+        Write-Host "本地状态缺少成功安装标记，将重新执行更新"
     }
 
     Write-Host "步骤 2: 准备安装目录和临时文件"
@@ -189,9 +307,13 @@ try {
 
     Write-Host "步骤 3: 下载 dev-build 压缩包"
     $downloadParams = @{
-        Uri = $DownloadUrl
+        Uri = $remoteRelease.DownloadUrl
         OutFile = $ArchivePath
         Headers = @{ "User-Agent" = $UserAgent }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($GitHubAuthorization)) {
+        $downloadParams.Headers["Authorization"] = "Bearer $GitHubAuthorization"
     }
 
     if (-not [string]::IsNullOrWhiteSpace($HttpProxy)) {
@@ -201,7 +323,7 @@ try {
     Invoke-WebRequest @downloadParams
 
     Write-Host "步骤 4: 结束正在运行的 Twitch Drops Miner 进程"
-    Stop-TwitchDropsMiner -ExePath $ExecutablePath -ExeName $ExecutableName
+    Stop-TwitchDropsMiner -ExePath $ExecutablePath -ExeName $ExecutableName -ExitTimeoutSeconds $ProcessExitTimeoutSeconds -UnlockTimeoutSeconds $FileUnlockTimeoutSeconds
 
     Write-Host "步骤 5: 使用 7-Zip 解压到临时目录"
     & $SevenZipExe x $ArchivePath "-o$ExtractDir" -y
@@ -219,14 +341,14 @@ try {
     }
 
     Write-Host "步骤 6: 覆盖复制文件到安装目录"
-    Copy-Item -Path (Join-Path $copySource "*") -Destination $InstallDir -Recurse -Force
+    Copy-Item -Path (Join-Path $copySource "*") -Destination $InstallDir -Recurse -Force -ErrorAction Stop
 
     Write-Host "步骤 7: 校验主程序并保存状态"
     if (-not (Test-Path -LiteralPath $ExecutablePath)) {
         throw "更新后未找到主程序: $ExecutablePath"
     }
 
-    Set-LocalSha -Path $StateFile -Sha $remoteSha
+    Set-LocalReleaseState -Path $StateFile -ReleaseInfo $remoteRelease -ExecutablePath $ExecutablePath
 
     Write-Host "步骤 8: 启动 Twitch Drops Miner"
     Start-Process -FilePath $ExecutablePath -WorkingDirectory $InstallDir
