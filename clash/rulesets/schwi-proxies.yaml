@@ -8,3 +8,4 @@ payload:
   - DOMAIN-SUFFIX,cloudflarestorage.com
   - DOMAIN-SUFFIX,steamcommunity.com
   - DOMAIN-SUFFIX,blob.core.windows.net
+  - DOMAIN-SUFFIX,pages.dev
