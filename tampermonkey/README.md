@@ -16,6 +16,8 @@
 
 - [**bilibili/**](./bilibili/)  
   Bilibili 相关脚本
+  - [`bili.user.js`](./bilibili/bili.user.js)：颜色标识 B 站收藏番剧作品更新状态  
+    [README](./bilibili/bili)
   - [`bili-digital-card.user.js`](./bilibili/bili-digital-card.user.js)：Bilibili 收藏集奖励筛查  
     [README](./bilibili/bili-digital-card)
     [Greasyfork](https://greasyfork.org/zh-CN/scripts/523758-bilibili-%E6%94%B6%E8%97%8F%E9%9B%86%E5%A5%96%E5%8A%B1%E7%AD%9B%E6%9F%A5%E8%84%9A%E6%9C%AC)
@@ -28,16 +30,18 @@
   - [`bilibili-party-square.user.js`](./bilibili/bilibili-party-square.user.js)：Bilibili 庆会广场  
     [README](./bilibili/bilibili-party-square)
     [Greasyfork](https://greasyfork.org/zh-CN/scripts/527547-bilibili-%E5%BA%86%E4%BC%9A%E5%B9%BF%E5%9C%BA)
+  - [`emojis.user.js`](./bilibili/emojis.user.js)：下载 Bilibili 直播间的 Emojis  
+    [README](./bilibili/emojis)
 
 - [**ehentai/**](./ehentai/)  
   e站相关脚本
-  - [`ehentai-helper.user.js`](./ehentai/eh.user.js)：e站收藏统计  
+  - [`eh.user.js`](./ehentai/eh.user.js)：e站收藏统计  
     [README](./ehentai/eh)
     [Greasyfork](https://greasyfork.org/zh-CN/scripts/477539-e%E7%AB%99%E6%94%B6%E8%97%8F%E7%BB%9F%E8%AE%A1)
 
 - [**fanbox/**](./fanbox/)  
   Fanbox 相关脚本
-  - [`fanbox-downloader.user.js`](./fanbox/fanbox.user.js)：Fanbox 投稿批量下载与增强脚本  
+  - [`fanbox.user.js`](./fanbox/fanbox.user.js)：Fanbox 投稿批量下载与增强脚本  
     [README](./fanbox/fanbox)
     [Greasyfork](https://greasyfork.org/zh-CN/scripts/482310-%E4%B8%8B%E8%BD%BD%E4%BD%A0%E8%B5%9E%E5%8A%A9%E7%9A%84fanbox)
 
@@ -47,7 +51,3 @@
 
 - [爱发电](https://afdian.net/@Schwi)
 - [fanbox](https://schwi.fanbox.cc/)
-
-## License
-
-详见 [LICENSE](/LICENSE)
