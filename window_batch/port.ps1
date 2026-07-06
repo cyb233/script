@@ -8,6 +8,7 @@ show the owning process, and optionally expand TCP states or show remote endpoin
 
 .PARAMETER Port
 Target local port number to monitor. If omitted, the script prompts interactively.
+Alias: -p
 
 .PARAMETER AllStates
 Show all TCP states. By default, the script focuses on Listen, Bound, and UDP,
@@ -18,10 +19,15 @@ Process-name cache TTL in seconds. Use 0 to effectively disable caching. Default
 
 .PARAMETER ShowRemote
 Include the remote endpoint column in the output table.
+Aliases: -remote, -r
+
+.PARAMETER ShowHelp
+Show command usage and examples, then exit.
+Alias: -h, -help
 
 .EXAMPLE
-.\port.ps1
-Prompt for a local port and show occupancy-focused output.
+.\port.ps1 -h
+Show command usage and exit.
 
 .EXAMPLE
 .\port.ps1 -Port 443 -AllStates
@@ -34,17 +40,62 @@ Show remote endpoints and refresh process names every 2 seconds.
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
+    [Alias('p')]
     [int]$Port,
 
     [switch]$AllStates,
 
+    [Alias('cache')]
     [int]$ProcessCacheSeconds = 5,
 
-    [switch]$ShowRemote
+    [Alias('remote', 'r')]
+    [switch]$ShowRemote,
+
+    [Alias('h', 'help')]
+    [switch]$ShowHelp
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+function Show-Usage {
+    $scriptName = Split-Path -Leaf $PSCommandPath
+    $helpAliases = '-ShowHelp, -h, -help'
+    $examples = @(
+        ".\$scriptName",
+        ".\$scriptName -p 443",
+        ".\$scriptName -p 443 -AllStates -r",
+        ".\$scriptName -h"
+    )
+
+    $options = @(
+        [pscustomobject]@{ Name = '-Port, -p <number>'; Description = 'Target local port. If omitted, the script prompts interactively.' },
+        [pscustomobject]@{ Name = '-AllStates'; Description = 'Show all TCP states in addition to Listen, Bound, and UDP.' },
+        [pscustomobject]@{ Name = '-ProcessCacheSeconds, -cache <number>'; Description = 'Process-name cache TTL in seconds. Default: 5. Use 0 to disable caching.' },
+        [pscustomobject]@{ Name = '-ShowRemote, -remote, -r'; Description = 'Include the remote endpoint column in the output table.' },
+        [pscustomobject]@{ Name = $helpAliases; Description = 'Show this help message and exit.' }
+    )
+
+    Write-Host ''
+    Write-Host 'Port Occupancy Monitor'
+    Write-Host '======================'
+    Write-Host ''
+    Write-Host 'Usage:'
+    Write-Host ("  .\\{0} [-Port|-p <number>] [-AllStates] [-ProcessCacheSeconds|-cache <number>] [-ShowRemote|-remote|-r] [-ShowHelp|-h|-help]" -f $scriptName)
+    Write-Host ''
+    Write-Host 'Options:'
+
+    foreach ($option in $options) {
+        Write-Host ('  {0,-40} {1}' -f $option.Name, $option.Description)
+    }
+
+    Write-Host ''
+    Write-Host 'Examples:'
+    foreach ($example in $examples) {
+        Write-Host ("  {0}" -f $example)
+    }
+    Write-Host ''
+}
 
 function Get-ProcessNameCached {
     param(
@@ -150,6 +201,11 @@ function Format-UdpLine {
     }
 
     return ('{0,-4} {1,-4} {2,-56} {3,-12} {4,-10} {5}' -f 'UDP', $family, $localEndpoint, '', $Endpoint.OwningProcess, $ProcessName)
+}
+
+if ($ShowHelp) {
+    Show-Usage
+    exit 0
 }
 
 if (-not $PSBoundParameters.ContainsKey('Port')) {
