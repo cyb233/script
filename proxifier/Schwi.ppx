@@ -1,0 +1,345 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ProxifierProfile version="102" platform="Windows" product_id="0" product_minver="400">
+	<!-- AUTO-GENERATED FROM proxifier/rules/*.xml. DO NOT EDIT DIRECTLY. -->
+	<Options>
+		<Resolve>
+			<AutoModeDetection enabled="true" />
+			<ViaProxy enabled="false" />
+			<BlockNonATypes enabled="false" />
+			<ExclusionList OnlyFromListMode="false">%ComputerName%; localhost; *.local</ExclusionList>
+			<DnsUdpMode>0</DnsUdpMode>
+		</Resolve>
+		<Encryption mode="basic" />
+		<ConnectionLoopDetection enabled="true" resolve="true" />
+		<Udp mode="mode_bypass" />
+		<LeakPreventionMode enabled="false" />
+		<ProcessOtherUsers enabled="true" />
+		<ProcessServices enabled="true" />
+		<HandleDirectConnections enabled="false" />
+		<HttpProxiesSupport enabled="false" />
+	</Options>
+	<ProxyList>
+		<Proxy id="100" type="SOCKS5">
+			<Options>304</Options>
+			<Port>7890</Port>
+			<Address>127.0.0.1</Address>
+		</Proxy>
+		<Proxy id="101" type="SOCKS4">
+			<Authentication enabled="false">
+				<Username />
+			</Authentication>
+			<Options>308</Options>
+			<Port>7890</Port>
+			<Address>127.0.0.1</Address>
+		</Proxy>
+		<Proxy id="102" type="HTTPS">
+			<Options>304</Options>
+			<Port>7890</Port>
+			<Address>127.0.0.1</Address>
+		</Proxy>
+		<Proxy id="103" type="SOCKS5">
+			<Options>304</Options>
+			<Port>17890</Port>
+			<Address>127.0.0.1</Address>
+		</Proxy>
+		<Proxy id="104" type="SOCKS4">
+			<Authentication enabled="false">
+				<Username />
+			</Authentication>
+			<Options>308</Options>
+			<Port>17890</Port>
+			<Address>127.0.0.1</Address>
+		</Proxy>
+		<Proxy id="105" type="HTTPS">
+			<Options>304</Options>
+			<Port>17890</Port>
+			<Address>127.0.0.1</Address>
+		</Proxy>
+	</ProxyList>
+	<ChainList>
+		<Chain id="200" type="redundancy">
+			<RedundancyRecheckTime>30</RedundancyRecheckTime>
+			<RedundancyRecheck>true</RedundancyRecheck>
+			<RedundancyTryDirect>true</RedundancyTryDirect>
+			<RedundancyTimeout>30</RedundancyTimeout>
+			<Proxy enabled="true">100</Proxy>
+			<Proxy enabled="true">103</Proxy>
+			<Name>SOCKS5</Name>
+		</Chain>
+		<Chain id="201" type="redundancy">
+			<RedundancyRecheckTime>30</RedundancyRecheckTime>
+			<RedundancyRecheck>true</RedundancyRecheck>
+			<RedundancyTryDirect>true</RedundancyTryDirect>
+			<RedundancyTimeout>30</RedundancyTimeout>
+			<Proxy enabled="true">101</Proxy>
+			<Proxy enabled="true">104</Proxy>
+			<Name>SOCKS4</Name>
+		</Chain>
+		<Chain id="202" type="redundancy">
+			<RedundancyRecheckTime>30</RedundancyRecheckTime>
+			<RedundancyRecheck>true</RedundancyRecheck>
+			<RedundancyTryDirect>true</RedundancyTryDirect>
+			<RedundancyTimeout>30</RedundancyTimeout>
+			<Proxy enabled="true">102</Proxy>
+			<Proxy enabled="true">105</Proxy>
+			<Name>HTTPS</Name>
+		</Chain>
+	</ChainList>
+	<RuleList>
+		<!-- Proxy core and local direct exceptions -->
+		<Rule enabled="true">
+			<Action type="Direct" />
+			<Applications>*clash*.exe;*mihomo*.exe;*verge*.exe</Applications>
+			<Name>Proxy Core</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Direct" />
+			<Targets>localhost; 127.0.0.1; %ComputerName%; ::1</Targets>
+			<Name>Localhost</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Direct" />
+			<Applications>NETworkManager.exe</Applications>
+			<Name>NETworkManager</Name>
+		</Rule>
+		<!-- Development tools and shells -->
+		<Rule enabled="false">
+			<Action type="Chain">200</Action>
+			<Applications>windhawk.exe</Applications>
+			<Name>Windhawk</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Applications>Code.exe;VSCodium.exe</Applications>
+			<Name>VSCode / VSCodium</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Applications>git.exe;git-remote-https.exe</Applications>
+			<Name>Git</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Applications>cmd.exe;powershell.exe;pwsh.exe;OpenConsole.exe;WindowsTerminal.exe</Applications>
+			<Name>Command Line</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Applications>ruby.exe</Applications>
+			<Name>Ruby</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Applications>DbgX.Shell.exe;EngHost.exe</Applications>
+			<Name>WinDbg</Name>
+		</Rule>
+		<Rule enabled="false">
+			<Action type="Chain">200</Action>
+			<Applications>"GitHub Stars Manager.exe"</Applications>
+			<Name>GitHub Stars Manager</Name>
+		</Rule>
+		<Rule enabled="false">
+			<Action type="Chain">200</Action>
+			<Applications>GitHub-Store.exe</Applications>
+			<Name>GitHub Store</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Applications>Codex.exe</Applications>
+			<Name>Codex</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Applications>openless.exe</Applications>
+			<Name>OpenLess</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Applications>FileConverter.exe</Applications>
+			<Name>FileConverter</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Applications>omniget.exe;aria2c.exe</Applications>
+			<Name>Download Utilities</Name>
+		</Rule>
+		<Rule enabled="false">
+			<Action type="Chain">200</Action>
+			<Applications>cc-switch.exe</Applications>
+			<Name>CC Switch</Name>
+		</Rule>
+		<!-- Domain-based target groups -->
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Targets>pypi.org;files.pythonhosted.org;npmjs.org</Targets>
+			<Name>Package Registries</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Targets>*.jsdelivr.com;*.jsdelivr.net</Targets>
+			<Name>jsDelivr</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Targets>google.com;*.google.com;*.googleapis.com;*.gstatic.com;*.googleusercontent.com;youtube.com;*.youtube.com;*.googlevideo.com;*.ytimg.com</Targets>
+			<Name>Google / YouTube</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Targets>github.com;*.github.com;raw.githubusercontent.com;api.github.com</Targets>
+			<Name>GitHub</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Targets>greasyfork.org</Targets>
+			<Name>Script Sources</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Targets>www.gyan.dev;ffmpeg.org;*.ffmpeg.org</Targets>
+			<Name>Download Sources</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Targets>fanbox.cc;*.fanbox.cc;api.fanbox.cc;s.pximg.net</Targets>
+			<Name>Fanbox / Pixiv</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Targets>origin-a.akamaihd.net</Targets>
+			<Name>Akamai Origin</Name>
+		</Rule>
+		<!-- Launchers, platforms, and helpers -->
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Applications>Armoury*.exe;Asus*.exe;asus*.exe</Applications>
+			<Name>Armoury Crate</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Applications>AsusDownLoadLicense.exe</Applications>
+			<Name>AsusDownLoadLicense</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Applications>"Plain Craft Launcher 2.exe"</Applications>
+			<Name>PCL2</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Applications>alist.exe</Applications>
+			<Name>Alist</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Applications>Playnite.DesktopApp.exe;Playnite.FullscreenApp.exe</Applications>
+			<Name>Playnite</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Applications>itch.exe;butler.exe</Applications>
+			<Name>itch</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Applications>vnite.exe</Applications>
+			<Name>vnite</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Applications>Starward.exe;Starward.RPC.exe;"XXMI Launcher.exe";"JASM - Just Another Skin Manager.exe";"March7th Launcher.exe";"March7th Updater.exe";"March7th Assistant.exe"</Applications>
+			<Name>Game Launchers</Name>
+		</Rule>
+		<Rule enabled="false">
+			<Action type="Chain">200</Action>
+			<Applications>Server.exe;Desktop.exe</Applications>
+			<Name>DDTV</Name>
+		</Rule>
+		<Rule enabled="false">
+			<Action type="Chain">202</Action>
+			<Applications>EADesktop.exe;EALaunchHelper.exe;EABackgroundService.exe;EALocalHostSvc.exe;EACefSubProcess.exe</Applications>
+			<Name>EA</Name>
+		</Rule>
+		<Rule enabled="false">
+			<Action type="Chain">200</Action>
+			<Applications>"Cloudflare WARP.exe";warp*.exe</Applications>
+			<Name>Cloudflare WARP</Name>
+		</Rule>
+		<!-- Desktop apps, games, media, and special cases -->
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Applications>Discord.exe</Applications>
+			<Name>Discord</Name>
+		</Rule>
+		<Rule enabled="false">
+			<Action type="Chain">200</Action>
+			<Applications>Overwolf.exe;Overwolf*.exe</Applications>
+			<Name>Overwolf</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Applications>Minecraft.exe</Applications>
+			<Name>Minecraft</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Applications>PowerToys.exe;PowerToys*.exe</Applications>
+			<Name>PowerToys</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Applications>"Game Cheats Manager.exe";MTool.exe;CheatEvolution.exe</Applications>
+			<Name>Game Cheats Manager</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Applications>CheatEngine*.exe;CheatEngine*.tmp</Applications>
+			<Name>CE</Name>
+		</Rule>
+		<Rule enabled="false">
+			<Action type="Direct" />
+			<Applications>qbittorrent.exe</Applications>
+			<Name>qBittorrent</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Applications>parsecd.exe;pservice.exe</Applications>
+			<Name>Parsec</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Applications>obs*.exe</Applications>
+			<Name>OBS</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Applications>妹居物语.exe</Applications>
+			<Name>妹居物语</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Applications>PotPlayerMini64.exe</Applications>
+			<Name>PotPlayer</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Applications>voicebox.exe;voicebox-server.exe</Applications>
+			<Name>Voicebox</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Applications>lghub.exe;lghub*.exe</Applications>
+			<Name>Logitech G Hub</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Applications>airi.exe</Applications>
+			<Name>AIRI</Name>
+		</Rule>
+		<!-- Final fallback rule -->
+		<Rule enabled="true">
+			<Action type="Direct" />
+			<Name>Default</Name>
+		</Rule>
+	</RuleList>
+</ProxifierProfile>
