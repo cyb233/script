@@ -15,7 +15,7 @@
   - [`flickr_apollo.py`](./python/flickr_apollo.py)：抓取 Flickr Project Apollo Archive 原图下载链接
 
 - [**proxifier/**](./proxifier/)  
-  Proxifier 配置、规则分片与自动生成脚本  
+  Proxifier 配置、规则分片与自动生成脚本（push 后由 GitHub Actions 自动回写 `Schwi.ppx`）  
   - [`Schwi.ppx`](./proxifier/Schwi.ppx)：生成后的 Proxifier 配置文件  
   - [`build-config.json`](./proxifier/build-config.json)：Proxifier 配置生成规则  
   - [`generate_profile.py`](./proxifier/generate_profile.py)：将 `rules/` 分片组装为 `Schwi.ppx` 的生成脚本  

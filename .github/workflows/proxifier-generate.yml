@@ -15,23 +15,72 @@ on:
       - '.github/workflows/proxifier-generate.yml'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   generate-proxifier-profile:
     runs-on: ubuntu-latest
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
       - name: Generate Schwi.ppx
         run: python proxifier/generate_profile.py
 
-      - name: Verify generated file is up to date
+      - name: Detect generated file changes
+        id: detect_changes
+        shell: bash
         run: |
-          git diff -- proxifier/Schwi.ppx
-          git diff --exit-code -- proxifier/Schwi.ppx
+          set -euo pipefail
+
+          tracked_changed=false
+          untracked_file=false
+
+          if ! git diff --quiet -- proxifier/Schwi.ppx; then
+            tracked_changed=true
+          fi
+
+          if [ -n "$(git ls-files --others --exclude-standard -- proxifier/Schwi.ppx)" ]; then
+            untracked_file=true
+          fi
+
+          echo "tracked_changed=${tracked_changed}" >> "$GITHUB_OUTPUT"
+          echo "untracked_file=${untracked_file}" >> "$GITHUB_OUTPUT"
+
+          echo "Tracked diff:"
+          git diff -- proxifier/Schwi.ppx || true
+
+          if [ "$untracked_file" = true ]; then
+            echo "Untracked file detected: proxifier/Schwi.ppx"
+          fi
+
+      - name: Commit generated Schwi.ppx on push or manual runs
+        if: github.event_name != 'pull_request' && (steps.detect_changes.outputs.tracked_changed == 'true' || steps.detect_changes.outputs.untracked_file == 'true')
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add proxifier/Schwi.ppx
+          git commit -m "chore(proxifier): regenerate Schwi.ppx"
+          git push
+
+      - name: Fail pull requests when generated file is not committed
+        if: github.event_name == 'pull_request' && (steps.detect_changes.outputs.tracked_changed == 'true' || steps.detect_changes.outputs.untracked_file == 'true')
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "proxifier/Schwi.ppx is out of date or missing from version control."
+          echo "Please run 'python proxifier/generate_profile.py' locally and commit the regenerated file."
+          exit 1

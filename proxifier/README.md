@@ -49,4 +49,13 @@ python proxifier/generate_profile.py
 - `proxifier/generate_profile.py`
 - `.github/workflows/proxifier-generate.yml`
 
-CI 会重新生成 `proxifier/Schwi.ppx`，并检查仓库中的生成结果是否已同步提交。
+### push / workflow_dispatch
+
+- GitHub Actions 会重新生成 `proxifier/Schwi.ppx`
+- 如果生成结果有变化，或仓库中原本没有被跟踪的 `Schwi.ppx`，workflow 会自动将其提交回当前分支
+
+### pull_request
+
+- GitHub Actions 会重新生成 `proxifier/Schwi.ppx`
+- 如果检测到 `Schwi.ppx` 仍有 tracked diff，或者它只是 CI 临时生成的未跟踪文件，workflow 会直接失败
+- 此时需要先在本地执行生成脚本，再把更新后的 `Schwi.ppx` 一并提交
