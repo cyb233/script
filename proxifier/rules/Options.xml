@@ -1,0 +1,18 @@
+<Options>
+	<Resolve>
+		<AutoModeDetection enabled="true" />
+		<ViaProxy enabled="false" />
+		<BlockNonATypes enabled="false" />
+		<ExclusionList OnlyFromListMode="false">%ComputerName%; localhost; *.local</ExclusionList>
+		<DnsUdpMode>0</DnsUdpMode>
+	</Resolve>
+	<Encryption mode="basic" />
+	<ConnectionLoopDetection enabled="true" resolve="true" />
+	<Udp mode="mode_bypass" />
+	<LeakPreventionMode enabled="false" />
+	<ProcessOtherUsers enabled="true" />
+	<ProcessServices enabled="true" />
+	<HandleDirectConnections enabled="false" />
+	<HttpProxiesSupport enabled="false" />
+</Options>
+	

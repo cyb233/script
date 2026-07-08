@@ -1,0 +1,58 @@
+<RuleList>
+	<!-- Launchers, platforms, and helpers -->
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Applications>Armoury*.exe;Asus*.exe;asus*.exe</Applications>
+		<Name>Armoury Crate</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Applications>AsusDownLoadLicense.exe</Applications>
+		<Name>AsusDownLoadLicense</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Applications>"Plain Craft Launcher 2.exe"</Applications>
+		<Name>PCL2</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Applications>alist.exe</Applications>
+		<Name>Alist</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Applications>Playnite.DesktopApp.exe;Playnite.FullscreenApp.exe</Applications>
+		<Name>Playnite</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Applications>itch.exe;butler.exe</Applications>
+		<Name>itch</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Applications>vnite.exe</Applications>
+		<Name>vnite</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Applications>Starward.exe;Starward.RPC.exe;"XXMI Launcher.exe";"JASM - Just Another Skin Manager.exe";"March7th Launcher.exe";"March7th Updater.exe";"March7th Assistant.exe"</Applications>
+		<Name>Game Launchers</Name>
+	</Rule>
+	<Rule enabled="false">
+		<Action type="Chain">200</Action>
+		<Applications>Server.exe;Desktop.exe</Applications>
+		<Name>DDTV</Name>
+	</Rule>
+	<Rule enabled="false">
+		<Action type="Chain">202</Action>
+		<Applications>EADesktop.exe;EALaunchHelper.exe;EABackgroundService.exe;EALocalHostSvc.exe;EACefSubProcess.exe</Applications>
+		<Name>EA</Name>
+	</Rule>
+	<Rule enabled="false">
+		<Action type="Chain">200</Action>
+		<Applications>"Cloudflare WARP.exe";warp*.exe</Applications>
+		<Name>Cloudflare WARP</Name>
+	</Rule>
+</RuleList>

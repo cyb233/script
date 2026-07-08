@@ -1,0 +1,37 @@
+name: Generate Proxifier Profile
+
+on:
+  push:
+    paths:
+      - 'proxifier/rules/**'
+      - 'proxifier/build-config.json'
+      - 'proxifier/generate_profile.py'
+      - '.github/workflows/proxifier-generate.yml'
+  pull_request:
+    paths:
+      - 'proxifier/rules/**'
+      - 'proxifier/build-config.json'
+      - 'proxifier/generate_profile.py'
+      - '.github/workflows/proxifier-generate.yml'
+  workflow_dispatch:
+
+jobs:
+  generate-proxifier-profile:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Generate Schwi.ppx
+        run: python proxifier/generate_profile.py
+
+      - name: Verify generated file is up to date
+        run: |
+          git diff -- proxifier/Schwi.ppx
+          git diff --exit-code -- proxifier/Schwi.ppx

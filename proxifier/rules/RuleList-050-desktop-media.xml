@@ -1,0 +1,73 @@
+<RuleList>
+	<!-- Desktop apps, games, media, and special cases -->
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Applications>Discord.exe</Applications>
+		<Name>Discord</Name>
+	</Rule>
+	<Rule enabled="false">
+		<Action type="Chain">200</Action>
+		<Applications>Overwolf.exe;Overwolf*.exe</Applications>
+		<Name>Overwolf</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Applications>Minecraft.exe</Applications>
+		<Name>Minecraft</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Applications>PowerToys.exe;PowerToys*.exe</Applications>
+		<Name>PowerToys</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Applications>"Game Cheats Manager.exe";MTool.exe;CheatEvolution.exe</Applications>
+		<Name>Game Cheats Manager</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Applications>CheatEngine*.exe;CheatEngine*.tmp</Applications>
+		<Name>CE</Name>
+	</Rule>
+	<Rule enabled="false">
+		<Action type="Direct" />
+		<Applications>qbittorrent.exe</Applications>
+		<Name>qBittorrent</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Applications>parsecd.exe;pservice.exe</Applications>
+		<Name>Parsec</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Applications>obs*.exe</Applications>
+		<Name>OBS</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Applications>妹居物语.exe</Applications>
+		<Name>妹居物语</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Applications>PotPlayerMini64.exe</Applications>
+		<Name>PotPlayer</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Applications>voicebox.exe;voicebox-server.exe</Applications>
+		<Name>Voicebox</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Applications>lghub.exe;lghub*.exe</Applications>
+		<Name>Logitech G Hub</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Applications>airi.exe</Applications>
+		<Name>AIRI</Name>
+	</Rule>
+</RuleList>

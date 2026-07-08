@@ -1,0 +1,68 @@
+<RuleList>
+	<!-- Development tools and shells -->
+	<Rule enabled="false">
+		<Action type="Chain">200</Action>
+		<Applications>windhawk.exe</Applications>
+		<Name>Windhawk</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Applications>Code.exe;VSCodium.exe</Applications>
+		<Name>VSCode / VSCodium</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Applications>git.exe;git-remote-https.exe</Applications>
+		<Name>Git</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Applications>cmd.exe;powershell.exe;pwsh.exe;OpenConsole.exe;WindowsTerminal.exe</Applications>
+		<Name>Command Line</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Applications>ruby.exe</Applications>
+		<Name>Ruby</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Applications>DbgX.Shell.exe;EngHost.exe</Applications>
+		<Name>WinDbg</Name>
+	</Rule>
+	<Rule enabled="false">
+		<Action type="Chain">200</Action>
+		<Applications>"GitHub Stars Manager.exe"</Applications>
+		<Name>GitHub Stars Manager</Name>
+	</Rule>
+	<Rule enabled="false">
+		<Action type="Chain">200</Action>
+		<Applications>GitHub-Store.exe</Applications>
+		<Name>GitHub Store</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Applications>Codex.exe</Applications>
+		<Name>Codex</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Applications>openless.exe</Applications>
+		<Name>OpenLess</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Applications>FileConverter.exe</Applications>
+		<Name>FileConverter</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Applications>omniget.exe;aria2c.exe</Applications>
+		<Name>Download Utilities</Name>
+	</Rule>
+	<Rule enabled="false">
+		<Action type="Chain">200</Action>
+		<Applications>cc-switch.exe</Applications>
+		<Name>CC Switch</Name>
+	</Rule>
+</RuleList>

@@ -1,0 +1,33 @@
+{
+  "outputFile": "proxifier/Schwi.ppx",
+  "sourceDir": "proxifier/rules",
+  "xmlDeclaration": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>",
+  "profileRoot": {
+    "name": "ProxifierProfile",
+    "attributes": {
+      "version": "102",
+      "platform": "Windows",
+      "product_id": "0",
+      "product_minver": "400"
+    }
+  },
+  "generatedComment": "AUTO-GENERATED FROM proxifier/rules/*.xml. DO NOT EDIT DIRECTLY.",
+  "sections": [
+    {
+      "file": "Options.xml",
+      "root": "Options"
+    },
+    {
+      "file": "ProxyList.xml",
+      "root": "ProxyList"
+    },
+    {
+      "file": "ChainList.xml",
+      "root": "ChainList"
+    }
+  ],
+  "ruleGlob": "RuleList-*.xml",
+  "ruleRoot": "RuleList",
+  "ruleOrderRegex": "^RuleList-(\\d+)-.+\\.xml$",
+  "requireNumericOrderPrefix": true
+}

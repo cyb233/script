@@ -1,0 +1,7 @@
+<RuleList>
+	<!--Final fallback rule-->
+	<Rule enabled="true">
+		<Action type="Direct" />
+		<Name>Default</Name>
+	</Rule>
+</RuleList>

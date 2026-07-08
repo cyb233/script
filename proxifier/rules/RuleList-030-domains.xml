@@ -1,0 +1,43 @@
+<RuleList>
+	<!-- Domain-based target groups -->
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Targets>pypi.org;files.pythonhosted.org;npmjs.org</Targets>
+		<Name>Package Registries</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Targets>*.jsdelivr.com;*.jsdelivr.net</Targets>
+		<Name>jsDelivr</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Targets>google.com;*.google.com;*.googleapis.com;*.gstatic.com;*.googleusercontent.com;youtube.com;*.youtube.com;*.googlevideo.com;*.ytimg.com</Targets>
+		<Name>Google / YouTube</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Targets>github.com;*.github.com;raw.githubusercontent.com;api.github.com</Targets>
+		<Name>GitHub</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Targets>greasyfork.org</Targets>
+		<Name>Script Sources</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Targets>www.gyan.dev;ffmpeg.org;*.ffmpeg.org</Targets>
+		<Name>Download Sources</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Targets>fanbox.cc;*.fanbox.cc;api.fanbox.cc;s.pximg.net</Targets>
+		<Name>Fanbox / Pixiv</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
+		<Targets>origin-a.akamaihd.net</Targets>
+		<Name>Akamai Origin</Name>
+	</Rule>
+</RuleList>

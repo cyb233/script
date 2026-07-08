@@ -1,0 +1,18 @@
+<RuleList>
+	<!-- Proxy core and local direct exceptions -->
+	<Rule enabled="true">
+		<Action type="Direct" />
+		<Applications>*clash*.exe;*mihomo*.exe;*verge*.exe</Applications>
+		<Name>Proxy Core</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Direct" />
+		<Targets>localhost; 127.0.0.1; %ComputerName%; ::1</Targets>
+		<Name>Localhost</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Direct" />
+		<Applications>NETworkManager.exe</Applications>
+		<Name>NETworkManager</Name>
+	</Rule>
+</RuleList>

@@ -1,0 +1,29 @@
+<ChainList>
+	<Chain id="200" type="redundancy">
+		<RedundancyRecheckTime>30</RedundancyRecheckTime>
+		<RedundancyRecheck>true</RedundancyRecheck>
+		<RedundancyTryDirect>true</RedundancyTryDirect>
+		<RedundancyTimeout>30</RedundancyTimeout>
+		<Proxy enabled="true">100</Proxy>
+		<Proxy enabled="true">103</Proxy>
+		<Name>SOCKS5</Name>
+	</Chain>
+	<Chain id="201" type="redundancy">
+		<RedundancyRecheckTime>30</RedundancyRecheckTime>
+		<RedundancyRecheck>true</RedundancyRecheck>
+		<RedundancyTryDirect>true</RedundancyTryDirect>
+		<RedundancyTimeout>30</RedundancyTimeout>
+		<Proxy enabled="true">101</Proxy>
+		<Proxy enabled="true">104</Proxy>
+		<Name>SOCKS4</Name>
+	</Chain>
+	<Chain id="202" type="redundancy">
+		<RedundancyRecheckTime>30</RedundancyRecheckTime>
+		<RedundancyRecheck>true</RedundancyRecheck>
+		<RedundancyTryDirect>true</RedundancyTryDirect>
+		<RedundancyTimeout>30</RedundancyTimeout>
+		<Proxy enabled="true">102</Proxy>
+		<Proxy enabled="true">105</Proxy>
+		<Name>HTTPS</Name>
+	</Chain>
+</ChainList>
