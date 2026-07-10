@@ -1,6 +1,6 @@
 # Script 仓库目录
 
-本仓库收集了个人常用的脚本，涵盖 Clash、Python、Tampermonkey、Windows 批处理等多个方向的自动化与增强工具。
+本仓库收集了个人常用的脚本与静态工具，涵盖 Clash、HTML、Python、Tampermonkey、Windows 批处理等多个方向的自动化与增强工具。
 
 ## 目录结构
 
@@ -9,6 +9,11 @@
   - [`override.js`](./clash/override.js)：Clash / Mihomo override 脚本  
   - [`extra_config.json`](./clash/extra_config.json)：额外配置示例  
   - [`test-override.js`](./clash/test-override.js)：override 本地测试脚本
+
+- [**html/**](./html/)  
+  可直接在浏览器中运行的静态 HTML 工具  
+  - [`PalWorldServerConfig.html`](./html/PalWorldServerConfig.html)：幻兽帕鲁中文服务器配置生成器，支持生成、导入、复制及下载 `PalWorldSettings.ini`  
+  - [README](./html/README.md)：HTML 工具目录使用说明
 
 - [**python/**](./python/)  
   各类 Python 脚本  
