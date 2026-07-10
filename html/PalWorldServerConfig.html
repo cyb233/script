@@ -1,0 +1,1145 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>幻兽帕鲁服务器配置生成器</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f7fb;
+      --surface: #ffffff;
+      --surface-soft: #f8fafc;
+      --text: #172033;
+      --muted: #64748b;
+      --line: #dbe3ee;
+      --primary: #177ddc;
+      --primary-hover: #0f69bd;
+      --primary-soft: #eaf4ff;
+      --accent: #14b8a6;
+      --warning: #c26a08;
+      --warning-soft: #fff7e6;
+      --danger: #dc2626;
+      --shadow: 0 16px 40px rgba(32, 54, 86, .09);
+      --radius: 16px;
+    }
+
+    [data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #0c1220;
+      --surface: #131c2e;
+      --surface-soft: #182337;
+      --text: #edf4ff;
+      --muted: #9aaac0;
+      --line: #2b3a52;
+      --primary: #55aaff;
+      --primary-hover: #78bbff;
+      --primary-soft: #172f4d;
+      --accent: #35d3bf;
+      --warning: #f6b94e;
+      --warning-soft: #352b18;
+      --danger: #ff7b7b;
+      --shadow: 0 18px 48px rgba(0, 0, 0, .28);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      background:
+        radial-gradient(circle at 8% -5%, rgba(23, 125, 220, .13), transparent 28rem),
+        radial-gradient(circle at 95% 10%, rgba(20, 184, 166, .09), transparent 26rem),
+        var(--bg);
+      color: var(--text);
+      font: 14px/1.55 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    }
+    button, input, select, textarea { font: inherit; }
+    button { cursor: pointer; }
+    code, .key, .output {
+      font-family: "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      border-bottom: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+      background: color-mix(in srgb, var(--bg) 86%, transparent);
+      backdrop-filter: blur(16px);
+    }
+    .topbar-inner {
+      width: min(1560px, calc(100% - 32px));
+      min-height: 66px;
+      margin: auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-mark {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border-radius: 12px;
+      color: white;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      box-shadow: 0 8px 22px rgba(23, 125, 220, .22);
+      font-size: 20px;
+    }
+    .brand strong { display: block; font-size: 16px; }
+    .brand small { color: var(--muted); }
+    .top-actions { display: flex; gap: 8px; }
+
+    .page {
+      width: min(1560px, calc(100% - 32px));
+      margin: 26px auto 64px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
+      gap: 24px;
+      align-items: start;
+    }
+    .hero {
+      padding: 26px 28px;
+      margin-bottom: 18px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: linear-gradient(125deg, var(--surface), color-mix(in srgb, var(--primary-soft) 44%, var(--surface)));
+      box-shadow: var(--shadow);
+    }
+    .hero h1 { margin: 0 0 8px; font-size: clamp(23px, 3vw, 34px); line-height: 1.25; }
+    .hero p { max-width: 820px; margin: 0; color: var(--muted); font-size: 15px; }
+    .hero-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 17px; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .pill strong { color: var(--text); }
+    a.pill, .field-info a {
+      color: var(--primary);
+      text-decoration: none;
+    }
+    a.pill:hover, .field-info a:hover { text-decoration: underline; }
+    .field-link { display: inline-block; margin-top: 7px; font-size: 12px; }
+
+    .notice {
+      display: flex;
+      gap: 11px;
+      padding: 13px 15px;
+      margin-bottom: 18px;
+      border: 1px solid color-mix(in srgb, var(--warning) 35%, var(--line));
+      border-radius: 12px;
+      background: var(--warning-soft);
+      color: color-mix(in srgb, var(--warning) 86%, var(--text));
+    }
+    .notice span:first-child { font-size: 18px; }
+    .notice code { overflow-wrap: anywhere; }
+
+    .toolbar {
+      position: sticky;
+      top: 78px;
+      z-index: 10;
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) auto auto auto auto;
+      gap: 10px;
+      padding: 12px;
+      margin-bottom: 18px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: color-mix(in srgb, var(--surface) 92%, transparent);
+      box-shadow: 0 8px 24px rgba(24, 42, 70, .07);
+      backdrop-filter: blur(14px);
+    }
+    .search-wrap { position: relative; }
+    .search-wrap span { position: absolute; left: 12px; top: 10px; color: var(--muted); }
+    .search-wrap input { padding-left: 38px; }
+    input[type="search"], input[type="text"], input[type="number"], input[type="password"], select, textarea {
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      outline: none;
+      background: var(--surface);
+      color: var(--text);
+      transition: border-color .15s, box-shadow .15s;
+    }
+    input[type="search"], input[type="text"], input[type="number"], input[type="password"], select { padding: 8px 11px; }
+    textarea { padding: 11px; resize: vertical; }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 17%, transparent);
+    }
+    input:disabled, select:disabled {
+      cursor: not-allowed;
+      opacity: .72;
+      background: var(--surface-soft);
+      color: var(--muted);
+    }
+    input:invalid { border-color: var(--danger); }
+    input[type="checkbox"] { accent-color: var(--primary); }
+
+    .btn {
+      min-height: 40px;
+      padding: 8px 13px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: var(--surface);
+      color: var(--text);
+      font-weight: 650;
+      transition: transform .12s, border-color .12s, background .12s;
+    }
+    .btn:hover { border-color: var(--primary); background: var(--primary-soft); }
+    .btn:active { transform: translateY(1px); }
+    .btn.primary { border-color: var(--primary); background: var(--primary); color: white; }
+    .btn.primary:hover { background: var(--primary-hover); }
+    .btn.ghost { min-width: 40px; padding: 7px; font-size: 18px; }
+    .btn.danger { color: var(--danger); }
+
+    .switch-filter {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 40px;
+      padding: 0 11px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: var(--surface);
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    .category {
+      margin-bottom: 14px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: 0 7px 22px rgba(27, 50, 82, .045);
+    }
+    .category[hidden], .field[hidden] { display: none; }
+    .category-head {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 17px 19px;
+      border: 0;
+      background: var(--surface);
+      color: var(--text);
+      text-align: left;
+    }
+    .category-head:hover { background: var(--surface-soft); }
+    .category-title { display: flex; align-items: center; gap: 11px; }
+    .category-icon {
+      width: 35px;
+      height: 35px;
+      display: grid;
+      place-items: center;
+      border-radius: 10px;
+      background: var(--primary-soft);
+      font-size: 17px;
+    }
+    .category-title strong { display: block; font-size: 16px; }
+    .category-title small { color: var(--muted); }
+    .category-summary { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; }
+    .chevron { font-size: 17px; transition: transform .2s; }
+    .category.collapsed .chevron { transform: rotate(-90deg); }
+    .category.collapsed .fields { display: none; }
+    .fields { border-top: 1px solid var(--line); }
+    .field {
+      display: grid;
+      grid-template-columns: minmax(240px, 1fr) minmax(200px, .68fr);
+      gap: 24px;
+      padding: 17px 19px;
+      border-bottom: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+    }
+    .field:last-child { border-bottom: 0; }
+    .field.changed { background: color-mix(in srgb, var(--primary-soft) 46%, var(--surface)); }
+    .field-info { min-width: 0; }
+    .field-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 7px; margin-bottom: 4px; }
+    .field-title strong { font-size: 14px; }
+    .key { color: var(--primary); font-size: 12px; overflow-wrap: anywhere; }
+    .field-info p { margin: 0; color: var(--muted); font-size: 13px; }
+    .fixed-note {
+      display: inline-flex;
+      align-items: center;
+      margin-top: 7px;
+      padding: 2px 7px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface-soft);
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .changed-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+    .control { display: flex; align-items: center; gap: 9px; min-width: 0; }
+    .control > input, .control > select { flex: 1; }
+    .unit { color: var(--muted); white-space: nowrap; font-size: 12px; }
+    .reset-one {
+      flex: 0 0 auto;
+      width: 31px;
+      height: 31px;
+      padding: 0;
+      border: 0;
+      border-radius: 7px;
+      background: transparent;
+      color: var(--muted);
+      visibility: hidden;
+    }
+    .field.changed .reset-one { visibility: visible; }
+    .reset-one:hover { color: var(--primary); background: var(--primary-soft); }
+
+    .toggle {
+      position: relative;
+      width: 48px;
+      height: 26px;
+      flex: 0 0 auto;
+    }
+    .toggle input { position: absolute; opacity: 0; pointer-events: none; }
+    .toggle span {
+      position: absolute;
+      inset: 0;
+      border-radius: 999px;
+      background: #9ba9bb;
+      transition: .2s;
+    }
+    .toggle span::after {
+      content: "";
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      left: 3px;
+      top: 3px;
+      border-radius: 50%;
+      background: white;
+      box-shadow: 0 2px 5px rgba(0,0,0,.23);
+      transition: .2s;
+    }
+    .toggle input:checked + span { background: var(--primary); }
+    .toggle input:checked + span::after { transform: translateX(22px); }
+    .toggle input:focus-visible + span { outline: 3px solid color-mix(in srgb, var(--primary) 25%, transparent); }
+    .bool-state { min-width: 28px; color: var(--muted); font-size: 12px; }
+
+    .platforms { display: flex; flex-wrap: wrap; gap: 7px; }
+    .platform {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 9px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      font-size: 12px;
+      user-select: none;
+    }
+
+    .empty {
+      display: none;
+      padding: 48px 24px;
+      border: 1px dashed var(--line);
+      border-radius: var(--radius);
+      color: var(--muted);
+      text-align: center;
+      background: var(--surface);
+    }
+    .empty.visible { display: block; }
+
+    .preview {
+      position: sticky;
+      top: 90px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    .preview-head { padding: 18px 19px 14px; border-bottom: 1px solid var(--line); }
+    .preview-head-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .preview h2 { margin: 0; font-size: 17px; }
+    .preview-sub { margin-top: 4px; color: var(--muted); font-size: 12px; }
+    .status { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+    .status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+    .output-wrap { position: relative; padding: 14px; background: #0b1220; }
+    .output {
+      width: 100%;
+      height: min(52vh, 500px);
+      min-height: 310px;
+      padding: 13px;
+      border: 0;
+      border-radius: 10px;
+      outline: 0;
+      resize: vertical;
+      background: #0f192a;
+      color: #dcecff;
+      font-size: 12px;
+      line-height: 1.65;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .preview-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; padding: 14px; }
+    .preview-actions .wide { grid-column: 1 / -1; }
+    .path-help {
+      padding: 0 15px 16px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .path-help code { display: block; margin-top: 4px; color: var(--text); overflow-wrap: anywhere; }
+
+    dialog {
+      width: min(720px, calc(100% - 28px));
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--text);
+      box-shadow: 0 28px 80px rgba(0,0,0,.32);
+    }
+    dialog::backdrop { background: rgba(5, 12, 24, .62); backdrop-filter: blur(3px); }
+    .dialog-head { display: flex; justify-content: space-between; align-items: center; padding: 18px 20px; border-bottom: 1px solid var(--line); }
+    .dialog-head h2 { margin: 0; font-size: 18px; }
+    .dialog-body { padding: 18px 20px; }
+    .dialog-body p { margin: 0 0 12px; color: var(--muted); }
+    .dialog-body textarea { height: 250px; font-family: "Cascadia Code", Consolas, monospace; font-size: 12px; }
+    .dialog-error { min-height: 22px; margin-top: 8px; color: var(--danger); }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 9px; padding: 14px 20px; border-top: 1px solid var(--line); }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 26px;
+      z-index: 50;
+      padding: 10px 16px;
+      border-radius: 999px;
+      background: #152238;
+      color: white;
+      box-shadow: 0 10px 32px rgba(0,0,0,.3);
+      opacity: 0;
+      transform: translate(-50%, 15px);
+      pointer-events: none;
+      transition: .2s;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    @media (max-width: 1050px) {
+      .page { grid-template-columns: 1fr; }
+      .preview { position: relative; top: 0; }
+      .output { height: 330px; min-height: 240px; }
+    }
+    @media (max-width: 700px) {
+      .topbar-inner, .page { width: min(100% - 20px, 1560px); }
+      .brand small { display: none; }
+      .page { margin-top: 14px; }
+      .hero { padding: 21px 18px; }
+      .toolbar { top: 70px; grid-template-columns: 1fr 1fr; }
+      .search-wrap { grid-column: 1 / -1; }
+      .field { grid-template-columns: 1fr; gap: 11px; padding: 16px; }
+      .category-head { padding: 15px 16px; }
+      .category-title small { display: none; }
+      .preview-actions { grid-template-columns: 1fr; }
+      .preview-actions .wide { grid-column: auto; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">⚙</div>
+        <div><strong>Palworld 配置生成器</strong><small>PalWorldSettings.ini · 中文版</small></div>
+      </div>
+      <div class="top-actions">
+        <button class="btn" id="importTop" type="button">导入配置</button>
+        <button class="btn ghost" id="themeToggle" type="button" title="切换深色模式" aria-label="切换深色模式">◐</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="page">
+    <section>
+      <div class="hero">
+        <h1>幻兽帕鲁服务器配置生成器</h1>
+        <p>依据 Palworld Server Guide 1.0.0 参数文档制作。通过中文表单调整服务器、世界与游戏平衡参数，右侧会实时生成可直接使用的完整 INI 配置。</p>
+        <div class="hero-meta">
+          <span class="pill">文档版本 <strong>1.0.0</strong></span>
+          <a class="pill" href="https://docs.palworldgame.com/settings-and-operation/configuration" target="_blank" rel="noopener noreferrer" title="打开 Palworld 官方配置参数文档">官方配置文档 ↗</a>
+          <span class="pill">参数数量 <strong id="parameterCount">0</strong></span>
+          <span class="pill">已修改 <strong id="changedCount">0</strong></span>
+          <span class="pill">纯静态 · 数据仅在本地处理</span>
+        </div>
+      </div>
+
+      <div class="notice">
+        <span aria-hidden="true">💡</span>
+        <div>请编辑实际运行目录中的 <code>Pal/Saved/Config/WindowsServer/PalWorldSettings.ini</code>（Linux 使用 <code>LinuxServer</code>）。修改 <code>DefaultPalWorldSettings.ini</code> 不会直接生效；目录通常在服务器首次启动后创建。</div>
+      </div>
+
+      <div class="toolbar">
+        <label class="search-wrap">
+          <span aria-hidden="true">⌕</span>
+          <input id="search" type="search" placeholder="搜索中文说明或参数名…" autocomplete="off">
+        </label>
+        <label class="switch-filter"><input id="changedOnly" type="checkbox"> 仅看已修改</label>
+        <label class="switch-filter"><input id="undocumentedOnly" type="checkbox"> 仅看未收录</label>
+        <button class="btn danger" id="resetAll" type="button">恢复默认</button>
+        <label class="switch-filter"><input id="editUndocumented" type="checkbox"> 允许编辑未收录配置</label>
+      </div>
+
+      <div id="form"></div>
+      <div class="empty" id="empty">没有找到匹配的参数，请更换关键词或关闭当前筛选条件。</div>
+    </section>
+
+    <aside class="preview">
+      <div class="preview-head">
+        <div class="preview-head-row">
+          <h2>配置文件内容</h2>
+          <span class="status">实时生成</span>
+        </div>
+        <div class="preview-sub">UTF-8 编码 · 完整 OptionSettings 单行格式</div>
+      </div>
+      <div class="output-wrap">
+        <textarea class="output" id="output" readonly spellcheck="false" aria-label="生成的配置文件内容"></textarea>
+      </div>
+      <div class="preview-actions">
+        <button class="btn primary wide" id="copy" type="button">复制配置内容</button>
+        <button class="btn" id="download" type="button">下载 INI 文件</button>
+        <button class="btn" id="importSide" type="button">导入已有配置</button>
+      </div>
+      <div class="path-help">目标文件：<code>PalWorldSettings.ini</code></div>
+    </aside>
+  </main>
+
+  <dialog id="importDialog">
+    <div class="dialog-head">
+      <h2>导入已有配置</h2>
+      <button class="btn ghost" id="closeDialog" type="button" aria-label="关闭">×</button>
+    </div>
+    <div class="dialog-body">
+      <p>粘贴完整的 PalWorldSettings.ini 内容。页面会识别已知参数，未识别参数将保持当前状态。</p>
+      <textarea id="importText" spellcheck="false" placeholder="[/Script/Pal.PalGameWorldSettings]&#10;OptionSettings=(...)"></textarea>
+      <div class="dialog-error" id="importError" role="alert"></div>
+    </div>
+    <div class="dialog-actions">
+      <button class="btn" id="cancelImport" type="button">取消</button>
+      <button class="btn primary" id="applyImport" type="button">应用配置</button>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <script>
+    "use strict";
+
+    const HEADER = "[/Script/Pal.PalGameWorldSettings]";
+    const DEFAULT_OPTION_SETTINGS = `OptionSettings=(Difficulty=None,RandomizerType=None,RandomizerSeed="",bIsRandomizerPalLevelRandom=False,DayTimeSpeedRate=1.000000,NightTimeSpeedRate=1.000000,ExpRate=1.000000,PalCaptureRate=1.000000,PalSpawnNumRate=1.000000,PalDamageRateAttack=1.000000,PalDamageRateDefense=1.000000,PlayerDamageRateAttack=1.000000,PlayerDamageRateDefense=1.000000,PlayerStomachDecreaceRate=1.000000,PlayerStaminaDecreaceRate=1.000000,PlayerAutoHPRegeneRate=1.000000,PlayerAutoHpRegeneRateInSleep=1.000000,PalStomachDecreaceRate=1.000000,PalStaminaDecreaceRate=1.000000,PalAutoHPRegeneRate=1.000000,PalAutoHpRegeneRateInSleep=1.000000,BuildObjectHpRate=1.000000,BuildObjectDamageRate=1.000000,BuildObjectDeteriorationDamageRate=1.000000,CollectionDropRate=1.000000,CollectionObjectHpRate=1.000000,CollectionObjectRespawnSpeedRate=1.000000,EnemyDropItemRate=1.000000,DeathPenalty=Item,bEnablePlayerToPlayerDamage=False,bEnableFriendlyFire=False,bEnableInvaderEnemy=True,bActiveUNKO=False,bEnableAimAssistPad=True,bEnableAimAssistKeyboard=False,DropItemMaxNum=3000,PhysicsActiveDropItemMaxNum=-1,DropItemMaxNum_UNKO=100,BaseCampMaxNum=128,BaseCampWorkerMaxNum=15,DropItemAliveMaxHours=1.000000,bAutoResetGuildNoOnlinePlayers=False,AutoResetGuildTimeNoOnlinePlayers=72.000000,GuildPlayerMaxNum=20,BaseCampMaxNumInGuild=4,PalEggDefaultHatchingTime=1.000000,WorkSpeedRate=1.000000,AutoSaveSpan=30.000000,bIsMultiplay=False,bIsPvP=False,bHardcore=False,bPalLost=False,bCharacterRecreateInHardcore=False,bCanPickupOtherGuildDeathPenaltyDrop=False,bEnableNonLoginPenalty=True,bEnableFastTravel=True,bEnableFastTravelOnlyBaseCamp=False,bIsStartLocationSelectByMap=False,bExistPlayerAfterLogout=False,bEnableDefenseOtherGuildPlayer=False,bInvisibleOtherGuildBaseCampAreaFX=False,bBuildAreaLimit=False,ItemWeightRate=1.000000,CoopPlayerMaxNum=4,ServerPlayerMaxNum=32,ServerName="Default Palworld Server",ServerDescription="",AdminPassword="",ServerPassword="",bAllowClientMod=True,PublicPort=8211,PublicIP="",RCONEnabled=False,RCONPort=25575,Region="",bUseAuth=True,BanListURL="https://b.palworldgame.com/api/banlist.txt",RESTAPIEnabled=False,RESTAPIPort=8212,bShowPlayerList=False,ChatPostLimitPerMinute=30,CrossplayPlatforms=(Steam,Xbox,PS5,Mac),bIsUseBackupSaveData=True,LogFormatType=Text,bIsShowJoinLeftMessage=True,SupplyDropSpan=180,EnablePredatorBossPal=True,MaxBuildingLimitNum=0,ServerReplicatePawnCullDistance=15000.000000,bAllowGlobalPalboxExport=True,bAllowGlobalPalboxImport=False,EquipmentDurabilityDamageRate=1.000000,ItemContainerForceMarkDirtyInterval=1.000000,PlayerDataPalStorageUpdateCheckTickInterval=1.000000,ItemCorruptionMultiplier=1.000000,MonsterFarmActionSpeedRate=1.000000,DenyTechnologyList=,GuildRejoinCooldownMinutes=0,AutoTransferMasterCheckIntervalSeconds=3600.000000,AutoTransferMasterThresholdDays=14,MaxGuildsPerFrame=10,BlockRespawnTime=5.000000,RespawnPenaltyDurationThreshold=0.000000,RespawnPenaltyTimeScale=2.000000,bDisplayPvPItemNumOnWorldMap_BaseCamp=False,bDisplayPvPItemNumOnWorldMap_Player=False,AdditionalDropItemWhenPlayerKillingInPvPMode="PlayerDropItem",AdditionalDropItemNumWhenPlayerKillingInPvPMode=1,bAdditionalDropItemWhenPlayerKillingInPvPMode=False,bEnableVoiceChat=False,VoiceChatMaxVolumeDistance=3000.000000,VoiceChatZeroVolumeDistance=15000.000000,bAllowEnhanceStat_Health=True,bAllowEnhanceStat_Attack=True,bAllowEnhanceStat_Stamina=True,bAllowEnhanceStat_Weight=True,bAllowEnhanceStat_WorkSpeed=True,bEnableBuildingPlayerUIdDisplay=False,BuildingNameDisplayCacheTTLSeconds=60)`;
+
+    const CATEGORIES = [
+      { id: "world", icon: "🌍", name: "世界与时间", hint: "难度、随机化及昼夜速度" },
+      { id: "player", icon: "🧑", name: "玩家参数", hint: "伤害、生存、恢复与属性" },
+      { id: "pal", icon: "🐾", name: "帕鲁参数", hint: "生成、捕获、战斗与孵化" },
+      { id: "resources", icon: "⛏", name: "资源与建造", hint: "采集、掉落、物品与建筑" },
+      { id: "death", icon: "⚔", name: "死亡、PvP 与硬核", hint: "死亡惩罚、PvP 及重生规则" },
+      { id: "guild", icon: "🏕", name: "公会与据点", hint: "公会人数、据点和离线处理" },
+      { id: "features", icon: "🧭", name: "游戏功能", hint: "旅行、语音、地图及交互功能" },
+      { id: "server", icon: "🖥", name: "服务器信息", hint: "名称、人数、存档及基础服务" },
+      { id: "network", icon: "🔌", name: "网络与管理接口", hint: "端口、认证、RCON 与 REST API" },
+      { id: "performance", icon: "⚡", name: "性能与高级设置", hint: "同步、自动迁移及内部参数" }
+    ];
+
+    const GROUPS = {
+      world: ["Difficulty","RandomizerType","RandomizerSeed","bIsRandomizerPalLevelRandom","DayTimeSpeedRate","NightTimeSpeedRate"],
+      player: ["ExpRate","PlayerDamageRateAttack","PlayerDamageRateDefense","PlayerStomachDecreaceRate","PlayerStaminaDecreaceRate","PlayerAutoHPRegeneRate","PlayerAutoHpRegeneRateInSleep","ItemWeightRate","bEnableAimAssistPad","bEnableAimAssistKeyboard","bAllowEnhanceStat_Health","bAllowEnhanceStat_Attack","bAllowEnhanceStat_Stamina","bAllowEnhanceStat_Weight","bAllowEnhanceStat_WorkSpeed"],
+      pal: ["PalCaptureRate","PalSpawnNumRate","PalDamageRateAttack","PalDamageRateDefense","PalStomachDecreaceRate","PalStaminaDecreaceRate","PalAutoHPRegeneRate","PalAutoHpRegeneRateInSleep","PalEggDefaultHatchingTime","WorkSpeedRate","MonsterFarmActionSpeedRate","EnablePredatorBossPal"],
+      resources: ["BuildObjectHpRate","BuildObjectDamageRate","BuildObjectDeteriorationDamageRate","CollectionDropRate","CollectionObjectHpRate","CollectionObjectRespawnSpeedRate","EnemyDropItemRate","DropItemMaxNum","PhysicsActiveDropItemMaxNum","DropItemMaxNum_UNKO","DropItemAliveMaxHours","EquipmentDurabilityDamageRate","ItemCorruptionMultiplier","DenyTechnologyList","MaxBuildingLimitNum"],
+      death: ["DeathPenalty","bEnablePlayerToPlayerDamage","bEnableFriendlyFire","bIsPvP","bHardcore","bPalLost","bCharacterRecreateInHardcore","bCanPickupOtherGuildDeathPenaltyDrop","BlockRespawnTime","RespawnPenaltyDurationThreshold","RespawnPenaltyTimeScale","bDisplayPvPItemNumOnWorldMap_BaseCamp","bDisplayPvPItemNumOnWorldMap_Player","AdditionalDropItemWhenPlayerKillingInPvPMode","AdditionalDropItemNumWhenPlayerKillingInPvPMode","bAdditionalDropItemWhenPlayerKillingInPvPMode"],
+      guild: ["BaseCampMaxNum","BaseCampWorkerMaxNum","bAutoResetGuildNoOnlinePlayers","AutoResetGuildTimeNoOnlinePlayers","GuildPlayerMaxNum","BaseCampMaxNumInGuild","GuildRejoinCooldownMinutes","bEnableDefenseOtherGuildPlayer","bInvisibleOtherGuildBaseCampAreaFX","bBuildAreaLimit","bEnableBuildingPlayerUIdDisplay","BuildingNameDisplayCacheTTLSeconds"],
+      features: ["bEnableInvaderEnemy","bActiveUNKO","bEnableNonLoginPenalty","bEnableFastTravel","bEnableFastTravelOnlyBaseCamp","bIsStartLocationSelectByMap","bExistPlayerAfterLogout","bShowPlayerList","bIsShowJoinLeftMessage","SupplyDropSpan","bAllowGlobalPalboxExport","bAllowGlobalPalboxImport","bEnableVoiceChat","VoiceChatMaxVolumeDistance","VoiceChatZeroVolumeDistance"],
+      server: ["CoopPlayerMaxNum","ServerPlayerMaxNum","ServerName","ServerDescription","AdminPassword","ServerPassword","bAllowClientMod","Region","AutoSaveSpan","bIsMultiplay","CrossplayPlatforms","bIsUseBackupSaveData","LogFormatType","ChatPostLimitPerMinute"],
+      network: ["PublicPort","PublicIP","RCONEnabled","RCONPort","bUseAuth","BanListURL","RESTAPIEnabled","RESTAPIPort"],
+      performance: ["ServerReplicatePawnCullDistance","ItemContainerForceMarkDirtyInterval","PlayerDataPalStorageUpdateCheckTickInterval","AutoTransferMasterCheckIntervalSeconds","AutoTransferMasterThresholdDays","MaxGuildsPerFrame"]
+    };
+
+    const INFO = {
+      Difficulty: ["难度预设", "官方参数文档未说明该参数及其可用值；默认配置值为 None，编辑时请自行确认服务端支持的值。"],
+      RandomizerType: ["帕鲁随机化模式", "None：关闭；Region：按区域随机；All：完全随机。"],
+      RandomizerSeed: ["随机化种子", "启用帕鲁生成随机化后使用的种子值。"],
+      bIsRandomizerPalLevelRandom: ["帕鲁等级完全随机", "开启后野生帕鲁等级完全随机；关闭时仍遵循各区域的大致等级范围。"],
+      DayTimeSpeedRate: ["白天流逝速度", "白天时间推进速度倍率。"],
+      NightTimeSpeedRate: ["夜晚流逝速度", "夜晚时间推进速度倍率。"],
+      ExpRate: ["经验获取倍率", "玩家与帕鲁获得经验值的倍率。"],
+      PalCaptureRate: ["帕鲁捕获率", "捕获成功率倍率。"],
+      PalSpawnNumRate: ["帕鲁生成数量", "帕鲁生成数量倍率；调高会增加服务器负载。"],
+      PalDamageRateAttack: ["帕鲁造成伤害", "帕鲁造成伤害的倍率。"],
+      PalDamageRateDefense: ["帕鲁受到伤害", "帕鲁受到伤害的倍率。"],
+      PlayerDamageRateAttack: ["玩家造成伤害", "玩家造成伤害的倍率。"],
+      PlayerDamageRateDefense: ["玩家受到伤害", "玩家受到伤害的倍率。"],
+      PlayerStomachDecreaceRate: ["玩家饱食度消耗", "玩家饥饿值下降速度倍率。"],
+      PlayerStaminaDecreaceRate: ["玩家耐力消耗", "玩家耐力消耗速度倍率。"],
+      PlayerAutoHPRegeneRate: ["玩家生命自然恢复", "玩家生命值自然恢复速度倍率。"],
+      PlayerAutoHpRegeneRateInSleep: ["玩家睡眠生命恢复", "玩家睡眠时生命值恢复速度倍率。"],
+      PalStomachDecreaceRate: ["帕鲁饱食度消耗", "帕鲁饥饿值下降速度倍率。"],
+      PalStaminaDecreaceRate: ["帕鲁耐力消耗", "帕鲁耐力消耗速度倍率。"],
+      PalAutoHPRegeneRate: ["帕鲁生命自然恢复", "帕鲁生命值自然恢复速度倍率。"],
+      PalAutoHpRegeneRateInSleep: ["帕鲁盒内生命恢复", "帕鲁在帕鲁终端中睡眠时的生命恢复倍率。"],
+      BuildObjectHpRate: ["建筑生命值", "建筑物生命值倍率。"],
+      BuildObjectDamageRate: ["建筑受到伤害", "建筑物受到伤害的倍率。"],
+      BuildObjectDeteriorationDamageRate: ["建筑劣化速度", "据点范围外建筑自然劣化伤害倍率。"],
+      CollectionDropRate: ["采集掉落数量", "采集物品产出数量倍率。"],
+      CollectionObjectHpRate: ["采集物生命值", "树木、矿石等可采集物体的生命值倍率。"],
+      CollectionObjectRespawnSpeedRate: ["采集物重生间隔", "可采集物体重生间隔倍率；数值越小通常重生越快。"],
+      EnemyDropItemRate: ["敌人掉落数量", "敌人掉落物品数量倍率。"],
+      DeathPenalty: ["死亡惩罚", "None 无掉落；Item 掉落装备外物品；ItemAndEquipment 掉落全部物品；All 还会掉落队伍帕鲁。"],
+      bEnablePlayerToPlayerDamage: ["玩家间伤害", "是否允许玩家对其他玩家造成伤害。"],
+      bEnableFriendlyFire: ["友军伤害", "是否允许对友方单位造成伤害。"],
+      bEnableInvaderEnemy: ["据点袭击", "是否启用敌人入侵据点事件。"],
+      bActiveUNKO: ["UNKO 掉落", "预留/特殊掉落相关开关，官方参数表未说明。"],
+      bEnableAimAssistPad: ["手柄辅助瞄准", "为手柄玩家启用辅助瞄准。"],
+      bEnableAimAssistKeyboard: ["键鼠辅助瞄准", "为键盘鼠标玩家启用辅助瞄准。"],
+      DropItemMaxNum: ["地图掉落物上限", "地图中可存在的掉落物品总数上限。"],
+      PhysicsActiveDropItemMaxNum: ["物理掉落物上限", "可使用物理行为的掉落物最大数量；-1 通常表示不单独限制。"],
+      DropItemMaxNum_UNKO: ["UNKO 掉落物上限", "UNKO 类掉落物的最大数量。"],
+      BaseCampMaxNum: ["全服据点总数", "整个服务器允许存在的据点总数。"],
+      BaseCampWorkerMaxNum: ["单据点工作帕鲁", "每个据点可工作的帕鲁上限，最大 50；调高会增加负载。"],
+      DropItemAliveMaxHours: ["掉落物保留时间", "地面掉落物消失前保留的小时数。"],
+      bAutoResetGuildNoOnlinePlayers: ["自动清理离线公会", "公会长期无人登录时，自动删除其建筑和据点帕鲁。"],
+      AutoResetGuildTimeNoOnlinePlayers: ["离线公会清理时间", "触发自动清理所需的连续离线小时数，仅在自动清理开启时有效。"],
+      GuildPlayerMaxNum: ["公会人数上限", "每个公会允许加入的最大玩家数。"],
+      BaseCampMaxNumInGuild: ["单公会据点上限", "每个公会的据点上限；默认 4，最大 10，调高会增加负载。"],
+      PalEggDefaultHatchingTime: ["巨大蛋孵化时间", "巨大帕鲁蛋孵化所需小时数，其他蛋按比例计算。"],
+      WorkSpeedRate: ["工作速度倍率", "帕鲁工作速度的全局倍率。"],
+      AutoSaveSpan: ["自动保存间隔", "服务器自动保存间隔，单位为秒。"],
+      bIsMultiplay: ["多人游戏模式", "多人游戏相关内部开关；专用服务器通常保持默认。"],
+      bIsPvP: ["启用 PvP", "启用玩家对战模式。"],
+      bHardcore: ["硬核模式", "启用后角色死亡将无法正常重生。"],
+      bPalLost: ["死亡永久失去帕鲁", "角色死亡时永久失去帕鲁。"],
+      bCharacterRecreateInHardcore: ["硬核死亡后重建角色", "硬核模式死亡后是否允许重新创建角色。"],
+      bCanPickupOtherGuildDeathPenaltyDrop: ["拾取其他公会死亡掉落", "是否允许拾取其他公会玩家的死亡惩罚掉落物。"],
+      bEnableNonLoginPenalty: ["长期未登录惩罚", "是否启用玩家长期未登录相关惩罚。"],
+      bEnableFastTravel: ["快速旅行", "是否启用快速旅行。"],
+      bEnableFastTravelOnlyBaseCamp: ["仅限据点间快速旅行", "将快速旅行限制为只能在据点之间进行。"],
+      bIsStartLocationSelectByMap: ["地图选择出生点", "是否允许玩家在地图上选择初始出生位置。"],
+      bExistPlayerAfterLogout: ["登出后角色留存", "玩家登出后，角色是否在当前位置进入睡眠状态。"],
+      bEnableDefenseOtherGuildPlayer: ["防御其他公会玩家", "其他公会玩家与据点防御交互相关开关。"],
+      bInvisibleOtherGuildBaseCampAreaFX: ["隐藏其他公会据点边界", "控制其他公会据点范围边界的可见性。"],
+      bBuildAreaLimit: ["限制特殊区域建造", "阻止玩家在传送点等特殊设施附近建造。"],
+      ItemWeightRate: ["物品重量倍率", "所有物品重量的倍率。"],
+      CoopPlayerMaxNum: ["合作游戏人数", "普通合作房间允许的最大玩家数。"],
+      ServerPlayerMaxNum: ["服务器人数上限", "可同时加入服务器的最大玩家数。"],
+      ServerName: ["服务器名称", "服务器列表中显示的名称。"],
+      ServerDescription: ["服务器描述", "服务器列表中显示的简介。"],
+      AdminPassword: ["管理员密码", "用于通过管理命令取得服务器管理员权限。"],
+      ServerPassword: ["加入服务器密码", "玩家加入服务器时需要输入的密码；留空表示无密码。"],
+      bAllowClientMod: ["允许客户端模组", "允许启用了模组的客户端加入服务器。"],
+      PublicPort: ["外部公开端口", "社区服务器对外声明的端口；不会改变服务器实际监听端口。"],
+      PublicIP: ["外部公开 IP", "社区服务器显式声明的公网 IP；通常可留空自动判断。"],
+      RCONEnabled: ["启用 RCON", "启用远程控制协议。对公网开放前请设置强管理员密码并配置防火墙。"],
+      RCONPort: ["RCON 端口", "RCON 服务使用的端口号。"],
+      Region: ["服务器区域", "服务器区域标识；留空时使用默认行为。"],
+      bUseAuth: ["启用身份认证", "启用服务器连接身份认证。"],
+      BanListURL: ["封禁列表 URL", "服务器定期读取的远程封禁列表地址。"],
+      RESTAPIEnabled: ["启用 REST API", "启用服务器 REST 管理接口。请勿在无访问控制时暴露到公网。"],
+      RESTAPIPort: ["REST API 端口", "REST API 的监听端口。"],
+      bShowPlayerList: ["显示玩家列表", "在 ESC 菜单中显示在线玩家列表。"],
+      ChatPostLimitPerMinute: ["每分钟聊天上限", "单个玩家每分钟允许发送的聊天消息数量。"],
+      CrossplayPlatforms: ["允许跨平台", "允许连接服务器的平台，可多选。"],
+      bIsUseBackupSaveData: ["启用世界备份", "自动创建多周期世界备份；会增加磁盘读写负载。"],
+      LogFormatType: ["日志格式", "服务器日志输出格式：Text 或 Json。"],
+      bIsShowJoinLeftMessage: ["显示加入/离开消息", "玩家进入或离开专用服务器时显示游戏内消息。"],
+      SupplyDropSpan: ["陨石/补给投放间隔", "陨石与补给投放事件的间隔，单位为分钟。"],
+      EnablePredatorBossPal: ["启用掠食者帕鲁", "是否生成掠食者首领帕鲁。"],
+      MaxBuildingLimitNum: ["玩家建筑数量上限", "每名玩家可建造的建筑数量上限；0 表示无限制。"],
+      ServerReplicatePawnCullDistance: ["帕鲁同步距离", "帕鲁相对玩家的同步距离，单位厘米；官方范围 5000–15000。"],
+      bAllowGlobalPalboxExport: ["允许导出到全球帕鲁终端", "允许将帕鲁保存到全球帕鲁终端。"],
+      bAllowGlobalPalboxImport: ["允许从全球帕鲁终端导入", "允许从全球帕鲁终端载入帕鲁。"],
+      EquipmentDurabilityDamageRate: ["装备耐久损耗", "装备耐久度损耗倍率。"],
+      ItemContainerForceMarkDirtyInterval: ["容器强制同步间隔", "容器界面打开时强制重新同步的间隔，单位为秒。"],
+      PlayerDataPalStorageUpdateCheckTickInterval: ["帕鲁存储更新检查间隔", "玩家数据中帕鲁存储更新检查的内部间隔。"],
+      ItemCorruptionMultiplier: ["物品腐坏速度", "食物等物品腐坏速度倍率。"],
+      MonsterFarmActionSpeedRate: ["牧场生产速度", "帕鲁在牧场放牧时的物品生产速度倍率。"],
+      DenyTechnologyList: ["禁用科技列表", "填写要禁用的科技 ID 复合值；留空表示不禁用。示例：(\"\"PALBOX\"\",\"\"RepairBench\"\")"],
+      GuildRejoinCooldownMinutes: ["重新加入公会冷却", "退出公会后再次加入公会的等待时间，单位为分钟。"],
+      AutoTransferMasterCheckIntervalSeconds: ["自动转移会长检查间隔", "自动转移公会会长状态的检查间隔，单位为秒。"],
+      AutoTransferMasterThresholdDays: ["自动转移会长阈值", "会长离线达到此天数后可触发自动转移。"],
+      MaxGuildsPerFrame: ["每帧处理公会数", "服务器每帧可处理的公会数量上限。"],
+      BlockRespawnTime: ["基础重生冷却", "角色死亡后可重生前的基础等待时间，单位为秒。"],
+      RespawnPenaltyDurationThreshold: ["重生惩罚存活阈值", "用于后续死亡重生冷却倍率的存活时间阈值，单位为秒。"],
+      RespawnPenaltyTimeScale: ["重生冷却惩罚倍率", "应用于重生等待时间的惩罚倍率。"],
+      bDisplayPvPItemNumOnWorldMap_BaseCamp: ["地图显示据点 PvP 物品", "在地图上显示各据点的 PvP 专属物品数量。"],
+      bDisplayPvPItemNumOnWorldMap_Player: ["地图显示玩家 PvP 物品", "在地图上显示玩家位置及其 PvP 专属物品数量。"],
+      AdditionalDropItemWhenPlayerKillingInPvPMode: ["PvP 击杀额外掉落物", "启用 PvP 击杀额外掉落后，指定掉落的物品 ID。"],
+      AdditionalDropItemNumWhenPlayerKillingInPvPMode: ["PvP 击杀额外掉落数量", "PvP 击杀玩家时额外物品的掉落数量。"],
+      bAdditionalDropItemWhenPlayerKillingInPvPMode: ["启用 PvP 击杀额外掉落", "PvP 开启时，玩家被击杀是否掉落指定的特殊物品。"],
+      bEnableVoiceChat: ["游戏内语音", "启用游戏内距离语音聊天。"],
+      VoiceChatMaxVolumeDistance: ["语音最大音量距离", "在此距离内语音音量不会衰减。"],
+      VoiceChatZeroVolumeDistance: ["语音静音距离", "达到此距离后语音音量降为零。"],
+      bAllowEnhanceStat_Health: ["允许强化生命值", "允许玩家将属性点分配到生命值。"],
+      bAllowEnhanceStat_Attack: ["允许强化攻击力", "允许玩家将属性点分配到攻击力。"],
+      bAllowEnhanceStat_Stamina: ["允许强化耐力", "允许玩家将属性点分配到耐力。"],
+      bAllowEnhanceStat_Weight: ["允许强化负重", "允许玩家将属性点分配到负重。"],
+      bAllowEnhanceStat_WorkSpeed: ["允许强化工作速度", "允许玩家将属性点分配到工作速度。"],
+      bEnableBuildingPlayerUIdDisplay: ["建筑显示建造者 ID", "是否在建筑物上显示建造者的玩家 ID。"],
+      BuildingNameDisplayCacheTTLSeconds: ["建筑名称缓存时间", "建筑名称显示缓存的有效时长，单位为秒。"]
+    };
+
+    const ENUMS = {
+      RandomizerType: [["None", "关闭（None）"], ["Region", "按区域随机（Region）"], ["All", "完全随机（All）"]],
+      DeathPenalty: [["None", "无掉落（None）"], ["Item", "掉落物品（Item）"], ["ItemAndEquipment", "掉落物品及装备"], ["All", "掉落物品、装备及队伍帕鲁"]],
+      LogFormatType: [["Text", "文本（Text）"], ["Json", "JSON（Json）"]]
+    };
+
+    const STRING_KEYS = new Set(["RandomizerSeed","ServerName","ServerDescription","AdminPassword","ServerPassword","PublicIP","Region","BanListURL","AdditionalDropItemWhenPlayerKillingInPvPMode"]);
+    const PASSWORD_KEYS = new Set(["AdminPassword","ServerPassword"]);
+    const RAW_KEYS = new Set(["Difficulty","DenyTechnologyList"]);
+    const FIXED_KEYS = new Set([
+      "Difficulty","BuildObjectHpRate","bEnablePlayerToPlayerDamage","bEnableFriendlyFire","bActiveUNKO",
+      "bEnableAimAssistPad","bEnableAimAssistKeyboard","DropItemMaxNum","DropItemMaxNum_UNKO","DropItemAliveMaxHours",
+      "WorkSpeedRate","AutoSaveSpan","bIsMultiplay","bCanPickupOtherGuildDeathPenaltyDrop","bEnableNonLoginPenalty",
+      "bEnableDefenseOtherGuildPlayer","CoopPlayerMaxNum","Region","bUseAuth","BanListURL","EnablePredatorBossPal",
+      "PlayerDataPalStorageUpdateCheckTickInterval","AutoTransferMasterCheckIntervalSeconds","AutoTransferMasterThresholdDays",
+      "MaxGuildsPerFrame","BuildingNameDisplayCacheTTLSeconds"
+    ]);
+    const INTEGER_KEYS = new Set(["DropItemMaxNum","PhysicsActiveDropItemMaxNum","DropItemMaxNum_UNKO","BaseCampMaxNum","BaseCampWorkerMaxNum","GuildPlayerMaxNum","BaseCampMaxNumInGuild","CoopPlayerMaxNum","ServerPlayerMaxNum","PublicPort","RCONPort","RESTAPIPort","ChatPostLimitPerMinute","SupplyDropSpan","MaxBuildingLimitNum","GuildRejoinCooldownMinutes","AutoTransferMasterThresholdDays","MaxGuildsPerFrame","AdditionalDropItemNumWhenPlayerKillingInPvPMode","BuildingNameDisplayCacheTTLSeconds"]);
+    const UNIT = {
+      DropItemAliveMaxHours: "小时", AutoResetGuildTimeNoOnlinePlayers: "小时", PalEggDefaultHatchingTime: "小时",
+      AutoSaveSpan: "秒", ItemContainerForceMarkDirtyInterval: "秒", AutoTransferMasterCheckIntervalSeconds: "秒",
+      BlockRespawnTime: "秒", RespawnPenaltyDurationThreshold: "秒", BuildingNameDisplayCacheTTLSeconds: "秒",
+      GuildRejoinCooldownMinutes: "分钟", SupplyDropSpan: "分钟", AutoTransferMasterThresholdDays: "天",
+      ServerReplicatePawnCullDistance: "厘米", VoiceChatMaxVolumeDistance: "距离", VoiceChatZeroVolumeDistance: "距离"
+    };
+
+    function splitTopLevel(text) {
+      const parts = [];
+      let start = 0, depth = 0, quoted = false, escaped = false;
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        if (escaped) { escaped = false; continue; }
+        if (char === "\\" && quoted) { escaped = true; continue; }
+        if (char === '"') { quoted = !quoted; continue; }
+        if (!quoted) {
+          if (char === "(") depth++;
+          else if (char === ")") depth--;
+          else if (char === "," && depth === 0) { parts.push(text.slice(start, i)); start = i + 1; }
+        }
+      }
+      parts.push(text.slice(start));
+      return parts;
+    }
+
+    function parseOptionSettings(text) {
+      const marker = "OptionSettings=(";
+      const markerIndex = text.indexOf(marker);
+      if (markerIndex < 0) throw new Error("未找到 OptionSettings=(...) 配置段。");
+      const start = markerIndex + marker.length;
+      let depth = 1, quoted = false, escaped = false, end = -1;
+      for (let i = start; i < text.length; i++) {
+        const char = text[i];
+        if (escaped) { escaped = false; continue; }
+        if (char === "\\" && quoted) { escaped = true; continue; }
+        if (char === '"') { quoted = !quoted; continue; }
+        if (!quoted) {
+          if (char === "(") depth++;
+          else if (char === ")" && --depth === 0) { end = i; break; }
+        }
+      }
+      if (end < 0) throw new Error("OptionSettings 缺少右括号，配置内容不完整。");
+      const result = new Map();
+      for (const item of splitTopLevel(text.slice(start, end))) {
+        const equals = item.indexOf("=");
+        if (equals <= 0) continue;
+        result.set(item.slice(0, equals).trim(), item.slice(equals + 1).trim());
+      }
+      return result;
+    }
+
+    function decodeString(raw) {
+      if (raw.length >= 2 && raw.startsWith('"') && raw.endsWith('"')) {
+        return raw.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+      }
+      return raw;
+    }
+
+    function encodeString(value) {
+      return `"${String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/[\r\n]+/g, " ")}"`;
+    }
+
+    const parsedDefaults = parseOptionSettings(DEFAULT_OPTION_SETTINGS);
+    const defaults = new Map();
+    const values = new Map();
+    const order = [...parsedDefaults.keys()];
+    for (const [key, raw] of parsedDefaults) {
+      let value = raw;
+      if (STRING_KEYS.has(key)) value = decodeString(raw);
+      defaults.set(key, value);
+      values.set(key, value);
+    }
+
+    const categoryByKey = new Map();
+    for (const [category, keys] of Object.entries(GROUPS)) keys.forEach(key => categoryByKey.set(key, category));
+    order.forEach(key => { if (!categoryByKey.has(key)) categoryByKey.set(key, "performance"); });
+
+    const form = document.querySelector("#form");
+    const controls = new Map();
+    const fields = new Map();
+    const categoryElements = new Map();
+
+    function make(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    }
+
+    function createControl(key) {
+      const current = values.get(key);
+      const wrap = make("div", "control");
+      let control;
+
+      if (key === "CrossplayPlatforms") {
+        control = make("div", "platforms");
+        control.dataset.key = key;
+        const selected = new Set(current.replace(/^\(|\)$/g, "").split(",").filter(Boolean));
+        for (const platformName of ["Steam", "Xbox", "PS5", "Mac"]) {
+          const label = make("label", "platform");
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.value = platformName;
+          checkbox.checked = selected.has(platformName);
+          checkbox.addEventListener("change", () => {
+            const active = [...control.querySelectorAll("input:checked")].map(item => item.value);
+            values.set(key, `(${active.join(",")})`);
+            update();
+          });
+          label.append(checkbox, document.createTextNode(platformName));
+          control.append(label);
+        }
+      } else if (current === "True" || current === "False") {
+        const label = make("label", "toggle");
+        control = document.createElement("input");
+        control.type = "checkbox";
+        control.checked = current === "True";
+        control.dataset.key = key;
+        const track = document.createElement("span");
+        label.append(control, track);
+        const state = make("span", "bool-state", control.checked ? "开启" : "关闭");
+        control.addEventListener("change", () => {
+          values.set(key, control.checked ? "True" : "False");
+          state.textContent = control.checked ? "开启" : "关闭";
+          update();
+        });
+        wrap.append(label, state);
+      } else if (ENUMS[key]) {
+        control = document.createElement("select");
+        control.dataset.key = key;
+        for (const [value, label] of ENUMS[key]) {
+          const option = document.createElement("option");
+          option.value = value;
+          option.textContent = label;
+          control.append(option);
+        }
+        control.value = current;
+        control.addEventListener("change", () => { values.set(key, control.value); update(); });
+      } else {
+        control = document.createElement("input");
+        control.dataset.key = key;
+        if (STRING_KEYS.has(key) || RAW_KEYS.has(key)) {
+          control.type = PASSWORD_KEYS.has(key) ? "password" : "text";
+          control.autocomplete = "off";
+          if (key === "BanListURL") control.inputMode = "url";
+        } else {
+          control.type = "number";
+          control.step = INTEGER_KEYS.has(key) ? "1" : "any";
+          if (key === "ServerReplicatePawnCullDistance") { control.min = "5000"; control.max = "15000"; }
+          if (["PublicPort","RCONPort","RESTAPIPort"].includes(key)) { control.min = "1"; control.max = "65535"; }
+        }
+        control.value = current;
+        control.addEventListener("input", () => { values.set(key, control.value); update(); });
+      }
+
+      if (!wrap.childNodes.length) wrap.append(control);
+      if (FIXED_KEYS.has(key)) {
+        wrap.title = "此参数未被当前官方参数文档收录；开启“允许编辑未收录配置”后可修改";
+      }
+      if (UNIT[key]) wrap.append(make("span", "unit", UNIT[key]));
+      const reset = make("button", "reset-one", "↺");
+      reset.type = "button";
+      reset.title = "恢复此项默认值";
+      reset.addEventListener("click", () => resetKey(key));
+      wrap.append(reset);
+      controls.set(key, control);
+      return wrap;
+    }
+
+    function renderForm() {
+      for (const category of CATEGORIES) {
+        const keys = order.filter(key => categoryByKey.get(key) === category.id);
+        if (!keys.length) continue;
+        const section = make("section", "category");
+        section.dataset.category = category.id;
+        const head = make("button", "category-head");
+        head.type = "button";
+        head.setAttribute("aria-expanded", "true");
+        const title = make("span", "category-title");
+        title.append(make("span", "category-icon", category.icon));
+        const titleText = document.createElement("span");
+        titleText.append(make("strong", "", category.name), make("small", "", category.hint));
+        title.append(titleText);
+        const summary = make("span", "category-summary");
+        const count = make("span", "count", `${keys.length} 项`);
+        summary.append(count, make("span", "chevron", "⌄"));
+        head.append(title, summary);
+        head.addEventListener("click", () => {
+          section.classList.toggle("collapsed");
+          head.setAttribute("aria-expanded", String(!section.classList.contains("collapsed")));
+        });
+        const list = make("div", "fields");
+        for (const key of keys) {
+          const [titleLabel, description] = INFO[key] || [key, "该参数未在当前官方参数表中提供详细说明，请谨慎修改。"];
+          const field = make("div", "field");
+          field.dataset.key = key;
+          field.dataset.search = `${key} ${titleLabel} ${description}`.toLocaleLowerCase("zh-CN");
+          const info = make("div", "field-info");
+          const fieldTitle = make("div", "field-title");
+          fieldTitle.append(make("strong", "", titleLabel), make("code", "key", key));
+          info.append(fieldTitle, make("p", "", description));
+          if (key === "DenyTechnologyList") {
+            const technologyLink = make("a", "field-link", "查看官方科技 ID 列表 ↗");
+            technologyLink.href = "https://docs.palworldgame.com/settings-and-operation/technologyids";
+            technologyLink.target = "_blank";
+            technologyLink.rel = "noopener noreferrer";
+            info.append(technologyLink);
+          }
+          if (FIXED_KEYS.has(key)) {
+            info.append(make("span", "fixed-note", "文档未收录 · 已锁定"));
+            field.dataset.search += " 文档未收录 已锁定";
+          }
+          field.append(info, createControl(key));
+          list.append(field);
+          fields.set(key, field);
+        }
+        section.append(head, list);
+        form.append(section);
+        categoryElements.set(category.id, { section, count });
+      }
+    }
+
+    function rawValue(key) {
+      const value = values.get(key);
+      if (STRING_KEYS.has(key)) return encodeString(value);
+      return value;
+    }
+
+    function generate() {
+      return `${HEADER}\nOptionSettings=(${order.map(key => `${key}=${rawValue(key)}`).join(",")})`;
+    }
+
+    function isChanged(key) { return values.get(key) !== defaults.get(key); }
+
+    function undocumentedEditingEnabled() {
+      return document.querySelector("#editUndocumented").checked;
+    }
+
+    function updateUndocumentedEditing() {
+      const editable = undocumentedEditingEnabled();
+      for (const key of FIXED_KEYS) {
+        const control = controls.get(key);
+        if (!control) continue;
+        if (key === "CrossplayPlatforms") {
+          control.querySelectorAll("input").forEach(input => { input.disabled = !editable; });
+        } else {
+          control.disabled = !editable;
+        }
+        const field = fields.get(key);
+        const note = field?.querySelector(".fixed-note");
+        if (note) note.textContent = editable ? "文档未收录 · 已允许编辑" : "文档未收录 · 已锁定";
+        const reset = field?.querySelector(".reset-one");
+        if (reset) reset.disabled = !editable;
+      }
+    }
+
+    function update() {
+      document.querySelector("#output").value = generate();
+      let changed = 0;
+      for (const key of order) {
+        const active = isChanged(key);
+        fields.get(key).classList.toggle("changed", active);
+        fields.get(key).querySelector(".field-title").classList.toggle("has-change", active);
+        let dot = fields.get(key).querySelector(".changed-dot");
+        if (active && !dot) fields.get(key).querySelector(".field-title").prepend(make("span", "changed-dot"));
+        if (!active && dot) dot.remove();
+        if (active) changed++;
+      }
+      document.querySelector("#changedCount").textContent = changed;
+      applyFilter();
+    }
+
+    function setControl(key, value) {
+      values.set(key, value);
+      const control = controls.get(key);
+      if (key === "CrossplayPlatforms") {
+        const selected = new Set(value.replace(/^\(|\)$/g, "").split(",").filter(Boolean));
+        control.querySelectorAll("input").forEach(item => { item.checked = selected.has(item.value); });
+      } else if (control.type === "checkbox") {
+        control.checked = value === "True";
+        control.closest(".control").querySelector(".bool-state").textContent = control.checked ? "开启" : "关闭";
+      } else {
+        control.value = value;
+      }
+    }
+
+    function resetKey(key) { setControl(key, defaults.get(key)); update(); }
+
+    function resetAll() {
+      if ([...values.keys()].some(isChanged) && !confirm("确定恢复所有默认设置吗？当前修改将丢失。")) return;
+      for (const key of order) setControl(key, defaults.get(key));
+      update();
+      showToast("已恢复默认配置");
+    }
+
+    function applyFilter() {
+      const query = document.querySelector("#search").value.trim().toLocaleLowerCase("zh-CN");
+      const onlyChanged = document.querySelector("#changedOnly").checked;
+      const onlyUndocumented = document.querySelector("#undocumentedOnly").checked;
+      let allVisible = 0;
+      for (const category of CATEGORIES) {
+        const entry = categoryElements.get(category.id);
+        if (!entry) continue;
+        let visible = 0;
+        for (const key of order.filter(item => categoryByKey.get(item) === category.id)) {
+          const field = fields.get(key);
+          const matched = (!query || field.dataset.search.includes(query)) &&
+            (!onlyChanged || isChanged(key)) &&
+            (!onlyUndocumented || FIXED_KEYS.has(key));
+          field.hidden = !matched;
+          if (matched) visible++;
+        }
+        entry.section.hidden = visible === 0;
+        entry.count.textContent = `${visible} 项`;
+        allVisible += visible;
+        if ((query || onlyChanged || onlyUndocumented) && visible) {
+          entry.section.classList.remove("collapsed");
+          entry.section.querySelector(".category-head").setAttribute("aria-expanded", "true");
+        }
+      }
+      document.querySelector("#empty").classList.toggle("visible", allVisible === 0);
+    }
+
+    let toastTimer;
+    function showToast(message) {
+      const toast = document.querySelector("#toast");
+      toast.textContent = message;
+      toast.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove("show"), 1900);
+    }
+
+    async function copyOutput() {
+      const text = generate();
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const output = document.querySelector("#output");
+        output.focus();
+        output.select();
+        if (!document.execCommand("copy")) throw new Error("copy failed");
+      }
+      showToast("配置内容已复制");
+    }
+
+    function downloadOutput() {
+      const blob = new Blob([generate()], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "PalWorldSettings.ini";
+      document.body.append(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      showToast("已下载 PalWorldSettings.ini");
+    }
+
+    const importDialog = document.querySelector("#importDialog");
+    function openImport() {
+      document.querySelector("#importText").value = generate();
+      document.querySelector("#importError").textContent = "";
+      importDialog.showModal();
+    }
+
+    function applyImport() {
+      const error = document.querySelector("#importError");
+      try {
+        const imported = parseOptionSettings(document.querySelector("#importText").value);
+        let applied = 0;
+        let fixedIgnored = 0;
+        for (const [key, raw] of imported) {
+          if (!values.has(key)) continue;
+          if (FIXED_KEYS.has(key) && !undocumentedEditingEnabled()) {
+            setControl(key, defaults.get(key));
+            fixedIgnored++;
+            continue;
+          }
+          let value = STRING_KEYS.has(key) ? decodeString(raw) : raw;
+          if (defaults.get(key) === "True" || defaults.get(key) === "False") {
+            if (!/^(true|false)$/i.test(value)) continue;
+            value = value.toLowerCase() === "true" ? "True" : "False";
+          }
+          setControl(key, value);
+          applied++;
+        }
+        if (!applied && !fixedIgnored) throw new Error("配置中没有可识别的参数。");
+        update();
+        importDialog.close();
+        const ignoredText = fixedIgnored ? `，${fixedIgnored} 个固定参数已保持默认值` : "";
+        showToast(`已导入 ${applied} 个可编辑参数${ignoredText}`);
+      } catch (exception) {
+        error.textContent = exception.message || "配置解析失败。";
+      }
+    }
+
+    function initializeTheme() {
+      const saved = localStorage.getItem("palworld-config-theme");
+      const dark = saved ? saved === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+      document.documentElement.dataset.theme = dark ? "dark" : "light";
+    }
+
+    initializeTheme();
+    renderForm();
+    updateUndocumentedEditing();
+    document.querySelector("#parameterCount").textContent = order.length;
+    update();
+
+    document.querySelector("#search").addEventListener("input", applyFilter);
+    document.querySelector("#changedOnly").addEventListener("change", applyFilter);
+    document.querySelector("#undocumentedOnly").addEventListener("change", applyFilter);
+    document.querySelector("#editUndocumented").addEventListener("change", () => {
+      updateUndocumentedEditing();
+      showToast(undocumentedEditingEnabled() ? "已允许编辑未收录配置，请谨慎修改" : "未收录配置已锁定");
+    });
+    document.querySelector("#resetAll").addEventListener("click", resetAll);
+    document.querySelector("#copy").addEventListener("click", () => copyOutput().catch(() => showToast("复制失败，请手动选择文本")));
+    document.querySelector("#download").addEventListener("click", downloadOutput);
+    document.querySelector("#importTop").addEventListener("click", openImport);
+    document.querySelector("#importSide").addEventListener("click", openImport);
+    document.querySelector("#closeDialog").addEventListener("click", () => importDialog.close());
+    document.querySelector("#cancelImport").addEventListener("click", () => importDialog.close());
+    document.querySelector("#applyImport").addEventListener("click", applyImport);
+    importDialog.addEventListener("click", event => { if (event.target === importDialog) importDialog.close(); });
+    document.querySelector("#themeToggle").addEventListener("click", () => {
+      const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+      document.documentElement.dataset.theme = next;
+      localStorage.setItem("palworld-config-theme", next);
+    });
+  </script>
+</body>
+</html>
