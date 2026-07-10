@@ -43,8 +43,14 @@
       --shadow: 0 18px 48px rgba(0, 0, 0, .28);
     }
 
-    * { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
     body {
       margin: 0;
       min-width: 320px;
@@ -55,9 +61,21 @@
       color: var(--text);
       font: 14px/1.55 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
     }
-    button, input, select, textarea { font: inherit; }
-    button { cursor: pointer; }
-    code, .key, .output {
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    code,
+    .key,
+    .output {
       font-family: "Cascadia Code", "JetBrains Mono", Consolas, monospace;
     }
 
@@ -69,6 +87,7 @@
       background: color-mix(in srgb, var(--bg) 86%, transparent);
       backdrop-filter: blur(16px);
     }
+
     .topbar-inner {
       width: min(1560px, calc(100% - 32px));
       min-height: 66px;
@@ -78,7 +97,13 @@
       justify-content: space-between;
       gap: 16px;
     }
-    .brand { display: flex; align-items: center; gap: 12px; }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
     .brand-mark {
       width: 38px;
       height: 38px;
@@ -90,9 +115,20 @@
       box-shadow: 0 8px 22px rgba(23, 125, 220, .22);
       font-size: 20px;
     }
-    .brand strong { display: block; font-size: 16px; }
-    .brand small { color: var(--muted); }
-    .top-actions { display: flex; gap: 8px; }
+
+    .brand strong {
+      display: block;
+      font-size: 16px;
+    }
+
+    .brand small {
+      color: var(--muted);
+    }
+
+    .top-actions {
+      display: flex;
+      gap: 8px;
+    }
 
     .page {
       width: min(1560px, calc(100% - 32px));
@@ -102,6 +138,7 @@
       gap: 24px;
       align-items: start;
     }
+
     .hero {
       padding: 26px 28px;
       margin-bottom: 18px;
@@ -110,9 +147,27 @@
       background: linear-gradient(125deg, var(--surface), color-mix(in srgb, var(--primary-soft) 44%, var(--surface)));
       box-shadow: var(--shadow);
     }
-    .hero h1 { margin: 0 0 8px; font-size: clamp(23px, 3vw, 34px); line-height: 1.25; }
-    .hero p { max-width: 820px; margin: 0; color: var(--muted); font-size: 15px; }
-    .hero-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 17px; }
+
+    .hero h1 {
+      margin: 0 0 8px;
+      font-size: clamp(23px, 3vw, 34px);
+      line-height: 1.25;
+    }
+
+    .hero p {
+      max-width: 820px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 17px;
+    }
+
     .pill {
       display: inline-flex;
       align-items: center;
@@ -124,13 +179,27 @@
       color: var(--muted);
       font-size: 12px;
     }
-    .pill strong { color: var(--text); }
-    a.pill, .field-info a {
+
+    .pill strong {
+      color: var(--text);
+    }
+
+    a.pill,
+    .field-info a {
       color: var(--primary);
       text-decoration: none;
     }
-    a.pill:hover, .field-info a:hover { text-decoration: underline; }
-    .field-link { display: inline-block; margin-top: 7px; font-size: 12px; }
+
+    a.pill:hover,
+    .field-info a:hover {
+      text-decoration: underline;
+    }
+
+    .field-link {
+      display: inline-block;
+      margin-top: 7px;
+      font-size: 12px;
+    }
 
     .notice {
       display: flex;
@@ -142,8 +211,14 @@
       background: var(--warning-soft);
       color: color-mix(in srgb, var(--warning) 86%, var(--text));
     }
-    .notice span:first-child { font-size: 18px; }
-    .notice code { overflow-wrap: anywhere; }
+
+    .notice span:first-child {
+      font-size: 18px;
+    }
+
+    .notice code {
+      overflow-wrap: anywhere;
+    }
 
     .toolbar {
       position: sticky;
@@ -160,10 +235,35 @@
       box-shadow: 0 8px 24px rgba(24, 42, 70, .07);
       backdrop-filter: blur(14px);
     }
-    .search-wrap { position: relative; }
-    .search-wrap span { position: absolute; left: 12px; top: 10px; color: var(--muted); }
-    .search-wrap input { padding-left: 38px; }
-    input[type="search"], input[type="text"], input[type="number"], input[type="password"], select, textarea {
+
+    .search-wrap {
+      position: relative;
+      min-width: 0;
+    }
+
+    .search-wrap span {
+      position: absolute;
+      left: 13px;
+      top: 50%;
+      z-index: 1;
+      width: 18px;
+      line-height: 1;
+      color: var(--muted);
+      text-align: center;
+      transform: translateY(-50%);
+      pointer-events: none;
+    }
+
+    .search-wrap input[type="search"] {
+      padding-left: 44px;
+    }
+
+    input[type="search"],
+    input[type="text"],
+    input[type="number"],
+    input[type="password"],
+    select,
+    textarea {
       width: 100%;
       min-height: 40px;
       border: 1px solid var(--line);
@@ -173,20 +273,42 @@
       color: var(--text);
       transition: border-color .15s, box-shadow .15s;
     }
-    input[type="search"], input[type="text"], input[type="number"], input[type="password"], select { padding: 8px 11px; }
-    textarea { padding: 11px; resize: vertical; }
-    input:focus, select:focus, textarea:focus {
+
+    input[type="search"],
+    input[type="text"],
+    input[type="number"],
+    input[type="password"],
+    select {
+      padding: 8px 11px;
+    }
+
+    textarea {
+      padding: 11px;
+      resize: vertical;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
       border-color: var(--primary);
       box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 17%, transparent);
     }
-    input:disabled, select:disabled {
+
+    input:disabled,
+    select:disabled {
       cursor: not-allowed;
       opacity: .72;
       background: var(--surface-soft);
       color: var(--muted);
     }
-    input:invalid { border-color: var(--danger); }
-    input[type="checkbox"] { accent-color: var(--primary); }
+
+    input:invalid {
+      border-color: var(--danger);
+    }
+
+    input[type="checkbox"] {
+      accent-color: var(--primary);
+    }
 
     .btn {
       min-height: 40px;
@@ -198,12 +320,35 @@
       font-weight: 650;
       transition: transform .12s, border-color .12s, background .12s;
     }
-    .btn:hover { border-color: var(--primary); background: var(--primary-soft); }
-    .btn:active { transform: translateY(1px); }
-    .btn.primary { border-color: var(--primary); background: var(--primary); color: white; }
-    .btn.primary:hover { background: var(--primary-hover); }
-    .btn.ghost { min-width: 40px; padding: 7px; font-size: 18px; }
-    .btn.danger { color: var(--danger); }
+
+    .btn:hover {
+      border-color: var(--primary);
+      background: var(--primary-soft);
+    }
+
+    .btn:active {
+      transform: translateY(1px);
+    }
+
+    .btn.primary {
+      border-color: var(--primary);
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn.primary:hover {
+      background: var(--primary-hover);
+    }
+
+    .btn.ghost {
+      min-width: 40px;
+      padding: 7px;
+      font-size: 18px;
+    }
+
+    .btn.danger {
+      color: var(--danger);
+    }
 
     .switch-filter {
       display: inline-flex;
@@ -226,7 +371,12 @@
       background: var(--surface);
       box-shadow: 0 7px 22px rgba(27, 50, 82, .045);
     }
-    .category[hidden], .field[hidden] { display: none; }
+
+    .category[hidden],
+    .field[hidden] {
+      display: none;
+    }
+
     .category-head {
       width: 100%;
       display: flex;
@@ -239,8 +389,17 @@
       color: var(--text);
       text-align: left;
     }
-    .category-head:hover { background: var(--surface-soft); }
-    .category-title { display: flex; align-items: center; gap: 11px; }
+
+    .category-head:hover {
+      background: var(--surface-soft);
+    }
+
+    .category-title {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+    }
+
     .category-icon {
       width: 35px;
       height: 35px;
@@ -250,13 +409,41 @@
       background: var(--primary-soft);
       font-size: 17px;
     }
-    .category-title strong { display: block; font-size: 16px; }
-    .category-title small { color: var(--muted); }
-    .category-summary { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; }
-    .chevron { font-size: 17px; transition: transform .2s; }
-    .category.collapsed .chevron { transform: rotate(-90deg); }
-    .category.collapsed .fields { display: none; }
-    .fields { border-top: 1px solid var(--line); }
+
+    .category-title strong {
+      display: block;
+      font-size: 16px;
+    }
+
+    .category-title small {
+      color: var(--muted);
+    }
+
+    .category-summary {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .chevron {
+      font-size: 17px;
+      transition: transform .2s;
+    }
+
+    .category.collapsed .chevron {
+      transform: rotate(-90deg);
+    }
+
+    .category.collapsed .fields {
+      display: none;
+    }
+
+    .fields {
+      border-top: 1px solid var(--line);
+    }
+
     .field {
       display: grid;
       grid-template-columns: minmax(240px, 1fr) minmax(200px, .68fr);
@@ -264,13 +451,43 @@
       padding: 17px 19px;
       border-bottom: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
     }
-    .field:last-child { border-bottom: 0; }
-    .field.changed { background: color-mix(in srgb, var(--primary-soft) 46%, var(--surface)); }
-    .field-info { min-width: 0; }
-    .field-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 7px; margin-bottom: 4px; }
-    .field-title strong { font-size: 14px; }
-    .key { color: var(--primary); font-size: 12px; overflow-wrap: anywhere; }
-    .field-info p { margin: 0; color: var(--muted); font-size: 13px; }
+
+    .field:last-child {
+      border-bottom: 0;
+    }
+
+    .field.changed {
+      background: color-mix(in srgb, var(--primary-soft) 46%, var(--surface));
+    }
+
+    .field-info {
+      min-width: 0;
+    }
+
+    .field-title {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 7px;
+      margin-bottom: 4px;
+    }
+
+    .field-title strong {
+      font-size: 14px;
+    }
+
+    .key {
+      color: var(--primary);
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+
+    .field-info p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
     .fixed-note {
       display: inline-flex;
       align-items: center;
@@ -282,10 +499,32 @@
       color: var(--muted);
       font-size: 11px;
     }
-    .changed-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
-    .control { display: flex; align-items: center; gap: 9px; min-width: 0; }
-    .control > input, .control > select { flex: 1; }
-    .unit { color: var(--muted); white-space: nowrap; font-size: 12px; }
+
+    .changed-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    .control {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-width: 0;
+    }
+
+    .control>input,
+    .control>select {
+      flex: 1;
+    }
+
+    .unit {
+      color: var(--muted);
+      white-space: nowrap;
+      font-size: 12px;
+    }
+
     .reset-one {
       flex: 0 0 auto;
       width: 31px;
@@ -297,8 +536,15 @@
       color: var(--muted);
       visibility: hidden;
     }
-    .field.changed .reset-one { visibility: visible; }
-    .reset-one:hover { color: var(--primary); background: var(--primary-soft); }
+
+    .field.changed .reset-one {
+      visibility: visible;
+    }
+
+    .reset-one:hover {
+      color: var(--primary);
+      background: var(--primary-soft);
+    }
 
     .toggle {
       position: relative;
@@ -306,7 +552,13 @@
       height: 26px;
       flex: 0 0 auto;
     }
-    .toggle input { position: absolute; opacity: 0; pointer-events: none; }
+
+    .toggle input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
     .toggle span {
       position: absolute;
       inset: 0;
@@ -314,6 +566,7 @@
       background: #9ba9bb;
       transition: .2s;
     }
+
     .toggle span::after {
       content: "";
       position: absolute;
@@ -323,15 +576,34 @@
       top: 3px;
       border-radius: 50%;
       background: white;
-      box-shadow: 0 2px 5px rgba(0,0,0,.23);
+      box-shadow: 0 2px 5px rgba(0, 0, 0, .23);
       transition: .2s;
     }
-    .toggle input:checked + span { background: var(--primary); }
-    .toggle input:checked + span::after { transform: translateX(22px); }
-    .toggle input:focus-visible + span { outline: 3px solid color-mix(in srgb, var(--primary) 25%, transparent); }
-    .bool-state { min-width: 28px; color: var(--muted); font-size: 12px; }
 
-    .platforms { display: flex; flex-wrap: wrap; gap: 7px; }
+    .toggle input:checked+span {
+      background: var(--primary);
+    }
+
+    .toggle input:checked+span::after {
+      transform: translateX(22px);
+    }
+
+    .toggle input:focus-visible+span {
+      outline: 3px solid color-mix(in srgb, var(--primary) 25%, transparent);
+    }
+
+    .bool-state {
+      min-width: 28px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .platforms {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+
     .platform {
       display: inline-flex;
       align-items: center;
@@ -353,7 +625,10 @@
       text-align: center;
       background: var(--surface);
     }
-    .empty.visible { display: block; }
+
+    .empty.visible {
+      display: block;
+    }
 
     .preview {
       position: sticky;
@@ -364,13 +639,52 @@
       background: var(--surface);
       box-shadow: var(--shadow);
     }
-    .preview-head { padding: 18px 19px 14px; border-bottom: 1px solid var(--line); }
-    .preview-head-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-    .preview h2 { margin: 0; font-size: 17px; }
-    .preview-sub { margin-top: 4px; color: var(--muted); font-size: 12px; }
-    .status { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
-    .status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
-    .output-wrap { position: relative; padding: 14px; background: #0b1220; }
+
+    .preview-head {
+      padding: 18px 19px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .preview-head-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .preview h2 {
+      margin: 0;
+      font-size: 17px;
+    }
+
+    .preview-sub {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .status::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    .output-wrap {
+      position: relative;
+      padding: 14px;
+      background: #0b1220;
+    }
+
     .output {
       width: 100%;
       height: min(52vh, 500px);
@@ -388,14 +702,30 @@
       white-space: pre-wrap;
       word-break: break-all;
     }
-    .preview-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; padding: 14px; }
-    .preview-actions .wide { grid-column: 1 / -1; }
+
+    .preview-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 9px;
+      padding: 14px;
+    }
+
+    .preview-actions .wide {
+      grid-column: 1 / -1;
+    }
+
     .path-help {
       padding: 0 15px 16px;
       color: var(--muted);
       font-size: 12px;
     }
-    .path-help code { display: block; margin-top: 4px; color: var(--text); overflow-wrap: anywhere; }
+
+    .path-help code {
+      display: block;
+      margin-top: 4px;
+      color: var(--text);
+      overflow-wrap: anywhere;
+    }
 
     dialog {
       width: min(720px, calc(100% - 28px));
@@ -404,16 +734,129 @@
       border-radius: var(--radius);
       background: var(--surface);
       color: var(--text);
-      box-shadow: 0 28px 80px rgba(0,0,0,.32);
+      box-shadow: 0 28px 80px rgba(0, 0, 0, .32);
     }
-    dialog::backdrop { background: rgba(5, 12, 24, .62); backdrop-filter: blur(3px); }
-    .dialog-head { display: flex; justify-content: space-between; align-items: center; padding: 18px 20px; border-bottom: 1px solid var(--line); }
-    .dialog-head h2 { margin: 0; font-size: 18px; }
-    .dialog-body { padding: 18px 20px; }
-    .dialog-body p { margin: 0 0 12px; color: var(--muted); }
-    .dialog-body textarea { height: 250px; font-family: "Cascadia Code", Consolas, monospace; font-size: 12px; }
-    .dialog-error { min-height: 22px; margin-top: 8px; color: var(--danger); }
-    .dialog-actions { display: flex; justify-content: flex-end; gap: 9px; padding: 14px 20px; border-top: 1px solid var(--line); }
+
+    dialog::backdrop {
+      background: rgba(5, 12, 24, .62);
+      backdrop-filter: blur(3px);
+    }
+
+    .dialog-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .dialog-head h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .dialog-body {
+      padding: 18px 20px;
+    }
+
+    .dialog-body p {
+      margin: 0 0 12px;
+      color: var(--muted);
+    }
+
+    .dialog-body textarea {
+      height: 250px;
+      font-family: "Cascadia Code", Consolas, monospace;
+      font-size: 12px;
+    }
+
+    .import-dropzone {
+      position: relative;
+      display: grid;
+      place-items: center;
+      min-height: 104px;
+      margin-bottom: 12px;
+      padding: 18px;
+      border: 2px dashed var(--line);
+      border-radius: 12px;
+      background: var(--surface-soft);
+      color: var(--muted);
+      text-align: center;
+      transition: border-color .15s, background .15s, color .15s;
+    }
+
+    .import-dropzone:hover,
+    .import-dropzone.dragging {
+      border-color: var(--primary);
+      background: var(--primary-soft);
+      color: var(--primary);
+    }
+
+    .import-dropzone input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .dropzone-icon {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 25px;
+      line-height: 1;
+    }
+
+    .import-dropzone strong { display: block; color: var(--text); }
+    .import-dropzone small { display: block; margin-top: 3px; }
+
+    .import-editor-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 7px;
+    }
+
+    .import-editor-head strong { font-size: 13px; }
+    .import-tool-actions { display: flex; gap: 6px; }
+
+    .icon-btn {
+      width: 34px;
+      min-height: 34px;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 17px;
+    }
+
+    .icon-btn:hover { border-color: var(--primary); background: var(--primary-soft); color: var(--primary); }
+    .icon-btn.danger:hover { border-color: var(--danger); color: var(--danger); }
+
+    .import-file-status {
+      min-height: 21px;
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .dialog-error {
+      min-height: 22px;
+      margin-top: 8px;
+      color: var(--danger);
+    }
+
+    .dialog-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 9px;
+      padding: 14px 20px;
+      border-top: 1px solid var(--line);
+    }
 
     .toast {
       position: fixed;
@@ -424,31 +867,83 @@
       border-radius: 999px;
       background: #152238;
       color: white;
-      box-shadow: 0 10px 32px rgba(0,0,0,.3);
+      box-shadow: 0 10px 32px rgba(0, 0, 0, .3);
       opacity: 0;
       transform: translate(-50%, 15px);
       pointer-events: none;
       transition: .2s;
     }
-    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    .toast.show {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
 
     @media (max-width: 1050px) {
-      .page { grid-template-columns: 1fr; }
-      .preview { position: relative; top: 0; }
-      .output { height: 330px; min-height: 240px; }
+      .page {
+        grid-template-columns: 1fr;
+      }
+
+      .preview {
+        position: relative;
+        top: 0;
+      }
+
+      .output {
+        height: 330px;
+        min-height: 240px;
+      }
     }
+
     @media (max-width: 700px) {
-      .topbar-inner, .page { width: min(100% - 20px, 1560px); }
-      .brand small { display: none; }
-      .page { margin-top: 14px; }
-      .hero { padding: 21px 18px; }
-      .toolbar { top: 70px; grid-template-columns: 1fr 1fr; }
-      .search-wrap { grid-column: 1 / -1; }
-      .field { grid-template-columns: 1fr; gap: 11px; padding: 16px; }
-      .category-head { padding: 15px 16px; }
-      .category-title small { display: none; }
-      .preview-actions { grid-template-columns: 1fr; }
-      .preview-actions .wide { grid-column: auto; }
+
+      .topbar-inner,
+      .page {
+        width: min(100% - 20px, 1560px);
+      }
+
+      .brand small {
+        display: none;
+      }
+
+      .page {
+        margin-top: 14px;
+      }
+
+      .hero {
+        padding: 21px 18px;
+      }
+
+      .toolbar {
+        top: 70px;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .search-wrap {
+        grid-column: 1 / -1;
+      }
+
+      .field {
+        grid-template-columns: 1fr;
+        gap: 11px;
+        padding: 16px;
+      }
+
+      .category-head {
+        padding: 15px 16px;
+      }
+
+      .category-title small {
+        display: none;
+      }
+
+      .preview-actions {
+        grid-template-columns: 1fr;
+      }
+
+      .preview-actions .wide {
+        grid-column: auto;
+      }
     }
   </style>
 </head>
@@ -482,7 +977,7 @@
 
       <div class="notice">
         <span aria-hidden="true">💡</span>
-        <div>请编辑实际运行目录中的 <code>Pal/Saved/Config/WindowsServer/PalWorldSettings.ini</code>（Linux 使用 <code>LinuxServer</code>）。修改 <code>DefaultPalWorldSettings.ini</code> 不会直接生效；目录通常在服务器首次启动后创建。</div>
+        <div>请编辑实际运行目录中的 <code>Pal/Saved/Config/WindowsServer/PalWorldSettings.ini</code>（Linux 使用 <code>LinuxServer</code>）。修改 <code>DefaultPalWorldSettings.ini</code> 不会直接生效；目录通常在服务器首次启动后创建。保存配置后请重启服务器。受游戏版本、服务器类型及官方支持状态影响，部分配置项可能不会生效。</div>
       </div>
 
       <div class="toolbar">
@@ -526,8 +1021,24 @@
       <button class="btn ghost" id="closeDialog" type="button" aria-label="关闭">×</button>
     </div>
     <div class="dialog-body">
-      <p>粘贴完整的 PalWorldSettings.ini 内容。页面会识别已知参数，未识别参数将保持当前状态。</p>
+      <p>上传、拖入或粘贴完整的 PalWorldSettings.ini 内容。页面会识别已知参数，未识别参数将保持当前状态。</p>
+      <label class="import-dropzone" id="importDropzone" tabindex="0" role="button" aria-label="选择或拖入配置文件">
+        <input id="importFile" type="file" accept=".ini,.txt,text/plain">
+        <span>
+          <span class="dropzone-icon" aria-hidden="true">⇧</span>
+          <strong>点击选择或将配置文件拖到这里</strong>
+          <small>支持 .ini 和 .txt，文件仅在本地读取</small>
+        </span>
+      </label>
+      <div class="import-editor-head">
+        <strong>配置内容</strong>
+        <div class="import-tool-actions">
+          <button class="icon-btn" id="pasteImport" type="button" title="从剪贴板粘贴" aria-label="从剪贴板粘贴">📋</button>
+          <button class="icon-btn danger" id="clearImport" type="button" title="清空配置内容" aria-label="清空配置内容">⌫</button>
+        </div>
+      </div>
       <textarea id="importText" spellcheck="false" placeholder="[/Script/Pal.PalGameWorldSettings]&#10;OptionSettings=(...)"></textarea>
+      <div class="import-file-status" id="importFileStatus" role="status"></div>
       <div class="dialog-error" id="importError" role="alert"></div>
     </div>
     <div class="dialog-actions">
@@ -558,16 +1069,16 @@
     ];
 
     const GROUPS = {
-      world: ["Difficulty","RandomizerType","RandomizerSeed","bIsRandomizerPalLevelRandom","DayTimeSpeedRate","NightTimeSpeedRate"],
-      player: ["ExpRate","PlayerDamageRateAttack","PlayerDamageRateDefense","PlayerStomachDecreaceRate","PlayerStaminaDecreaceRate","PlayerAutoHPRegeneRate","PlayerAutoHpRegeneRateInSleep","ItemWeightRate","bEnableAimAssistPad","bEnableAimAssistKeyboard","bAllowEnhanceStat_Health","bAllowEnhanceStat_Attack","bAllowEnhanceStat_Stamina","bAllowEnhanceStat_Weight","bAllowEnhanceStat_WorkSpeed"],
-      pal: ["PalCaptureRate","PalSpawnNumRate","PalDamageRateAttack","PalDamageRateDefense","PalStomachDecreaceRate","PalStaminaDecreaceRate","PalAutoHPRegeneRate","PalAutoHpRegeneRateInSleep","PalEggDefaultHatchingTime","WorkSpeedRate","MonsterFarmActionSpeedRate","EnablePredatorBossPal"],
-      resources: ["BuildObjectHpRate","BuildObjectDamageRate","BuildObjectDeteriorationDamageRate","CollectionDropRate","CollectionObjectHpRate","CollectionObjectRespawnSpeedRate","EnemyDropItemRate","DropItemMaxNum","PhysicsActiveDropItemMaxNum","DropItemMaxNum_UNKO","DropItemAliveMaxHours","EquipmentDurabilityDamageRate","ItemCorruptionMultiplier","DenyTechnologyList","MaxBuildingLimitNum"],
-      death: ["DeathPenalty","bEnablePlayerToPlayerDamage","bEnableFriendlyFire","bIsPvP","bHardcore","bPalLost","bCharacterRecreateInHardcore","bCanPickupOtherGuildDeathPenaltyDrop","BlockRespawnTime","RespawnPenaltyDurationThreshold","RespawnPenaltyTimeScale","bDisplayPvPItemNumOnWorldMap_BaseCamp","bDisplayPvPItemNumOnWorldMap_Player","AdditionalDropItemWhenPlayerKillingInPvPMode","AdditionalDropItemNumWhenPlayerKillingInPvPMode","bAdditionalDropItemWhenPlayerKillingInPvPMode"],
-      guild: ["BaseCampMaxNum","BaseCampWorkerMaxNum","bAutoResetGuildNoOnlinePlayers","AutoResetGuildTimeNoOnlinePlayers","GuildPlayerMaxNum","BaseCampMaxNumInGuild","GuildRejoinCooldownMinutes","bEnableDefenseOtherGuildPlayer","bInvisibleOtherGuildBaseCampAreaFX","bBuildAreaLimit","bEnableBuildingPlayerUIdDisplay","BuildingNameDisplayCacheTTLSeconds"],
-      features: ["bEnableInvaderEnemy","bActiveUNKO","bEnableNonLoginPenalty","bEnableFastTravel","bEnableFastTravelOnlyBaseCamp","bIsStartLocationSelectByMap","bExistPlayerAfterLogout","bShowPlayerList","bIsShowJoinLeftMessage","SupplyDropSpan","bAllowGlobalPalboxExport","bAllowGlobalPalboxImport","bEnableVoiceChat","VoiceChatMaxVolumeDistance","VoiceChatZeroVolumeDistance"],
-      server: ["CoopPlayerMaxNum","ServerPlayerMaxNum","ServerName","ServerDescription","AdminPassword","ServerPassword","bAllowClientMod","Region","AutoSaveSpan","bIsMultiplay","CrossplayPlatforms","bIsUseBackupSaveData","LogFormatType","ChatPostLimitPerMinute"],
-      network: ["PublicPort","PublicIP","RCONEnabled","RCONPort","bUseAuth","BanListURL","RESTAPIEnabled","RESTAPIPort"],
-      performance: ["ServerReplicatePawnCullDistance","ItemContainerForceMarkDirtyInterval","PlayerDataPalStorageUpdateCheckTickInterval","AutoTransferMasterCheckIntervalSeconds","AutoTransferMasterThresholdDays","MaxGuildsPerFrame"]
+      world: ["Difficulty", "RandomizerType", "RandomizerSeed", "bIsRandomizerPalLevelRandom", "DayTimeSpeedRate", "NightTimeSpeedRate"],
+      player: ["ExpRate", "PlayerDamageRateAttack", "PlayerDamageRateDefense", "PlayerStomachDecreaceRate", "PlayerStaminaDecreaceRate", "PlayerAutoHPRegeneRate", "PlayerAutoHpRegeneRateInSleep", "ItemWeightRate", "bEnableAimAssistPad", "bEnableAimAssistKeyboard", "bAllowEnhanceStat_Health", "bAllowEnhanceStat_Attack", "bAllowEnhanceStat_Stamina", "bAllowEnhanceStat_Weight", "bAllowEnhanceStat_WorkSpeed"],
+      pal: ["PalCaptureRate", "PalSpawnNumRate", "PalDamageRateAttack", "PalDamageRateDefense", "PalStomachDecreaceRate", "PalStaminaDecreaceRate", "PalAutoHPRegeneRate", "PalAutoHpRegeneRateInSleep", "PalEggDefaultHatchingTime", "WorkSpeedRate", "MonsterFarmActionSpeedRate", "EnablePredatorBossPal"],
+      resources: ["BuildObjectHpRate", "BuildObjectDamageRate", "BuildObjectDeteriorationDamageRate", "CollectionDropRate", "CollectionObjectHpRate", "CollectionObjectRespawnSpeedRate", "EnemyDropItemRate", "DropItemMaxNum", "PhysicsActiveDropItemMaxNum", "DropItemMaxNum_UNKO", "DropItemAliveMaxHours", "EquipmentDurabilityDamageRate", "ItemCorruptionMultiplier", "DenyTechnologyList", "MaxBuildingLimitNum"],
+      death: ["DeathPenalty", "bEnablePlayerToPlayerDamage", "bEnableFriendlyFire", "bIsPvP", "bHardcore", "bPalLost", "bCharacterRecreateInHardcore", "bCanPickupOtherGuildDeathPenaltyDrop", "BlockRespawnTime", "RespawnPenaltyDurationThreshold", "RespawnPenaltyTimeScale", "bDisplayPvPItemNumOnWorldMap_BaseCamp", "bDisplayPvPItemNumOnWorldMap_Player", "AdditionalDropItemWhenPlayerKillingInPvPMode", "AdditionalDropItemNumWhenPlayerKillingInPvPMode", "bAdditionalDropItemWhenPlayerKillingInPvPMode"],
+      guild: ["BaseCampMaxNum", "BaseCampWorkerMaxNum", "bAutoResetGuildNoOnlinePlayers", "AutoResetGuildTimeNoOnlinePlayers", "GuildPlayerMaxNum", "BaseCampMaxNumInGuild", "GuildRejoinCooldownMinutes", "bEnableDefenseOtherGuildPlayer", "bInvisibleOtherGuildBaseCampAreaFX", "bBuildAreaLimit", "bEnableBuildingPlayerUIdDisplay", "BuildingNameDisplayCacheTTLSeconds"],
+      features: ["bEnableInvaderEnemy", "bActiveUNKO", "bEnableNonLoginPenalty", "bEnableFastTravel", "bEnableFastTravelOnlyBaseCamp", "bIsStartLocationSelectByMap", "bExistPlayerAfterLogout", "bShowPlayerList", "bIsShowJoinLeftMessage", "SupplyDropSpan", "bAllowGlobalPalboxExport", "bAllowGlobalPalboxImport", "bEnableVoiceChat", "VoiceChatMaxVolumeDistance", "VoiceChatZeroVolumeDistance"],
+      server: ["CoopPlayerMaxNum", "ServerPlayerMaxNum", "ServerName", "ServerDescription", "AdminPassword", "ServerPassword", "bAllowClientMod", "Region", "AutoSaveSpan", "bIsMultiplay", "CrossplayPlatforms", "bIsUseBackupSaveData", "LogFormatType", "ChatPostLimitPerMinute"],
+      network: ["PublicPort", "PublicIP", "RCONEnabled", "RCONPort", "bUseAuth", "BanListURL", "RESTAPIEnabled", "RESTAPIPort"],
+      performance: ["ServerReplicatePawnCullDistance", "ItemContainerForceMarkDirtyInterval", "PlayerDataPalStorageUpdateCheckTickInterval", "AutoTransferMasterCheckIntervalSeconds", "AutoTransferMasterThresholdDays", "MaxGuildsPerFrame"]
     };
 
     const INFO = {
@@ -698,18 +1209,18 @@
       LogFormatType: [["Text", "文本（Text）"], ["Json", "JSON（Json）"]]
     };
 
-    const STRING_KEYS = new Set(["RandomizerSeed","ServerName","ServerDescription","AdminPassword","ServerPassword","PublicIP","Region","BanListURL","AdditionalDropItemWhenPlayerKillingInPvPMode"]);
-    const PASSWORD_KEYS = new Set(["AdminPassword","ServerPassword"]);
-    const RAW_KEYS = new Set(["Difficulty","DenyTechnologyList"]);
+    const STRING_KEYS = new Set(["RandomizerSeed", "ServerName", "ServerDescription", "AdminPassword", "ServerPassword", "PublicIP", "Region", "BanListURL", "AdditionalDropItemWhenPlayerKillingInPvPMode"]);
+    const PASSWORD_KEYS = new Set(["AdminPassword", "ServerPassword"]);
+    const RAW_KEYS = new Set(["Difficulty", "DenyTechnologyList"]);
     const FIXED_KEYS = new Set([
-      "Difficulty","BuildObjectHpRate","bEnablePlayerToPlayerDamage","bEnableFriendlyFire","bActiveUNKO",
-      "bEnableAimAssistPad","bEnableAimAssistKeyboard","DropItemMaxNum","DropItemMaxNum_UNKO","DropItemAliveMaxHours",
-      "WorkSpeedRate","AutoSaveSpan","bIsMultiplay","bCanPickupOtherGuildDeathPenaltyDrop","bEnableNonLoginPenalty",
-      "bEnableDefenseOtherGuildPlayer","CoopPlayerMaxNum","Region","bUseAuth","BanListURL","EnablePredatorBossPal",
-      "PlayerDataPalStorageUpdateCheckTickInterval","AutoTransferMasterCheckIntervalSeconds","AutoTransferMasterThresholdDays",
-      "MaxGuildsPerFrame","BuildingNameDisplayCacheTTLSeconds"
+      "Difficulty", "BuildObjectHpRate", "bEnablePlayerToPlayerDamage", "bEnableFriendlyFire", "bActiveUNKO",
+      "bEnableAimAssistPad", "bEnableAimAssistKeyboard", "DropItemMaxNum", "DropItemMaxNum_UNKO", "DropItemAliveMaxHours",
+      "WorkSpeedRate", "AutoSaveSpan", "bIsMultiplay", "bCanPickupOtherGuildDeathPenaltyDrop", "bEnableNonLoginPenalty",
+      "bEnableDefenseOtherGuildPlayer", "CoopPlayerMaxNum", "Region", "bUseAuth", "BanListURL", "EnablePredatorBossPal",
+      "PlayerDataPalStorageUpdateCheckTickInterval", "AutoTransferMasterCheckIntervalSeconds", "AutoTransferMasterThresholdDays",
+      "MaxGuildsPerFrame", "BuildingNameDisplayCacheTTLSeconds"
     ]);
-    const INTEGER_KEYS = new Set(["DropItemMaxNum","PhysicsActiveDropItemMaxNum","DropItemMaxNum_UNKO","BaseCampMaxNum","BaseCampWorkerMaxNum","GuildPlayerMaxNum","BaseCampMaxNumInGuild","CoopPlayerMaxNum","ServerPlayerMaxNum","PublicPort","RCONPort","RESTAPIPort","ChatPostLimitPerMinute","SupplyDropSpan","MaxBuildingLimitNum","GuildRejoinCooldownMinutes","AutoTransferMasterThresholdDays","MaxGuildsPerFrame","AdditionalDropItemNumWhenPlayerKillingInPvPMode","BuildingNameDisplayCacheTTLSeconds"]);
+    const INTEGER_KEYS = new Set(["DropItemMaxNum", "PhysicsActiveDropItemMaxNum", "DropItemMaxNum_UNKO", "BaseCampMaxNum", "BaseCampWorkerMaxNum", "GuildPlayerMaxNum", "BaseCampMaxNumInGuild", "CoopPlayerMaxNum", "ServerPlayerMaxNum", "PublicPort", "RCONPort", "RESTAPIPort", "ChatPostLimitPerMinute", "SupplyDropSpan", "MaxBuildingLimitNum", "GuildRejoinCooldownMinutes", "AutoTransferMasterThresholdDays", "MaxGuildsPerFrame", "AdditionalDropItemNumWhenPlayerKillingInPvPMode", "BuildingNameDisplayCacheTTLSeconds"]);
     const UNIT = {
       DropItemAliveMaxHours: "小时", AutoResetGuildTimeNoOnlinePlayers: "小时", PalEggDefaultHatchingTime: "小时",
       AutoSaveSpan: "秒", ItemContainerForceMarkDirtyInterval: "秒", AutoTransferMasterCheckIntervalSeconds: "秒",
@@ -860,7 +1371,7 @@
           control.type = "number";
           control.step = INTEGER_KEYS.has(key) ? "1" : "any";
           if (key === "ServerReplicatePawnCullDistance") { control.min = "5000"; control.max = "15000"; }
-          if (["PublicPort","RCONPort","RESTAPIPort"].includes(key)) { control.min = "1"; control.max = "65535"; }
+          if (["PublicPort", "RCONPort", "RESTAPIPort"].includes(key)) { control.min = "1"; control.max = "65535"; }
         }
         control.value = current;
         control.addEventListener("input", () => { values.set(key, control.value); update(); });
@@ -1070,16 +1581,65 @@
     }
 
     const importDialog = document.querySelector("#importDialog");
-    function openImport() {
-      document.querySelector("#importText").value = generate();
+    const importText = document.querySelector("#importText");
+    const importFile = document.querySelector("#importFile");
+    const importDropzone = document.querySelector("#importDropzone");
+    const importFileStatus = document.querySelector("#importFileStatus");
+
+    function resetImportMessages() {
       document.querySelector("#importError").textContent = "";
+      importFileStatus.textContent = "";
+    }
+
+    function openImport() {
+      importText.value = generate();
+      importFile.value = "";
+      resetImportMessages();
       importDialog.showModal();
+    }
+
+    async function readImportFile(file) {
+      resetImportMessages();
+      if (!file) return;
+      const extension = file.name.includes(".") ? file.name.slice(file.name.lastIndexOf(".")).toLowerCase() : "";
+      if (extension && ![".ini", ".txt"].includes(extension)) {
+        document.querySelector("#importError").textContent = "仅支持 .ini 或 .txt 配置文件。";
+        return;
+      }
+      try {
+        importText.value = await file.text();
+        importFileStatus.textContent = `已读取 ${file.name}（${Math.max(1, Math.ceil(file.size / 1024))} KB）`;
+        importText.focus();
+      } catch {
+        document.querySelector("#importError").textContent = "文件读取失败，请重新选择或直接粘贴配置内容。";
+      }
+    }
+
+    async function pasteImportText() {
+      resetImportMessages();
+      try {
+        const text = await navigator.clipboard.readText();
+        if (!text) throw new Error("empty");
+        importText.value = text;
+        importFileStatus.textContent = "已从剪贴板读取配置内容";
+        importText.focus();
+      } catch {
+        document.querySelector("#importError").textContent = "无法读取剪贴板，请允许浏览器的剪贴板权限，或在文本框中手动粘贴。";
+        importText.focus();
+      }
+    }
+
+    function clearImportText() {
+      importText.value = "";
+      importFile.value = "";
+      resetImportMessages();
+      importText.focus();
     }
 
     function applyImport() {
       const error = document.querySelector("#importError");
       try {
-        const imported = parseOptionSettings(document.querySelector("#importText").value);
+        const imported = parseOptionSettings(importText.value);
         let applied = 0;
         let fixedIgnored = 0;
         for (const [key, raw] of imported) {
@@ -1134,6 +1694,30 @@
     document.querySelector("#closeDialog").addEventListener("click", () => importDialog.close());
     document.querySelector("#cancelImport").addEventListener("click", () => importDialog.close());
     document.querySelector("#applyImport").addEventListener("click", applyImport);
+    document.querySelector("#pasteImport").addEventListener("click", pasteImportText);
+    document.querySelector("#clearImport").addEventListener("click", clearImportText);
+    importFile.addEventListener("change", () => readImportFile(importFile.files[0]));
+    importDropzone.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        importFile.click();
+      }
+    });
+    for (const eventName of ["dragenter", "dragover"]) {
+      importDropzone.addEventListener(eventName, event => {
+        event.preventDefault();
+        event.stopPropagation();
+        importDropzone.classList.add("dragging");
+      });
+    }
+    for (const eventName of ["dragleave", "drop"]) {
+      importDropzone.addEventListener(eventName, event => {
+        event.preventDefault();
+        event.stopPropagation();
+        importDropzone.classList.remove("dragging");
+      });
+    }
+    importDropzone.addEventListener("drop", event => readImportFile(event.dataTransfer.files[0]));
     importDialog.addEventListener("click", event => { if (event.target === importDialog) importDialog.close(); });
     document.querySelector("#themeToggle").addEventListener("click", () => {
       const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
