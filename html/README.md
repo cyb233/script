@@ -38,4 +38,3 @@
 
 - [Palworld 官方配置参数文档](https://docs.palworldgame.com/settings-and-operation/configuration)
 - [Palworld 官方科技 ID 列表](https://docs.palworldgame.com/settings-and-operation/technologyids)
-- [`Configuration parameters _ Palworld Server Guide.html`](./Configuration%20parameters%20_%20Palworld%20Server%20Guide.html)：开发时保存的官方文档页面

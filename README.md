@@ -13,7 +13,6 @@
 - [**html/**](./html/)  
   可直接在浏览器中运行的静态 HTML 工具  
   - [`PalWorldServerConfig.html`](./html/PalWorldServerConfig.html)：幻兽帕鲁中文服务器配置生成器，支持生成、导入、复制及下载 `PalWorldSettings.ini`  
-  - [README](./html/README.md)：HTML 工具目录使用说明
 
 - [**python/**](./python/)  
   各类 Python 脚本  
