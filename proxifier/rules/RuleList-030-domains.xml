@@ -22,6 +22,11 @@
 	</Rule>
 	<Rule enabled="true">
 		<Action type="Chain">200</Action>
+		<Targets>*.windhawk.net</Targets>
+		<Name>Windhawk</Name>
+	</Rule>
+	<Rule enabled="true">
+		<Action type="Chain">200</Action>
 		<Targets>greasyfork.org</Targets>
 		<Name>Script Sources</Name>
 	</Rule>

@@ -96,11 +96,13 @@ def validate_profile(root: ET.Element, config: dict) -> None:
     if not children:
         raise ValueError("Generated profile is empty")
 
-    first_child = children[0]
-    if first_child.tag is not ET.Comment:
-        raise ValueError("First child inside ProxifierProfile must be the generated comment")
-    if (first_child.text or "").strip() != config["generatedComment"]:
-        raise ValueError("Generated comment text does not match config")
+    generated_comment = (config.get("generatedComment") or "").strip()
+    if generated_comment:
+        first_child = children[0]
+        if first_child.tag is not ET.Comment:
+            raise ValueError("First child inside ProxifierProfile must be the generated comment")
+        if (first_child.text or "").strip() != generated_comment:
+            raise ValueError("Generated comment text does not match config")
 
     expected_sections = [section["root"] for section in config["sections"]] + [config["ruleRoot"]]
     for section_name in expected_sections:
@@ -177,7 +179,9 @@ def validate_profile(root: ET.Element, config: dict) -> None:
 
 def build_profile(config: dict) -> ET.Element:
     profile_root = ET.Element(config["profileRoot"]["name"], config["profileRoot"]["attributes"])
-    profile_root.append(ET.Comment(format_comment_text(config["generatedComment"])))
+    generated_comment = (config.get("generatedComment") or "").strip()
+    if generated_comment:
+        profile_root.append(ET.Comment(format_comment_text(generated_comment)))
 
     for section_config in config["sections"]:
         profile_root.append(load_section(config, section_config))

@@ -11,7 +11,7 @@
       "product_minver": "400"
     }
   },
-  "generatedComment": "AUTO-GENERATED FROM proxifier/rules/*.xml. DO NOT EDIT DIRECTLY.",
+  "generatedComment": "",
   "sections": [
     {
       "file": "Options.xml",
