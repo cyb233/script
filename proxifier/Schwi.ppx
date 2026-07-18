@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <ProxifierProfile version="102" platform="Windows" product_id="0" product_minver="400">
-	<!-- AUTO-GENERATED FROM proxifier/rules/*.xml. DO NOT EDIT DIRECTLY. -->
 	<Options>
 		<Resolve>
 			<AutoModeDetection enabled="true" />
@@ -188,6 +187,11 @@
 			<Action type="Chain">200</Action>
 			<Targets>github.com;*.github.com;raw.githubusercontent.com;api.github.com</Targets>
 			<Name>GitHub</Name>
+		</Rule>
+		<Rule enabled="true">
+			<Action type="Chain">200</Action>
+			<Targets>*.windhawk.net</Targets>
+			<Name>Windhawk</Name>
 		</Rule>
 		<Rule enabled="true">
 			<Action type="Chain">200</Action>
