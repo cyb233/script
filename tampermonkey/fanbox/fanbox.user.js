@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      4.6
+// @version      4.6.1
 // @description  快速下载你赞助的fanbox用户的所有投稿
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -271,7 +271,7 @@
     async function fetchAllPosts(progressBar) {
         const { creatorId } = await getCreatorInfo();
         const planResponse = await fetchJsonWithRetry(API.plans(creatorId), REQUEST_OPTIONS);
-        const plans = planResponse.body;
+        const plans = planResponse.body.plans;
         const subscribedPlans = plans.filter(plan => plan.paymentMethod);
         const userFee = subscribedPlans.length === 0 ? 0 : subscribedPlans[0].fee;
         const planCounts = createPlanCounts(plans, userFee);
