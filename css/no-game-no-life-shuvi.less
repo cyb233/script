@@ -1,0 +1,21 @@
+@image-url: "https://static.wikia.nocookie.net/no-game-no-life/images/5/53/No_Game_No_Life_Zero_Character_Model_Sheet_-_Shuvi.png";
+@source-width: 656;
+@source-height: 1294;
+@max-height: 420px;
+
+body::after {
+  content: "";
+  position: fixed;
+  right: 0;
+  bottom: 0;
+
+  height: @max-height;
+  width: (@max-height * @source-width / @source-height);
+  max-height: 100vh;
+  max-width: 100vw;
+
+  background: url(@image-url) right bottom / contain no-repeat;
+
+  pointer-events: none;
+  z-index: 9999;
+}
