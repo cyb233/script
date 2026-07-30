@@ -8,6 +8,8 @@
 
 ## 目录结构
 
+- [`password-visibility-toggle.user.js`](./password-visibility-toggle.user.js)：双击切换任意网站密码框的可见性
+
 - [**ani/**](./ani/)  
   动画疯相关脚本
   - [`ani-skip-ad-and-agreement.user.js`](./ani/ani-skip-ad-and-agreement.user.js)：动画疯跳过广告和年龄确认  
