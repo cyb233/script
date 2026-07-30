@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name         双击切换密码可见性
 // @namespace    Schwi
-// @version      1.0.0
-// @description  双击密码框，在 password 和 text 类型之间切换
+// @version      1.1.0
+// @description  双击密码框切换可见性，并可通过菜单恢复所有密码框
 // @author       Schwi
 // @match        *://*/*
-// @grant        none
+// @grant        GM_registerMenuCommand
 // @run-at       document-start
 // @noframes
 // @supportURL   https://github.com/cyb233/script
@@ -15,8 +15,8 @@
 (function () {
   'use strict';
 
-  // 只记录由本脚本切换为 text 的输入框，避免误把普通文本框当成密码框。
-  const revealedInputs = new WeakSet();
+  // 记录由本脚本切换为 text 的输入框，避免误把普通文本框当成密码框。
+  const revealedInputs = new Set();
 
   const isInputElement = (element) => element instanceof HTMLInputElement;
 
@@ -42,6 +42,15 @@
       input.setSelectionRange(selectionStart, selectionEnd);
     }
   };
+
+  const restoreAllPasswordInputs = () => {
+    for (const input of revealedInputs) {
+      input.type = 'password';
+    }
+    revealedInputs.clear();
+  };
+
+  GM_registerMenuCommand('恢复所有密码框', restoreAllPasswordInputs);
 
   // 使用事件委托，兼容单页应用和后来动态插入的密码框。
   document.addEventListener('dblclick', (event) => {
