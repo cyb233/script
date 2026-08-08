@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 盲盒统计
 // @namespace    Schwi
-// @version      1.7.1
+// @version      1.8.0
 // @description  调用 API 来收集自己的 Bilibili 盲盒概率，公示概率和你的概率一致吗？（受API限制，获取的记录大约只有最近2个自然月，本脚本会本地持久化储存记录）
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -10,7 +10,7 @@
 // @connect      api.live.bilibili.com
 // @connect      api.bilibili.com
 // @connect      shuvi.moe
-// @grant        GM_xmlhttpRequest
+// @grant        GM.xmlHttpRequest
 // @grant        GM_registerMenuCommand
 // @grant        GM_setValue
 // @grant        GM_getValue
@@ -26,12 +26,59 @@
 (async function () {
   'use strict';
 
-  const api = {
-    getBlindBox: (nextId = 0, month = '', pageSize = 100) => `https://api.live.bilibili.com/xlive/fuxi-interface/gift/blindGiftStream?nextId=${nextId}&month=${month}&pageSize=${pageSize}`,
-    getBlindBoxByIds: (ids = [], nextId = 0, month = '', size = 100) => `https://api.live.bilibili.com/xlive/fuxi-interface/BlindBoxController/getRecordsByIds?_ts_rpc_args_=[${ids},${nextId},"${month}",${size}]`
-  }
+  const API = {
+    blindGiftStream: (nextId = 0, month = '', pageSize = 100) => {
+      const params = new URLSearchParams({ nextId, month, pageSize });
+      return `https://api.live.bilibili.com/xlive/fuxi-interface/gift/blindGiftStream?${params}`;
+    },
+    giftInfo: 'https://gift.shuvi.moe/api/blind-gifts'
+  };
 
-  const boxOrder = ['星月盲盒', '心动盲盒', '奇遇盲盒', '闪耀盲盒', '至尊盲盒']
+  const FALLBACK_BLIND_GIFTS = [
+    {
+      id: 32251,
+      name: '心动盲盒',
+      price: 150,
+      level: ['初始倍'],
+      gifts: [
+        { id: 32125, name: '电影票', price: 20, percentage: [6], subGifts: [] },
+        { id: 32126, name: '棉花糖', price: 90, percentage: [42.56], subGifts: [] },
+        { id: 32128, name: '爱心抱枕', price: 160, percentage: [47.5], subGifts: [] },
+        { id: 32281, name: '绮彩权杖', price: 400, percentage: [3.7], subGifts: [] },
+        { id: 34082, name: '时空之站', price: 1000, percentage: [0.12], subGifts: [] },
+        { id: 34894, name: '蛇形护符', price: 2000, percentage: [0.08], subGifts: [] },
+        { id: 32132, name: '浪漫城堡', price: 22330, percentage: [0.04], subGifts: [] }
+      ]
+    },
+    {
+      id: 35206,
+      name: '幸运盲盒',
+      price: 50,
+      level: ['初始倍'],
+      gifts: [
+        { id: 35207, name: '幸运泡泡', price: 15, percentage: [14.8], subGifts: [] },
+        { id: 34704, name: '幸运草', price: 25, percentage: [25], subGifts: [] },
+        { id: 35208, name: '星光铃铛', price: 52, percentage: [52.1], subGifts: [] },
+        { id: 35209, name: '梦雾纸签', price: 100, percentage: [5], subGifts: [] },
+        { id: 35210, name: '福灵小兽', price: 200, percentage: [2.7], subGifts: [] },
+        { id: 35211, name: '星愿花园', price: 600, percentage: [0.4], subGifts: [] }
+      ]
+    },
+    {
+      id: 35212,
+      name: '幸运盲盒S',
+      price: 500,
+      level: ['初始倍'],
+      gifts: [
+        { id: 35213, name: '初兆光符', price: 160, percentage: [10], subGifts: [] },
+        { id: 33593, name: '幸运之露', price: 300, percentage: [33.8], subGifts: [] },
+        { id: 35214, name: '福引转轮', price: 520, percentage: [52.55], subGifts: [] },
+        { id: 35215, name: '光羽预言', price: 1000, percentage: [3], subGifts: [] },
+        { id: 35216, name: '幽镜之门', price: 5000, percentage: [0.55], subGifts: [] },
+        { id: 35217, name: '命契幻境', price: 30000, percentage: [0.1], subGifts: [] }
+      ]
+    }
+  ];
 
   // API 请求函数
   async function apiRequest(url, retry = 3) {
@@ -43,10 +90,12 @@
       try {
         const response = await GM.xmlHttpRequest({
           method: 'GET',
-          url: appendTimestamp(url),
+          url: appendTimestamp(url)
         });
-        const data = JSON.parse(response.responseText);
-        return data;
+        if (response.status < 200 || response.status >= 300) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        return JSON.parse(response.responseText);
       } catch (e) {
         console.error(`API ${url} 请求失败，正在重试...`, e);
         if (attempt === retry) {
@@ -58,223 +107,128 @@
   }
 
   // 获取用户UID
-  const getUserData = (() => {
-    let userData = null;
-    return async () => {
-      if (!userData) {
-        userData = (await apiRequest('https://api.bilibili.com/x/space/v2/myinfo')).data;
+  let userDataPromise;
+  function getUserData() {
+    return userDataPromise ??= apiRequest('https://api.bilibili.com/x/space/v2/myinfo').then(response => {
+      if (response.code !== 0 || !response.data?.profile?.mid) {
+        throw new Error(response.message || '无法获取当前用户信息');
       }
-      return userData;
-    };
-  })();
+      return response.data;
+    });
+  }
 
-  // 盲盒信息，percentage为官方公示概率（不包含活动倍率）
-  const getGiftInfo = (() => {
-    let giftInfo = null;
-    return async function () {
-      if (giftInfo) {
-        return giftInfo;
+  function normalizeGiftInfo(boxes) {
+    if (!Array.isArray(boxes) || boxes.length === 0) {
+      throw new TypeError('盲盒信息格式无效：缺少盲盒数组');
+    }
+
+    const normalizedBoxes = boxes.map(box => {
+      if (!Number.isFinite(Number(box?.id)) || typeof box?.name !== 'string' || !Number.isFinite(Number(box?.price)) || !Array.isArray(box?.gifts)) {
+        throw new TypeError('盲盒信息格式无效：盲盒字段不完整');
       }
 
-      try {
-        giftInfo = await apiRequest('https://gift.shuvi.moe/box.json');
-        console.log('获取盲盒信息成功:', giftInfo);
-        return giftInfo;
-      } catch (error) {
-        console.error('获取盲盒信息失败:', error);
-        // 如果获取失败，使用本地存储的最基本的盲盒信息
-        return {
-          "box": [
-            {
-              "id": 32251,
-              "name": "心动盲盒",
-              "price": 150,
-              "level": ["初始倍"],
-              "gifts": [
-                {
-                  "id": 32125,
-                  "name": "电影票",
-                  "price": 20,
-                  "percentage": [6],
-                  "subGifts": []
-                },
-                {
-                  "id": 32126,
-                  "name": "棉花糖",
-                  "price": 90,
-                  "percentage": [42.56],
-                  "subGifts": []
-                },
-                {
-                  "id": 32128,
-                  "name": "爱心抱枕",
-                  "price": 160,
-                  "percentage": [47.5],
-                  "subGifts": []
-                },
-                {
-                  "id": 32281,
-                  "name": "绮彩权杖",
-                  "price": 400,
-                  "percentage": [3.7],
-                  "subGifts": []
-                },
-                {
-                  "id": 34082,
-                  "name": "时空之站",
-                  "price": 1000,
-                  "percentage": [0.12],
-                  "subGifts": []
-                },
-                {
-                  "id": 34894,
-                  "name": "蛇形护符",
-                  "price": 2000,
-                  "percentage": [0.08],
-                  "subGifts": []
-                },
-                {
-                  "id": 32132,
-                  "name": "浪漫城堡",
-                  "price": 22330,
-                  "percentage": [0.04],
-                  "subGifts": []
-                }
-              ]
-            },
-            {
-              "id": 35206,
-              "name": "幸运盲盒",
-              "price": 50,
-              "level": ["初始倍"],
-              "gifts": [
-                {
-                  "id": 35207,
-                  "name": "幸运泡泡",
-                  "price": 15,
-                  "percentage": [14.8],
-                  "subGifts": []
-                },
-                {
-                  "id": 34704,
-                  "name": "幸运草",
-                  "price": 25,
-                  "percentage": [25],
-                  "subGifts": []
-                },
-                {
-                  "id": 35208,
-                  "name": "星光铃铛",
-                  "price": 52,
-                  "percentage": [52.1],
-                  "subGifts": []
-                },
-                {
-                  "id": 35209,
-                  "name": "梦雾纸签",
-                  "price": 100,
-                  "percentage": [5],
-                  "subGifts": []
-                },
-                {
-                  "id": 35210,
-                  "name": "福灵小兽",
-                  "price": 200,
-                  "percentage": [2.7],
-                  "subGifts": []
-                },
-                {
-                  "id": 35211,
-                  "name": "星愿花园",
-                  "price": 600,
-                  "percentage": [0.4],
-                  "subGifts": []
-                }
-              ]
-            },
-            {
-              "id": 35212,
-              "name": "幸运盲盒S",
-              "price": 500,
-              "level": ["初始倍"],
-              "gifts": [
-                {
-                  "id": 35213,
-                  "name": "初兆光符",
-                  "price": 160,
-                  "percentage": [10],
-                  "subGifts": []
-                },
-                {
-                  "id": 33593,
-                  "name": "幸运之露",
-                  "price": 300,
-                  "percentage": [33.8],
-                  "subGifts": []
-                },
-                {
-                  "id": 35214,
-                  "name": "福引转轮",
-                  "price": 520,
-                  "percentage": [52.55],
-                  "subGifts": []
-                },
-                {
-                  "id": 35215,
-                  "name": "光羽预言",
-                  "price": 1000,
-                  "percentage": [3],
-                  "subGifts": []
-                },
-                {
-                  "id": 35216,
-                  "name": "幽镜之门",
-                  "price": 5000,
-                  "percentage": [0.55],
-                  "subGifts": []
-                },
-                {
-                  "id": 35217,
-                  "name": "命契幻境",
-                  "price": 30000,
-                  "percentage": [0.1],
-                  "subGifts": []
-                }
-              ]
-            }]
-        }
+      return {
+        ...box,
+        id: Number(box.id),
+        price: Number(box.price),
+        level: Array.isArray(box.level) ? box.level : [],
+        gifts: box.gifts.map(gift => {
+          const percentage = gift?.percentage?.map(Number);
+          if (!Number.isFinite(Number(gift?.id)) || typeof gift?.name !== 'string' || !Number.isFinite(Number(gift?.price)) || !percentage?.every(Number.isFinite) || percentage.length === 0) {
+            throw new TypeError(`盲盒信息格式无效：${box.name} 的礼物字段不完整`);
+          }
+
+          const subGifts = (Array.isArray(gift.subGifts) ? gift.subGifts : []).map(subGift => {
+            const id = Number(subGift?.id);
+            if (!Number.isFinite(id)) {
+              throw new TypeError(`盲盒信息格式无效：${gift.name} 的子礼物 ID 无效`);
+            }
+            return { ...subGift, id };
+          });
+
+          return {
+            ...gift,
+            id: Number(gift.id),
+            price: Number(gift.price),
+            percentage,
+            subGifts
+          };
+        })
+      };
+    });
+
+    const boxById = new Map();
+    const boxOrderById = new Map();
+    const giftByBoxAndId = new Map();
+    normalizedBoxes.forEach((box, index) => {
+      boxById.set(box.id, box);
+      boxOrderById.set(box.id, index);
+      const giftMap = new Map();
+      box.gifts.forEach(gift => {
+        giftMap.set(gift.id, gift);
+        gift.subGifts.forEach(subGift => giftMap.set(subGift.id, gift));
+      });
+      giftByBoxAndId.set(box.id, giftMap);
+    });
+
+    return {
+      boxes: normalizedBoxes,
+      boxById,
+      boxOrderById,
+      resolveGift(boxId, giftId) {
+        const box = boxById.get(Number(boxId));
+        return { box, gift: giftByBoxAndId.get(Number(boxId))?.get(Number(giftId)) };
       }
     };
-  })();
+  }
+
+  // 盲盒信息，percentage 为官方公示的基础概率（不包含活动倍率）
+  let giftInfoPromise;
+  function getGiftInfo() {
+    return giftInfoPromise ??= apiRequest(API.giftInfo)
+      .then(data => {
+        const giftInfo = normalizeGiftInfo(data);
+        console.log('获取盲盒信息成功:', giftInfo.boxes);
+        return giftInfo;
+      })
+      .catch(error => {
+        console.error('获取盲盒信息失败，使用内置数据:', error);
+        return normalizeGiftInfo(FALLBACK_BLIND_GIFTS);
+      });
+  }
 
   // 去重合并记录并存储
   function saveGiftList(uid, newGifts) {
-    // 兼容性迁移：如果存在 allGiftList，则迁移到当前 uid 下，并删除 allGiftList
     const oldKey = 'allGiftList';
-    let storedGifts = GM_getValue(uid, []);
-    if (GM_getValue(oldKey)) {
-      const oldGifts = GM_getValue(oldKey, []);
-      storedGifts = [...oldGifts, ...storedGifts];
-      GM_setValue(uid, storedGifts);
+    const storedGifts = GM_getValue(uid, []);
+    const oldGifts = GM_getValue(oldKey, []);
+    const giftById = new Map();
+
+    [oldGifts, storedGifts, newGifts].forEach(gifts => {
+      gifts.forEach(gift => {
+        const id = Number(gift?.id);
+        if (Number.isFinite(id)) {
+          giftById.set(id, { ...gift, id });
+        }
+      });
+    });
+
+    const mergedGifts = Array.from(giftById.values()).sort((a, b) => b.id - a.id);
+    GM_setValue(uid, mergedGifts);
+    if (oldGifts.length > 0) {
       GM_deleteValue(oldKey);
     }
-    const mergedGifts = [...storedGifts, ...newGifts].reduce((acc, gift) => {
-      if (!acc.some(existingGift => existingGift.id === gift.id)) {
-        acc.push(gift);
-      }
-      return acc;
-    }, []).sort((a, b) => b.id - a.id);
-    GM_setValue(uid, mergedGifts);
     return mergedGifts;
   }
 
   function getAllGiftList() {
-    return GM_listValues().map(key => { return { key, gifts: GM_getValue(key, []) } });
+    return GM_listValues().map(key => ({ key, gifts: GM_getValue(key, []) }));
   }
 
   // 工具函数：创建 dialog
-  function createDialog(id, title, content) {
-    let dialog = document.createElement('div');
+  function createDialog(id, title, content = '') {
+    document.getElementById(id)?.remove();
+    const dialog = document.createElement('div');
     dialog.id = id;
     dialog.style.position = 'fixed';
     dialog.style.top = '5%';
@@ -316,8 +270,12 @@
 
     dialog.appendChild(header);
 
-    let contentArea = document.createElement('div');
-    contentArea.innerHTML = content;
+    const contentArea = document.createElement('div');
+    if (content instanceof Node) {
+      contentArea.appendChild(content);
+    } else {
+      contentArea.textContent = content;
+    }
     contentArea.style.padding = '10px';
     contentArea.style.overflowY = 'auto'; // 允许垂直滚动
     contentArea.style.height = 'calc(100% - 40px)'; // 减去 header 的高度
@@ -325,93 +283,69 @@
 
     document.body.appendChild(dialog);
 
-    return {
-      dialog: dialog,
-      header: header,
-      titleElement: titleElement,
-      closeButton: closeButton,
-      contentArea: contentArea
-    };
+    return { dialog, contentArea };
   }
 
   // 盲盒数据分组统计函数
   function groupGiftStats(giftList, giftInfo) {
-    // 统计结构
-    const groupedGiftStats = {};
-    giftList.forEach(gift => {
-      const { originalGiftId, originalGiftName, giftId, giftName, giftNum } = gift;
-      // 查找主礼物ID（如果giftId是subGift，则归属于主礼物）
-      const box = giftInfo.box.find(box => box.id === parseInt(originalGiftId));
-      let mainGift = null;
-      let mainGiftId = giftId;
-      if (box) {
-        mainGift = box.gifts.find(g => g.id === giftId);
-        if (!mainGift) {
-          // 查找subGift
-          for (const g of box.gifts) {
-            if (g.subGifts && g.subGifts.some(sub => sub.id === giftId)) {
-              mainGift = g;
-              mainGiftId = g.id;
-              break;
-            }
-          }
-        }
-      }
-      if (!groupedGiftStats[originalGiftId]) {
-        groupedGiftStats[originalGiftId] = {
-          originalGiftName,
+    const groupedGiftStats = new Map();
+
+    giftList.forEach(record => {
+      const boxId = Number(record.originalGiftId);
+      const giftId = Number(record.giftId);
+      const giftNum = Number(record.giftNum);
+      if (!Number.isFinite(boxId) || !Number.isFinite(giftId) || !Number.isFinite(giftNum)) return;
+
+      const { gift } = giftInfo.resolveGift(boxId, giftId);
+      const mainGiftId = gift?.id ?? giftId;
+      if (!groupedGiftStats.has(boxId)) {
+        groupedGiftStats.set(boxId, {
+          originalGiftName: record.originalGiftName,
           totalCount: 0,
-          gifts: {}
-        };
+          gifts: new Map()
+        });
       }
-      if (!groupedGiftStats[originalGiftId].gifts[mainGiftId]) {
-        groupedGiftStats[originalGiftId].gifts[mainGiftId] = {
-          giftName: mainGift?.name || giftName,
-          count: 0,
-          percentage: 0
-        };
+
+      const group = groupedGiftStats.get(boxId);
+      if (!group.gifts.has(mainGiftId)) {
+        group.gifts.set(mainGiftId, {
+          giftName: gift?.name || record.giftName,
+          count: 0
+        });
       }
-      groupedGiftStats[originalGiftId].totalCount += giftNum;
-      groupedGiftStats[originalGiftId].gifts[mainGiftId].count += giftNum;
-    });
-    // 计算每个 giftId 的百分比概率
-    Object.values(groupedGiftStats).forEach(group => {
-      Object.values(group.gifts).forEach(gift => {
-        gift.percentage = group.totalCount > 0 ? ((gift.count / group.totalCount) * 100).toFixed(2) + '%' : '0%';
-      });
+      group.totalCount += giftNum;
+      group.gifts.get(mainGiftId).count += giftNum;
     });
     return groupedGiftStats;
   }
 
+  function getProfitDelta(item, giftInfo) {
+    const { box, gift } = giftInfo.resolveGift(item.originalGiftId, item.giftId);
+    return box && gift ? gift.price - box.price : null;
+  }
+
   // 礼物筛选条件
   const defaultFilters = {
-    // 你可以根据需要扩展更多筛选条件
-    // '全部': { type: 'checkbox', filter: () => true },
     '正收益礼物': {
       type: 'checkbox', filter: (item, input, giftInfo) => {
-        // 以价格大于等于100为例
-        const box = giftInfo.box.find(box => box.id === item.originalGiftId);
-        const gift = box?.gifts.find(g => g.id === item.giftId);
-        return gift ? gift.price >= box.price : false;
+        const profitDelta = getProfitDelta(item, giftInfo);
+        return profitDelta !== null && profitDelta >= 0;
       }
     },
     '负收益礼物': {
       type: 'checkbox', filter: (item, input, giftInfo) => {
-        const box = giftInfo.box.find(box => box.id === item.originalGiftId);
-        const gift = box?.gifts.find(g => g.id === item.giftId);
-        return gift ? gift.price < box.price : false;
+        const profitDelta = getProfitDelta(item, giftInfo);
+        return profitDelta !== null && profitDelta < 0;
       }
     },
     '搜索': {
       type: 'text',
       attribute: { placeholder: '输入主播的完整uid或昵称', list: 'box-search-list', autocomplete: 'off' },
-      filter: (item, input, giftInfo) => {
-        if (!input) return true;
-        const searchText = input.trim().toUpperCase().split(' ');
-        return (
-          (item.ruid && searchText.some(text => item.ruid.toUpperCase() === text)) ||
-          (item.rname && searchText.some(text => item.rname.toUpperCase() === text))
-        );
+      filter: (item, searchTerms) => {
+        if (searchTerms.size === 0) return true;
+        const uid = String(item.ruid || '').toUpperCase();
+        const name = String(item.rname || '').toUpperCase();
+        return searchTerms.has(uid) || searchTerms.has(name);
       }
     }
   };
@@ -424,46 +358,46 @@
 
     const allGiftList = [];
 
-    // 创建进度弹窗
-    let { dialog: progressDialog, contentArea: progressContentArea } = createDialog('progressDialog', '盲盒数据收集进度', `<p>已收集盲盒数：<span id='collectedCount'>0</span></p>`);
+    const progressContent = document.createElement('p');
+    progressContent.append('已收集盲盒数：');
+    const collectedCount = document.createElement('span');
+    collectedCount.textContent = '0';
+    progressContent.appendChild(collectedCount);
+    const { dialog: progressDialog } = createDialog('progressDialog', '盲盒数据收集进度', progressContent);
     progressDialog.style.display = 'block';
+    const userDataRequest = getUserData();
+    const giftInfoRequest = getGiftInfo();
 
-    while (isMore) {
-      try {
-        const response = await apiRequest(api.getBlindBox(nextId, month));
-        if (response.code === 0 && response.data) {
-          const { list, params } = response.data;
-          list.forEach(gift => {
-            gift.id = parseInt(gift.id, 10);
-            gift.originalGiftId = parseInt(gift.originalGiftId, 10);
-            gift.giftId = parseInt(gift.giftId, 10);
-            gift.giftNum = parseInt(gift.giftNum, 10);
-            delete gift.giftImg;
-          })
-          allGiftList.push(...list);
-          console.log('当前盲盒数据:', list, params);
-          nextId = params.nextId;
-          month = params.month;
-          isMore = params.isMore;
-
-          // 更新进度弹窗
-          progressContentArea.querySelector('#collectedCount').textContent = allGiftList.length;
-
-        } else {
-          console.error('API 返回错误:', response.message);
-          break;
+    try {
+      while (isMore) {
+        const response = await apiRequest(API.blindGiftStream(nextId, month));
+        if (response.code !== 0 || !response.data) {
+          throw new Error(response.message || 'API 返回的数据无效');
         }
-      } catch (error) {
-        console.error('请求失败:', error);
-        break;
+
+        const { list = [], params = {} } = response.data;
+        const normalizedList = list.map(({ giftImg, ...gift }) => ({
+          ...gift,
+          id: Number(gift.id),
+          originalGiftId: Number(gift.originalGiftId),
+          giftId: Number(gift.giftId),
+          giftNum: Number(gift.giftNum)
+        }));
+        allGiftList.push(...normalizedList);
+        console.log('当前盲盒数据:', normalizedList, params);
+        nextId = params.nextId;
+        month = params.month;
+        isMore = Boolean(params.isMore);
+        collectedCount.textContent = allGiftList.length;
       }
+    } catch (error) {
+      console.error('盲盒数据请求失败:', error);
+    } finally {
+      progressDialog.remove();
     }
 
-    // 关闭进度弹窗
-    progressDialog.remove();
-
     // 去重并存储
-    const mergedGiftList = saveGiftList((await getUserData()).profile.mid, allGiftList);
+    const mergedGiftList = saveGiftList((await userDataRequest).profile.mid, allGiftList);
     console.log('合并后的盲盒数据:', mergedGiftList);
 
     // 相关主播列表去重输出
@@ -478,27 +412,22 @@
     document.getElementById('box-search-list')?.remove();
     const datalist = document.createElement('datalist');
     datalist.id = 'box-search-list';
+    const fragment = document.createDocumentFragment();
     for (const [uid, name] of anchorSet.entries()) {
       const option = document.createElement('option');
-      option.value = name + ' ' + uid;
-      datalist.appendChild(option);
+      option.value = `${name} ${uid}`;
+      fragment.appendChild(option);
     }
+    datalist.appendChild(fragment);
     document.body.appendChild(datalist);
 
-    const giftInfo = await getGiftInfo();
-
-    // 分组统计
-    const groupedGiftStats = groupGiftStats(mergedGiftList, giftInfo);
-
-    console.log('按 originalGiftId 分组的盲盒统计:', groupedGiftStats);
-
-    // 显示结果弹窗
+    const giftInfo = await giftInfoRequest;
     showResultsDialog(mergedGiftList, giftInfo);
   }
 
   // 显示结果 dialog，支持筛选
-  async function showResultsDialog(allGiftList, giftInfo) {
-    const { dialog, titleElement, closeButton, contentArea } = createDialog('resultsDialog', '盲盒统计结果', '');
+  function showResultsDialog(allGiftList, giftInfo) {
+    const { dialog, contentArea } = createDialog('resultsDialog', '盲盒统计结果');
 
     // 筛选按钮区域
     let filterButtonsContainer = document.createElement('div');
@@ -510,7 +439,7 @@
     filterButtonsContainer.style.alignItems = 'center';
 
     // 生成筛选按钮
-    function createFilterButtons(filters, giftList, giftInfo) {
+    function createFilterButtons(filters) {
       let mainContainer = document.createElement('div');
       mainContainer.style.display = 'flex';
       mainContainer.style.flexWrap = 'wrap';
@@ -526,9 +455,9 @@
           input.style.padding = '5px';
           input.style.borderRadius = '5px';
         }
-        for (let attr in filter.attribute) {
-          input.setAttribute(attr, filter.attribute[attr]);
-        }
+        Object.entries(filter.attribute || {}).forEach(([attr, value]) => {
+          input.setAttribute(attr, value);
+        });
         let label = document.createElement('label');
         label.htmlFor = key;
         label.textContent = key;
@@ -557,7 +486,7 @@
       return mainContainer;
     }
 
-    filterButtonsContainer.appendChild(createFilterButtons(defaultFilters, allGiftList, giftInfo));
+    filterButtonsContainer.appendChild(createFilterButtons(defaultFilters));
     contentArea.appendChild(filterButtonsContainer);
 
     // 结果区域
@@ -566,80 +495,54 @@
 
     // 筛选和重算逻辑
     function deal() {
-      // 获取所有筛选条件
-      let checkedFilters = [];
-      for (let key in defaultFilters) {
-        const f = defaultFilters[key];
-        const input = filterButtonsContainer.querySelector(`#${key}`);
-        let checkedFilter;
-        switch (f.type) {
-          case 'checkbox':
-            checkedFilter = { ...f, value: input.checked };
-            break;
-          case 'text':
-            checkedFilter = { ...f, value: input.value };
-            break;
+      const enabledFilters = Object.entries(defaultFilters).flatMap(([key, filter]) => {
+        const input = filterButtonsContainer.querySelector(`#${CSS.escape(key)}`);
+        if (filter.type === 'checkbox') {
+          return input.checked ? [{ ...filter, value: true }] : [];
         }
-        checkedFilters.push({ ...checkedFilter, key });
-      }
-      // 过滤礼物
-      let filteredGiftList = allGiftList.filter(item =>
-        checkedFilters.every(f => {
-          if (f.key === '全部') return true;
-          if (f.type === 'checkbox' && !f.value) return true;
-          if (f.type === 'checkbox' && f.value) return f.filter(item, f.value, giftInfo);
-          if (f.type === 'text') return f.filter(item, f.value, giftInfo);
-          return true;
-        })
+        const searchTerms = new Set(input.value.trim().toUpperCase().split(/\s+/).filter(Boolean));
+        return [{ ...filter, value: searchTerms }];
+      });
+      const filteredGiftList = allGiftList.filter(item =>
+        enabledFilters.every(filter => filter.filter(item, filter.value, giftInfo))
       );
-      // 统计
-      const groupedGiftStats = groupGiftStats(filteredGiftList, giftInfo);
-      renderResult(groupedGiftStats, giftInfo);
+      renderResult(groupGiftStats(filteredGiftList, giftInfo));
     }
 
     // 渲染统计结果
-    function renderResult(groupedGiftStats, giftInfo) {
-      resultArea.innerHTML = '';
-      // 获取排序后的 originalGiftId 数组
-      const sortedOriginalGiftIds = Object.entries(groupedGiftStats)
-        .sort(([originalGiftIdA, groupA], [originalGiftIdB, groupB]) => {
-          const nameA = groupA.originalGiftName;
-          const nameB = groupB.originalGiftName;
-          const indexA = boxOrder.indexOf(nameA);
-          const indexB = boxOrder.indexOf(nameB);
-          if (indexA === -1 && indexB === -1) return 0;
-          if (indexA === -1) return 1;
-          if (indexB === -1) return -1;
-          return indexA - indexB;
-        })
-        .map(([originalGiftId]) => originalGiftId);
+    function renderResult(groupedGiftStats) {
+      resultArea.replaceChildren();
+      const sortedGroups = Array.from(groupedGiftStats.entries()).sort(([boxIdA], [boxIdB]) => {
+        const indexA = giftInfo.boxOrderById.get(boxIdA) ?? Number.MAX_SAFE_INTEGER;
+        const indexB = giftInfo.boxOrderById.get(boxIdB) ?? Number.MAX_SAFE_INTEGER;
+        return indexA - indexB || boxIdA - boxIdB;
+      });
 
-      sortedOriginalGiftIds.forEach(originalGiftId => {
-        const group = groupedGiftStats[originalGiftId];
-        let title = document.createElement('h2');
-        let titleLink = document.createElement('a');
-        titleLink.href = `https://gift.shuvi.moe/#${originalGiftId}`;
+      sortedGroups.forEach(([originalGiftId, group]) => {
+        const title = document.createElement('h2');
+        const titleLink = document.createElement('a');
+        titleLink.href = `https://gift.shuvi.moe/gifts/${originalGiftId}`;
         titleLink.textContent = `${group.originalGiftName} (总抽数: ${group.totalCount})`;
         titleLink.target = '_blank';
+        titleLink.rel = 'noopener noreferrer';
         title.appendChild(titleLink);
         title.style.marginTop = '20px';
         resultArea.appendChild(title);
 
-        let table = document.createElement('table');
+        const table = document.createElement('table');
         table.style.width = '100%';
         table.style.borderCollapse = 'collapse';
         table.style.margin = '10px 0';
 
-        let thead = table.createTHead();
-        let headerRow = thead.insertRow();
-        let headers = ['礼物名称', '数量', '你的概率', null];
-        headers.forEach((headerText, idx) => {
-          let th = document.createElement('th');
-          if (idx === 3) {
-            let link = document.createElement('a');
-            link.href = `https://gift.shuvi.moe/box#${originalGiftId}`;
+        const headerRow = table.createTHead().insertRow();
+        ['礼物名称', '数量', '你的概率', null].forEach((headerText, index) => {
+          const th = document.createElement('th');
+          if (index === 3) {
+            const link = document.createElement('a');
+            link.href = `https://gift.shuvi.moe/gifts/${originalGiftId}`;
             link.textContent = '公示概率 (取基础概率，点击查看完整概率)';
             link.target = '_blank';
+            link.rel = 'noopener noreferrer';
             th.appendChild(link);
           } else {
             th.textContent = headerText;
@@ -650,39 +553,32 @@
           headerRow.appendChild(th);
         });
 
-        let tbody = table.createTBody();
-        const boxInfo = giftInfo.box.find(box => box.id === parseInt(originalGiftId));
-        const sortedGifts = Object.entries(group.gifts).sort(([giftIdA, giftA], [giftIdB, giftB]) => {
-          const giftInfoA = boxInfo?.gifts.find(g => g.id === parseInt(giftIdA));
-          const giftInfoB = boxInfo?.gifts.find(g => g.id === parseInt(giftIdB));
-          if (!giftInfoA && !giftInfoB) return 0;
-          if (!giftInfoA) return 1;
-          if (!giftInfoB) return -1;
-          const indexA = boxInfo?.gifts.indexOf(giftInfoA);
-          const indexB = boxInfo?.gifts.indexOf(giftInfoB);
-          return indexA - indexB;
+        const boxInfo = giftInfo.boxById.get(originalGiftId);
+        const giftOrderById = new Map(boxInfo?.gifts.map((gift, index) => [gift.id, index]));
+        const sortedGifts = Array.from(group.gifts.entries()).sort(([giftIdA], [giftIdB]) => {
+          const indexA = giftOrderById.get(giftIdA) ?? Number.MAX_SAFE_INTEGER;
+          const indexB = giftOrderById.get(giftIdB) ?? Number.MAX_SAFE_INTEGER;
+          return indexA - indexB || giftIdA - giftIdB;
         });
+        const tbody = table.createTBody();
 
         sortedGifts.forEach(([giftId, gift]) => {
-          let row = tbody.insertRow();
-          let cell1 = row.insertCell();
-          let cell2 = row.insertCell();
-          let cell3 = row.insertCell();
-          let cell4 = row.insertCell();
-
-          let giftLink = document.createElement('a');
-          giftLink.href = `https://gift.shuvi.moe/#${giftId}`;
+          const row = tbody.insertRow();
+          const cells = Array.from({ length: 4 }, () => row.insertCell());
+          const giftLink = document.createElement('a');
+          giftLink.href = `https://gift.shuvi.moe/gifts/${giftId}`;
           giftLink.textContent = gift.giftName;
           giftLink.target = '_blank';
-          cell1.appendChild(giftLink);
+          giftLink.rel = 'noopener noreferrer';
+          cells[0].appendChild(giftLink);
+          cells[1].textContent = gift.count;
+          cells[2].textContent = group.totalCount > 0
+            ? `${(gift.count / group.totalCount * 100).toFixed(2)}%`
+            : '0%';
 
-          cell2.textContent = gift.count;
-          cell3.textContent = gift.percentage;
-
-          const officialPercentageArr = boxInfo?.gifts.find(g => g.id === parseInt(giftId))?.percentage;
-          cell4.textContent = officialPercentageArr ? officialPercentageArr[0] + '%' : 'N/A';
-
-          [cell1, cell2, cell3, cell4].forEach(cell => {
+          const officialPercentage = giftInfo.resolveGift(originalGiftId, giftId).gift?.percentage?.[0];
+          cells[3].textContent = Number.isFinite(officialPercentage) ? `${officialPercentage}%` : 'N/A';
+          cells.forEach(cell => {
             cell.style.padding = '8px';
             cell.style.border = '1px solid #ddd';
             cell.style.textAlign = 'left';
