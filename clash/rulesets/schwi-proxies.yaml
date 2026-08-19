@@ -6,6 +6,7 @@ payload:
   - DOMAIN-SUFFIX,playnite.link
   - DOMAIN-SUFFIX,itch.io
   - DOMAIN-SUFFIX,cloudflarestorage.com
+  - DOMAIN,release-assets.githubusercontent.com
   - DOMAIN-SUFFIX,steamcommunity.com
   - DOMAIN-SUFFIX,blob.core.windows.net
   - DOMAIN-SUFFIX,pages.dev
