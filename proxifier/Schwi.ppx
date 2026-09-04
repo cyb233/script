@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <ProxifierProfile version="102" platform="Windows" product_id="0" product_minver="400">
+	<!-- Automatically generated file. Do not modify manually. -->
 	<Options>
 		<Resolve>
 			<AutoModeDetection enabled="true" />
@@ -251,7 +252,7 @@
 		</Rule>
 		<Rule enabled="true">
 			<Action type="Chain">200</Action>
-			<Applications>Starward.exe;Starward.RPC.exe;"XXMI Launcher.exe";"JASM - Just Another Skin Manager.exe";"March7th Launcher.exe";"March7th Updater.exe";"March7th Assistant.exe"</Applications>
+			<Applications>Starward.exe;Starward.RPC.exe;"XXMI Launcher.exe";"JASM - Just Another Skin Manager.exe";"March7th Launcher.exe";"March7th Updater.exe";"March7th Assistant.exe";WardogsLauncher-Shipping.exe</Applications>
 			<Name>Game Launchers</Name>
 		</Rule>
 		<Rule enabled="false">
