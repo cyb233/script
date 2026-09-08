@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Bilibili 庆会广场
 // @namespace    Schwi
-// @version      0.8
-// @description  Bilibili 庆会广场查询
+// @version      1.0.0
+// @description  查询、筛选和浏览 Bilibili 庆会广场活动
 // @author       Schwi
 // @match        *://*.bilibili.com/*
 // @connect      api.live.bilibili.com
@@ -18,530 +18,341 @@
 (function () {
     'use strict';
 
-    // 添加全局变量
-    let partyList = [];
-    let collectedCount = 0;
-
-    // 筛选按钮数据结构
-    const defaultFilters = {
-        // 全部: {type: "checkbox", filter: (item, input) => true },
-        有奖预约: { type: "checkbox", filter: (item, input) => Object.keys(item.reserveInfo).length > 0 },
-        普通预约: { type: "checkbox", filter: (item, input) => Object.keys(item.reserveInfo).length === 0 },
-        已开奖: { type: "checkbox", filter: (item, input) => item.reserveInfo?.lottery_result },
-        未开奖: { type: "checkbox", filter: (item, input) => item.reserveInfo && !item.reserveInfo.lottery_result },
-        已预约: { type: "checkbox", filter: (item, input) => item.is_subscribed === 1 },
-        未预约: { type: "checkbox", filter: (item, input) => item.is_subscribed === 0 },
-        直播中: { type: "checkbox", filter: (item, input) => item.room_info.live_status === 1 },
-        未开播: { type: "checkbox", filter: (item, input) => item.room_info.live_status === 0 },
-        搜索: {
-            type: "text",
-            filter: (item, input) => {
-                const searchText = input.toLocaleUpperCase();
-                const authorName = item.room_info.name.toLocaleUpperCase();
-                const authorMid = item.room_info.uid.toString().toLocaleUpperCase();
-                const titleText = item.party_title.toLocaleUpperCase();
-                const descText = (item.party_text || '').toLocaleUpperCase();
-
-                return authorName.includes(searchText) || authorMid.includes(searchText) || titleText.includes(searchText) || descText.includes(searchText);
-            }
-        },
+    const IDS = {
+        styles: 'bps-styles',
+        results: 'bps-results-dialog',
+        progress: 'bps-progress-dialog'
+    };
+    const PAGE_SIZE = 50;
+    const LOTTERY_CONCURRENCY = 6;
+    const state = {
+        parties: [],
+        collecting: false,
+        cancelRequested: false
     };
 
-    // 工具函数：创建 dialog
-    function createDialog(id, title, content) {
-        let dialog = document.createElement('div');
-        dialog.id = id;
-        dialog.style.position = 'fixed';
-        dialog.style.top = '5%';
-        dialog.style.left = '5%';
-        dialog.style.width = '90%';
-        dialog.style.height = '90%';
-        dialog.style.backgroundColor = '#fff';
-        dialog.style.border = '1px solid #ccc';
-        dialog.style.boxShadow = '0 0 10px rgba(0,0,0,0.5)';
-        dialog.style.zIndex = '9999';
-        dialog.style.display = 'none';
-        dialog.style.overflow = 'hidden'; // 添加 overflow: hidden
+    function createElement(tagName, options = {}) {
+        const node = document.createElement(tagName);
+        if (options.className) node.className = options.className;
+        if (options.text !== undefined) node.textContent = options.text;
+        if (options.attributes) Object.entries(options.attributes).forEach(([name, value]) => node.setAttribute(name, value));
+        if (options.styles) Object.assign(node.style, options.styles);
+        return node;
+    }
 
-        let header = document.createElement('div');
-        header.style.display = 'flex';
-        header.style.justifyContent = 'space-between';
-        header.style.alignItems = 'center';
-        header.style.padding = '10px';
-        header.style.borderBottom = '1px solid #ccc';
-        header.style.backgroundColor = '#f9f9f9';
+    function addStyles() {
+        if (document.getElementById(IDS.styles)) return;
+        const style = createElement('style', { attributes: { id: IDS.styles } });
+        style.textContent = `
+            #${IDS.results}, #${IDS.progress} { box-sizing: border-box; font-family: Arial, "Microsoft YaHei", sans-serif; color: #202124; }
+            #${IDS.results} { position: fixed; z-index: 2147483646; inset: 3vh 3vw; display: flex; flex-direction: column; overflow: hidden; background: #f6f8fa; border: 1px solid #b9c0c9; border-radius: 8px; box-shadow: 0 18px 50px rgba(0, 0, 0, .32); }
+            #${IDS.results} * { box-sizing: border-box; }
+            #${IDS.results} .bps-header { display: flex; align-items: center; min-height: 62px; padding: 12px 18px; background: #fff; border-bottom: 1px solid #d8dee4; }
+            #${IDS.results} .bps-title { margin: 0; font-size: 18px; font-weight: 700; }
+            #${IDS.results} .bps-subtitle { margin: 3px 0 0; color: #667085; font-size: 12px; }
+            #${IDS.results} .bps-header-actions { display: flex; gap: 8px; margin-left: auto; }
+            #${IDS.results} button, #${IDS.progress} button { height: 34px; padding: 0 11px; border: 1px solid #aeb7c2; border-radius: 4px; background: #fff; color: #25364a; cursor: pointer; font-size: 13px; }
+            #${IDS.results} button:hover, #${IDS.progress} button:hover { background: #f0f5ff; border-color: #6b96d8; }
+            #${IDS.results} .bps-close { width: 34px; padding: 0; color: #57606a; font-size: 24px; line-height: 1; }
+            #${IDS.results} .bps-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 18px; background: #fff; border-bottom: 1px solid #e2e6ea; }
+            #${IDS.results} .bps-search, #${IDS.results} .bps-select { height: 34px; padding: 0 10px; border: 1px solid #b9c0c9; border-radius: 4px; background: #fff; color: #25364a; font-size: 13px; outline: none; }
+            #${IDS.results} .bps-search { width: min(260px, 100%); }
+            #${IDS.results} .bps-search:focus, #${IDS.results} .bps-select:focus { border-color: #00a1d6; box-shadow: 0 0 0 2px rgba(0, 161, 214, .18); }
+            #${IDS.results} .bps-poster-toggle { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 4px; color: #57606a; font-size: 13px; white-space: nowrap; }
+            #${IDS.results} .bps-count { margin-left: auto; color: #667085; font-size: 12px; white-space: nowrap; }
+            #${IDS.results} .bps-list { flex: 1; min-height: 0; overflow: auto; padding: 16px 18px 24px; }
+            #${IDS.results} .bps-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; align-content: start; }
+            #${IDS.results} .bps-card { position: relative; min-width: 0; height: 300px; overflow: hidden; border: 1px solid #d8dee4; border-radius: 6px; background: #252b36; color: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .08); }
+            #${IDS.results} .bps-card:hover { border-color: #50b7e2; box-shadow: 0 6px 18px rgba(0, 54, 93, .2); }
+            #${IDS.results} .bps-poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+            #${IDS.results} .bps-card-body { position: relative; display: flex; flex-direction: column; height: 100%; padding: 12px; background: linear-gradient(180deg, rgba(0, 0, 0, .18) 0%, rgba(0, 0, 0, .82) 100%); }
+            #${IDS.results}.bps-poster-only .bps-card-body { display: none; }
+            #${IDS.results} .bps-badges { display: flex; flex-wrap: wrap; gap: 5px; min-height: 20px; }
+            #${IDS.results} .bps-badge { padding: 2px 6px; border-radius: 3px; background: rgba(0, 0, 0, .58); color: #fff; font-size: 11px; }
+            #${IDS.results} .bps-badge-live { background: #e84d5b; }
+            #${IDS.results} .bps-card-title { display: -webkit-box; margin: 8px 0 4px; overflow: hidden; font-size: 16px; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+            #${IDS.results} .bps-author, #${IDS.results} .bps-time { color: #e8edf2; font-size: 12px; }
+            #${IDS.results} .bps-author a { color: #fff; text-decoration: none; }
+            #${IDS.results} .bps-desc { display: -webkit-box; flex: 1; margin: 8px 0; overflow: hidden; color: #edf1f5; font-size: 13px; line-height: 1.45; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+            #${IDS.results} .bps-card-actions { display: flex; gap: 8px; }
+            #${IDS.results} .bps-card-actions a { flex: 1; height: 30px; padding: 7px 8px; border: 1px solid rgba(255, 255, 255, .55); border-radius: 4px; color: #fff; text-align: center; text-decoration: none; font-size: 12px; }
+            #${IDS.results} .bps-card-actions a:hover { background: rgba(255, 255, 255, .18); }
+            #${IDS.results} .bps-load-more { display: block; min-width: 140px; margin: 18px auto 0; }
+            #${IDS.results} .bps-empty { padding: 48px 12px; color: #667085; text-align: center; }
+            #${IDS.progress} { position: fixed; z-index: 2147483647; top: 50%; left: 50%; width: min(390px, calc(100vw - 32px)); padding: 20px; transform: translate(-50%, -50%); background: #fff; border: 1px solid #d0d7de; border-radius: 8px; box-shadow: 0 18px 50px rgba(0, 0, 0, .28); }
+            #${IDS.progress} h2 { margin: 0 0 8px; font-size: 18px; }
+            #${IDS.progress} p { margin: 0 0 12px; color: #57606a; font-size: 13px; line-height: 1.5; }
+            #${IDS.progress} progress { width: 100%; height: 8px; margin-bottom: 12px; accent-color: #00a1d6; }
+            #${IDS.progress} .bps-progress-actions { display: flex; justify-content: flex-end; }
+            @media (max-width: 680px) { #${IDS.results} { inset: 0; border: 0; border-radius: 0; } #${IDS.results} .bps-header, #${IDS.results} .bps-toolbar { padding-left: 12px; padding-right: 12px; } #${IDS.results} .bps-search { order: 1; width: 100%; } #${IDS.results} .bps-count { margin-left: 0; } #${IDS.results} .bps-list { padding: 12px; } }
+        `;
+        document.head.appendChild(style);
+    }
 
-        let titleElement = document.createElement('span');
-        titleElement.textContent = title;
-        header.appendChild(titleElement);
+    const sleep = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+    const abortError = () => Object.assign(new Error('查询已取消'), { name: 'AbortError' });
 
-        let closeButton = document.createElement('button');
-        closeButton.textContent = '关闭';
-        closeButton.style.backgroundColor = '#ff4d4f'; // 修改背景颜色为红色
-        closeButton.style.color = '#fff'; // 修改文字颜色为白色
-        closeButton.style.border = 'none';
-        closeButton.style.borderRadius = '5px';
-        closeButton.style.cursor = 'pointer';
-        closeButton.style.padding = '5px 10px';
-        closeButton.style.transition = 'background-color 0.3s'; // 添加过渡效果
-        closeButton.onmouseover = () => { closeButton.style.backgroundColor = '#d93637'; } // 添加悬停效果
-        closeButton.onmouseout = () => { closeButton.style.backgroundColor = '#ff4d4f'; } // 恢复背景颜色
-        closeButton.onclick = () => dialog.remove();
-        header.appendChild(closeButton);
+    async function apiRequest(url, retry = 3) {
+        const requestUrl = `${url}${url.includes('?') ? '&' : '?'}_ts=${Date.now()}`;
+        for (let attempt = 1; attempt <= retry; attempt++) {
+            if (state.cancelRequested) throw abortError();
+            try {
+                const response = await GM.xmlHttpRequest({ method: 'GET', url: requestUrl });
+                if (state.cancelRequested) throw abortError();
+                const data = JSON.parse(response.responseText);
+                if (data.code && data.code !== 0) throw new Error(data.message || `接口返回错误 ${data.code}`);
+                return data;
+            } catch (error) {
+                if (error.name === 'AbortError') throw error;
+                if (attempt === retry) throw error;
+                console.warn(`接口请求失败，第 ${attempt}/${retry} 次重试：${url}`, error);
+                await sleep(800 * attempt);
+            }
+        }
+    }
 
-        dialog.appendChild(header);
+    async function mapWithConcurrency(items, concurrency, mapper) {
+        const result = new Array(items.length);
+        let nextIndex = 0;
+        async function worker() {
+            while (nextIndex < items.length) {
+                if (state.cancelRequested) throw abortError();
+                const index = nextIndex++;
+                result[index] = await mapper(items[index]);
+            }
+        }
+        await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
+        return result;
+    }
 
-        let contentArea = document.createElement('div');
-        contentArea.innerHTML = content;
-        contentArea.style.padding = '10px';
-        dialog.appendChild(contentArea);
+    function getReserveInfo(party) {
+        return party.reserveInfo && typeof party.reserveInfo === 'object' ? party.reserveInfo : {};
+    }
 
+    function hasReward(party) {
+        return Object.keys(getReserveInfo(party)).length > 0;
+    }
+
+    function isLive(party) {
+        return party.room_info?.live_status === 1;
+    }
+
+    function formatDate(timestamp) {
+        const date = new Date(Number(timestamp) * 1000);
+        return Number.isNaN(date.getTime()) ? '时间未知' : date.toLocaleString();
+    }
+
+    function createProgressDialog() {
+        document.getElementById(IDS.progress)?.remove();
+        addStyles();
+        const dialog = createElement('section', { attributes: { id: IDS.progress, role: 'status', 'aria-live': 'polite' } });
+        const title = createElement('h2', { text: '正在查询庆会广场' });
+        const detail = createElement('p', { text: '正在读取活动列表...' });
+        const progress = createElement('progress', { attributes: { value: '0', max: '1' } });
+        const latest = createElement('p', { text: '' });
+        const cancel = createElement('button', { text: '取消', attributes: { type: 'button' } });
+        cancel.addEventListener('click', () => { state.cancelRequested = true; cancel.disabled = true; cancel.textContent = '正在取消'; });
+        const actions = createElement('div', { className: 'bps-progress-actions' });
+        actions.appendChild(cancel);
+        dialog.append(title, detail, progress, latest, actions);
+        document.body.appendChild(dialog);
+        return {
+            update(collected, total, earliestDate, latestDate) {
+                detail.textContent = `已收集 ${collected.toLocaleString()} / ${total ? total.toLocaleString() : '未知'} 个庆会`;
+                progress.max = Math.max(total || 1, 1);
+                progress.value = Math.min(collected, progress.max);
+                latest.textContent = earliestDate && latestDate
+                    ? `活动时间范围：${formatDate(earliestDate)} 至 ${formatDate(latestDate)}`
+                    : '';
+            },
+            close() { dialog.remove(); }
+        };
+    }
+
+    function createSelect(label, options) {
+        const select = createElement('select', { className: 'bps-select', attributes: { 'aria-label': label } });
+        options.forEach(([value, text]) => select.appendChild(createElement('option', { text, attributes: { value } })));
+        return select;
+    }
+
+    function createPartyCard(party) {
+        const room = party.room_info || {};
+        const reserve = getReserveInfo(party);
+        const roomId = room.room_id;
+        const card = createElement('article', { className: 'bps-card' });
+        if (party.party_poster) {
+            const poster = createElement('img', { className: 'bps-poster', attributes: { src: party.party_poster, alt: '', loading: 'lazy' } });
+            card.appendChild(poster);
+        }
+        const body = createElement('div', { className: 'bps-card-body' });
+        const badges = createElement('div', { className: 'bps-badges' });
+        if (hasReward(party)) badges.appendChild(createElement('span', { className: 'bps-badge', text: reserve.lottery_result ? '已开奖' : '有奖预约' }));
+        if (party.is_subscribed === 1) badges.appendChild(createElement('span', { className: 'bps-badge', text: '已预约' }));
+        if (isLive(party)) badges.appendChild(createElement('span', { className: 'bps-badge bps-badge-live', text: '直播中' }));
+        const title = createElement('h2', { className: 'bps-card-title', text: party.party_title || '未命名庆会' });
+        const author = createElement('div', { className: 'bps-author' });
+        const authorLink = createElement('a', { text: room.name || '未知主播', attributes: { href: `https://space.bilibili.com/${room.uid || ''}`, target: '_blank', rel: 'noopener noreferrer' } });
+        author.append(authorLink, document.createTextNode(` · ${party.party_name || '庆会'}`));
+        const description = createElement('div', { className: 'bps-desc', text: party.party_text || '暂无活动说明' });
+        const time = createElement('div', { className: 'bps-time', text: `预约时间：${formatDate(party.party_date)}` });
+        const actions = createElement('div', { className: 'bps-card-actions' });
+        if (reserve.lottery_detail_url) actions.appendChild(createElement('a', { text: '查看预约', attributes: { href: reserve.lottery_detail_url, target: '_blank', rel: 'noopener noreferrer' } }));
+        if (roomId) actions.appendChild(createElement('a', { text: '打开直播间', attributes: { href: `https://live.bilibili.com/${roomId}`, target: '_blank', rel: 'noopener noreferrer' } }));
+        body.append(badges, title, author, description, time, actions);
+        card.appendChild(body);
+        return card;
+    }
+
+    function showResultsDialog() {
+        document.getElementById(IDS.results)?.remove();
+        addStyles();
+        const dialog = createElement('section', { attributes: { id: IDS.results, role: 'dialog', 'aria-modal': 'true', 'aria-label': '庆会广场结果', tabindex: '-1' } });
+        const header = createElement('header', { className: 'bps-header' });
+        const heading = document.createElement('div');
+        const title = createElement('h1', { className: 'bps-title', text: '庆会广场' });
+        const subtitle = createElement('p', { className: 'bps-subtitle' });
+        heading.append(title, subtitle);
+        const headerActions = createElement('div', { className: 'bps-header-actions' });
+        const refresh = createElement('button', { text: '重新查询', attributes: { type: 'button' } });
+        refresh.addEventListener('click', () => { dialog.remove(); collectParties(); });
+        const close = createElement('button', { className: 'bps-close', text: '×', attributes: { type: 'button', title: '关闭（Esc）', 'aria-label': '关闭' } });
+        close.addEventListener('click', () => dialog.remove());
+        headerActions.append(refresh, close);
+        header.append(heading, headerActions);
+
+        const toolbar = createElement('div', { className: 'bps-toolbar' });
+        const search = createElement('input', { className: 'bps-search', attributes: { type: 'search', placeholder: '搜索标题、主播、UID 或说明', 'aria-label': '搜索庆会' } });
+        const reward = createSelect('奖励状态', [['all', '奖励：全部'], ['reward', '有奖预约'], ['normal', '普通预约']]);
+        const lottery = createSelect('开奖状态', [['all', '开奖：全部'], ['drawn', '已开奖'], ['pending', '未开奖']]);
+        const subscription = createSelect('预约状态', [['all', '预约：全部'], ['subscribed', '已预约'], ['unsubscribed', '未预约']]);
+        const live = createSelect('直播状态', [['all', '直播：全部'], ['live', '直播中'], ['offline', '未开播']]);
+        const posterLabel = createElement('label', { className: 'bps-poster-toggle', text: '仅显示海报' });
+        const posterOnly = createElement('input', { attributes: { type: 'checkbox' } });
+        posterLabel.prepend(posterOnly);
+        const reset = createElement('button', { text: '重置筛选', attributes: { type: 'button' } });
+        const count = createElement('span', { className: 'bps-count' });
+        toolbar.append(search, reward, lottery, subscription, live, posterLabel, reset, count);
+
+        const list = createElement('main', { className: 'bps-list' });
+        const grid = createElement('div', { className: 'bps-grid' });
+        const empty = createElement('div', { className: 'bps-empty', text: '没有符合筛选条件的庆会', attributes: { hidden: '' } });
+        const loadMore = createElement('button', { className: 'bps-load-more', text: '加载更多', attributes: { type: 'button' } });
+        list.append(grid, empty, loadMore);
+        dialog.append(header, toolbar, list);
         document.body.appendChild(dialog);
 
-        return {
-            dialog: dialog,
-            header: header,
-            titleElement: titleElement,
-            closeButton: closeButton,
-            contentArea: contentArea
-        };
-    }
-
-    // API 请求函数
-    async function apiRequest(url, retry = 3) {
-        function appendTimestamp(u) {
-            const ts = `_ts=${Date.now()}`;
-            return u.includes('?') ? `${u}&${ts}` : `${u}?${ts}`;
+        let filtered = [];
+        let rendered = 0;
+        const batchSize = 36;
+        function matches(party) {
+            const term = search.value.trim().toLocaleLowerCase();
+            const room = party.room_info || {};
+            const reserveInfo = getReserveInfo(party);
+            const rewarded = hasReward(party);
+            if (term) {
+                const searchable = `${party.party_title || ''} ${party.party_text || ''} ${room.name || ''} ${room.uid || ''}`.toLocaleLowerCase();
+                if (!searchable.includes(term)) return false;
+            }
+            if (reward.value === 'reward' && !rewarded) return false;
+            if (reward.value === 'normal' && rewarded) return false;
+            if (lottery.value === 'drawn' && !reserveInfo.lottery_result) return false;
+            if (lottery.value === 'pending' && (!rewarded || reserveInfo.lottery_result)) return false;
+            if (subscription.value === 'subscribed' && party.is_subscribed !== 1) return false;
+            if (subscription.value === 'unsubscribed' && party.is_subscribed !== 0) return false;
+            if (live.value === 'live' && !isLive(party)) return false;
+            if (live.value === 'offline' && isLive(party)) return false;
+            return true;
         }
-        for (let attempt = 1; attempt <= retry; attempt++) {
-            try {
-                const response = await GM.xmlHttpRequest({
-                    method: 'GET',
-                    url: appendTimestamp(url),
-                });
-                const data = JSON.parse(response.responseText);
-                return data;
-            } catch (e) {
-                console.error(`API ${url} 请求失败，正在重试...`, e);
-                if (attempt === retry) {
-                    throw e;
-                }
-                await new Promise(res => setTimeout(res, 1000));
-            }
+        function renderNext() {
+            const fragment = document.createDocumentFragment();
+            const end = Math.min(rendered + batchSize, filtered.length);
+            for (; rendered < end; rendered++) fragment.appendChild(createPartyCard(filtered[rendered]));
+            grid.appendChild(fragment);
+            loadMore.hidden = rendered >= filtered.length;
         }
-    }
-
-    // 显示结果 dialog
-    function showResultsDialog() {
-        const { dialog, titleElement, closeButton } = createDialog('resultsDialog', `庆会结果（${partyList.length}/${partyList.length}）`, '');
-
-        let gridContainer = document.createElement('div');
-        gridContainer.style.display = 'grid';
-        gridContainer.style.gridTemplateColumns = 'repeat(auto-fill,minmax(200px,1fr))';
-        gridContainer.style.gap = '10px';
-        gridContainer.style.padding = '10px';
-        gridContainer.style.height = 'calc(90% - 50px)'; // 设置高度以启用滚动
-        gridContainer.style.overflowY = 'auto'; // 启用垂直滚动
-        gridContainer.style.alignContent = 'flex-start';
-
-        // 添加全局切换按钮
-        const toggleVisibilityButton = document.createElement('button');
-        toggleVisibilityButton.textContent = "是否只看图片";
-        toggleVisibilityButton.style.backgroundColor = "#00a1d6";
-        toggleVisibilityButton.style.color = "#fff";
-        toggleVisibilityButton.style.border = 'none';
-        toggleVisibilityButton.style.borderRadius = '5px';
-        toggleVisibilityButton.style.cursor = 'pointer';
-        toggleVisibilityButton.style.padding = '5px 10px';
-        toggleVisibilityButton.style.transition = 'background-color 0.3s'; // 添加过渡效果
-        toggleVisibilityButton.style.marginLeft = "auto"; // 右对齐
-        toggleVisibilityButton.style.marginRight = "10px";
-        toggleVisibilityButton.onmouseover = () => { toggleVisibilityButton.style.backgroundColor = "#008ecf"; };
-        toggleVisibilityButton.onmouseout = () => { toggleVisibilityButton.style.backgroundColor = "#00a1d6"; };
-
-        let isContentVisible = true; // 全局状态
-
-        toggleVisibilityButton.onclick = () => {
-            isContentVisible = !isContentVisible;
-            const contentContainers = document.querySelectorAll(".party-content-container");
-            contentContainers.forEach(container => {
-                container.style.display = isContentVisible ? "flex" : "none";
-            });
-        };
-        // 添加到倒数第二个
-        closeButton.before(toggleVisibilityButton);
-
-        const deal = (partyList) => {
-            let checkedFilters = [];
-            for (let key in defaultFilters) {
-                const f = defaultFilters[key];
-                const filter = filterButtonsContainer.querySelector(`#${key}`);
-                let checkedFilter;
-                switch (f.type) {
-                    case 'checkbox':
-                        checkedFilter = { ...f, value: filter.checked };
-                        break;
-                    case 'text':
-                        checkedFilter = { ...f, value: filter.value };
-                        break;
-                }
-                checkedFilters.push(checkedFilter);
-            }
-            partyList.forEach(item => {
-                item.display = checkedFilters.every(f => f.value ? f.filter(item, f.value) : true);
-            });
-            console.log(checkedFilters, partyList.filter(item => item.display));
-
-            // 更新标题显示筛选后的条数和总条数
-            titleElement.textContent = `庆会结果（${partyList.filter(item => item.display).length}/${partyList.length}）`;
-
-            // 重新初始化 IntersectionObserver
-            observer.disconnect();
-            renderedCount = 0;
-            gridContainer.innerHTML = ''; // 清空 gridContainer 的内容
-            renderBatch();
-        };
-
-        // 封装生成筛选按钮的函数
-        const createFilterButtons = (filters, partyList) => {
-            let mainContainer = document.createElement('div');
-            mainContainer.style.display = 'flex';
-            mainContainer.style.flexWrap = 'wrap'; // 修改为换行布局
-            mainContainer.style.width = '100%';
-
-            for (let key in filters) {
-                let filter = filters[key];
-                let input = document.createElement('input');
-                input.type = filter.type;
-                input.id = key;
-                input.style.marginRight = '5px';
-                // 添加边框样式
-                if (filter.type === 'text') {
-                    input.style.border = '1px solid #ccc';
-                    input.style.padding = '5px';
-                    input.style.borderRadius = '5px';
-                }
-
-                let label = document.createElement('label');
-                label.htmlFor = key;
-                label.textContent = key;
-                label.style.display = 'flex'; // 确保 label 和 input 在同一行
-                label.style.alignItems = 'center'; // 垂直居中对齐
-                label.style.marginRight = '5px';
-
-                let container = document.createElement('div');
-                container.style.display = 'flex';
-                container.style.alignItems = 'center';
-                container.style.marginRight = '10px';
-
-                if (['checkbox', 'radio'].includes(filter.type)) {
-                    (function (partyList, filter, input) {
-                        input.addEventListener('change', () => deal(partyList));
-                    })(partyList, filter, input);
-                    container.appendChild(input);
-                    container.appendChild(label);
-                } else {
-                    let timeout;
-                    (function (partyList, filter, input) {
-                        input.addEventListener('input', () => {
-                            clearTimeout(timeout);
-                            timeout = setTimeout(() => deal(partyList), 1000); // 增加延迟处理
-                        });
-                    })(partyList, filter, input);
-                    container.appendChild(label);
-                    container.appendChild(input);
-                }
-
-                mainContainer.appendChild(container);
-            }
-
-            return mainContainer;
-        };
-
-        // 生成筛选按钮
-        let filterButtonsContainer = document.createElement('div');
-        filterButtonsContainer.style.marginBottom = '10px';
-        filterButtonsContainer.style.display = 'flex'; // 添加 flex 布局
-        filterButtonsContainer.style.flexWrap = 'wrap'; // 添加换行
-        filterButtonsContainer.style.gap = '10px'; // 添加间距
-        filterButtonsContainer.style.padding = '10px';
-        filterButtonsContainer.style.alignItems = 'center'; // 添加垂直居中对齐
-
-        filterButtonsContainer.appendChild(createFilterButtons(defaultFilters, partyList));
-
-        const createPartyItem = (party) => {
-            const authorName = party.room_info.name;
-            const mid = party.room_info.uid;
-            const roomId = party.room_info.room_id;
-            const liveUrl = `https://live.bilibili.com/${roomId}`;
-            const spaceUrl = `https://space.bilibili.com/${mid}`;
-            const lotteryUrl = party.reserveInfo.lottery_detail_url;
-            const isLive = party.room_info.live_status === 1;
-
-            const hasLottery = defaultFilters['有奖预约'].filter(party);
-
-            const backgroundImage = party.party_poster;
-
-            let partyItem = document.createElement('div');
-            partyItem.style.position = "relative";
-            partyItem.style.border = "1px solid #ddd";
-            partyItem.style.borderRadius = "10px";
-            partyItem.style.overflow = "hidden";
-            partyItem.style.height = "300px";
-            partyItem.style.display = "flex";
-            partyItem.style.flexDirection = "column";
-            partyItem.style.justifyContent = "flex-start"; // 修改为 flex-start 以使内容从顶部开始
-            partyItem.style.padding = "10px";
-            partyItem.style.color = "#fff";
-            partyItem.style.transition = "transform 0.3s, background-color 0.3s"; // 添加过渡效果
-
-            partyItem.onmouseover = () => {
-                partyItem.style.transform = "scale(1.05)"; // 略微放大
-                cardTitle.style.background = "rgba(0, 0, 0, 0.3)";
-                publishTime.style.background = "rgba(0, 0, 0, 0.3)";
-                typeComment.style.background = "rgba(0, 0, 0, 0.3)";
-                describe.style.background = "rgba(0, 0, 0, 0.3)";
-                viewDetailsButton.style.backgroundColor = "rgba(0, 0, 0, 0.3)";
-            };
-
-            partyItem.onmouseout = () => {
-                partyItem.style.transform = "scale(1)"; // 恢复原始大小
-                cardTitle.style.background = "rgba(0, 0, 0, 0.5)";
-                publishTime.style.background = "rgba(0, 0, 0, 0.5)";
-                typeComment.style.background = "rgba(0, 0, 0, 0.5)";
-                describe.style.background = "rgba(0, 0, 0, 0.5)";
-                viewDetailsButton.style.backgroundColor = "rgba(0, 0, 0, 0.6)";
-            };
-
-            // 背景图片
-            if (backgroundImage) {
-                const img = document.createElement('img');
-                img.src = backgroundImage;
-                img.loading = "lazy";
-                img.style.position = "absolute";
-                img.style.top = "0";
-                img.style.left = "0";
-                img.style.width = "100%";
-                img.style.height = "100%";
-                img.style.objectFit = "cover";
-                img.style.zIndex = "-1";
-                partyItem.appendChild(img);
-            }
-
-            // 创建内容容器
-            const contentContainer = document.createElement('div');
-            contentContainer.className = "party-content-container";
-            contentContainer.style.position = "relative";
-            contentContainer.style.zIndex = "1"; // 确保内容在背景图之上
-            contentContainer.style.width = "100%"; // 撑满 partyItem 的宽度
-            contentContainer.style.height = "100%"; // 撑满 partyItem 的高度
-            contentContainer.style.display = "flex";
-            contentContainer.style.flexDirection = "column";
-
-            // 标题
-            const cardTitle = document.createElement("div");
-            cardTitle.style.fontWeight = "bold";
-            cardTitle.style.textShadow = "0 2px 4px rgba(0, 0, 0, 0.8)";
-            cardTitle.style.background = "rgba(0, 0, 0, 0.5)";
-            cardTitle.style.backdropFilter = "blur(5px)";
-            cardTitle.style.borderRadius = "5px";
-            cardTitle.style.padding = "5px";
-            cardTitle.style.marginBottom = "5px";
-            cardTitle.style.textAlign = "center";
-
-            // 设置 cardTitle 的内容
-            cardTitle.innerHTML = party.party_title;
-
-            // 创建 authorName 的 a 标签
-            const authorLink = document.createElement('a');
-            authorLink.href = spaceUrl;
-            authorLink.target = "_blank";
-            authorLink.textContent = authorName;
-
-            const typeComment = document.createElement("div");
-            typeComment.style.fontSize = "12px";
-            typeComment.style.marginTop = "2px";
-            typeComment.style.background = "rgba(0, 0, 0, 0.5)";
-            typeComment.style.backdropFilter = "blur(5px)";
-            typeComment.style.borderRadius = "5px";
-            typeComment.style.padding = "5px";
-            typeComment.style.marginBottom = "5px";
-            typeComment.style.textAlign = "center";
-            typeComment.innerHTML = `${authorLink.outerHTML} 的 ${party.party_name}${hasLottery ? ' 🎁' : ''}${isLive ? ' 🎥' : ''}`;
-
-            // 显示预约时间
-            const publishTime = document.createElement("div");
-            publishTime.style.fontSize = "12px";
-            publishTime.style.marginTop = "2px";
-            publishTime.style.background = "rgba(0, 0, 0, 0.5)";
-            publishTime.style.backdropFilter = "blur(5px)";
-            publishTime.style.borderRadius = "5px";
-            publishTime.style.padding = "5px";
-            publishTime.style.marginBottom = "5px";
-            publishTime.style.textAlign = "center";
-            publishTime.textContent = `预约时间: ${new Date(party.party_date * 1000).toLocaleString()}`;
-
-            // 正文
-            const describe = document.createElement("div");
-            describe.style.fontSize = "14px";
-            describe.style.marginTop = "2px";
-            describe.style.background = "rgba(0, 0, 0, 0.5)";
-            describe.style.backdropFilter = "blur(5px)";
-            describe.style.borderRadius = "5px";
-            describe.style.padding = "5px";
-            describe.style.marginBottom = "5px";
-            describe.style.textAlign = "center";
-            describe.style.flexGrow = "1"; // 添加 flexGrow 以使描述占据剩余空间
-            describe.style.overflowY = "auto";
-            describe.style.textOverflow = "ellipsis";
-            describe.textContent = party.party_text;
-
-            const lotteryDetailsButton = document.createElement("a");
-            lotteryDetailsButton.href = lotteryUrl;
-            lotteryDetailsButton.target = "_blank";
-            lotteryDetailsButton.textContent = "预约";
-            lotteryDetailsButton.style.backgroundColor = "rgba(0, 0, 0, 0.6)";
-            lotteryDetailsButton.style.color = "#fff";
-            lotteryDetailsButton.style.padding = "5px 10px";
-            lotteryDetailsButton.style.marginTop = "2px";
-            lotteryDetailsButton.style.marginBottom = "5px";
-            lotteryDetailsButton.style.borderRadius = "5px";
-            lotteryDetailsButton.style.textDecoration = "none";
-            lotteryDetailsButton.style.textAlign = "center";
-
-            const viewDetailsButton = document.createElement("a");
-            viewDetailsButton.href = liveUrl;
-            viewDetailsButton.target = "_blank";
-            viewDetailsButton.textContent = "直播间";
-            viewDetailsButton.style.backgroundColor = "rgba(0, 0, 0, 0.6)";
-            viewDetailsButton.style.color = "#fff";
-            viewDetailsButton.style.padding = "5px 10px";
-            viewDetailsButton.style.marginTop = "2px";
-            viewDetailsButton.style.marginBottom = "5px";
-            viewDetailsButton.style.borderRadius = "5px";
-            viewDetailsButton.style.textDecoration = "none";
-            viewDetailsButton.style.textAlign = "center";
-
-            contentContainer.appendChild(cardTitle);
-            contentContainer.appendChild(typeComment);
-            contentContainer.appendChild(describe);
-            contentContainer.appendChild(publishTime); // 添加发布时间
-            if (hasLottery) {
-                contentContainer.appendChild(lotteryDetailsButton);
-            }
-            contentContainer.appendChild(viewDetailsButton);
-
-            // 将内容容器添加到 partyItem
-            partyItem.appendChild(contentContainer);
-
-            return partyItem;
-        };
-
-        // 分批渲染
-        const batchSize = 50; // 每次渲染的庆会数量
-        let renderedCount = 0;
-
-        const renderBatch = () => {
-            const renderList = partyList.filter(item => item.display);
-            for (let i = 0; i < batchSize && renderedCount < renderList.length; i++, renderedCount++) {
-                const partyItem = createPartyItem(renderList[renderedCount]);
-                partyItem.style.display = renderList[renderedCount].display ? 'flex' : 'none'; // 根据 display 属性显示或隐藏
-                const contentContainer = partyItem.querySelector(".party-content-container");
-                contentContainer.style.display = isContentVisible ? "flex" : "none"; // 根据全局状态设置可见性
-                gridContainer.appendChild(partyItem);
-            }
-            // 检查是否还需要继续渲染
-            if (renderedCount < renderList.length) {
-                observer.observe(gridContainer.lastElementChild); // 观察最后一个 partyItem
-            } else {
-                observer.disconnect(); // 如果所有庆会都已渲染，停止观察
-            }
-        };
-
-        const observer = new IntersectionObserver((entries) => {
-            if (entries[0].isIntersecting) {
-                observer.unobserve(entries[0].target); // 取消对当前目标的观察
-                renderBatch();
-            }
+        function applyFilters() {
+            filtered = state.parties.filter(matches);
+            rendered = 0;
+            grid.replaceChildren();
+            empty.hidden = filtered.length > 0;
+            count.textContent = `显示 ${filtered.length.toLocaleString()} / ${state.parties.length.toLocaleString()} 项`;
+            subtitle.textContent = `已收集 ${state.parties.length.toLocaleString()} 个庆会，可使用筛选快速定位`;
+            renderNext();
+        }
+        [search, reward, lottery, subscription, live].forEach(control => control.addEventListener(control === search ? 'input' : 'change', applyFilters));
+        posterOnly.addEventListener('change', () => dialog.classList.toggle('bps-poster-only', posterOnly.checked));
+        reset.addEventListener('click', () => {
+            search.value = '';
+            [reward, lottery, subscription, live].forEach(select => { select.value = 'all'; });
+            posterOnly.checked = false;
+            dialog.classList.remove('bps-poster-only');
+            applyFilters();
         });
-
-        renderBatch(); // 初始渲染一批
-
-        dialog.appendChild(filterButtonsContainer);
-        dialog.appendChild(gridContainer);
-        dialog.style.display = 'block';
+        loadMore.addEventListener('click', renderNext);
+        dialog.addEventListener('keydown', event => { if (event.key === 'Escape') dialog.remove(); });
+        applyFilters();
+        dialog.focus();
     }
 
-    // 主任务函数
-    async function collectparty() {
-        partyList = [];
-        collectedCount = 0;
-        const collectedPartyIds = new Set(); // 新增：用于去重
-
-        let { dialog, contentArea } = createDialog('progressDialog', '任务进度', `<p>已收集庆会数：<span id='collectedCount'>0</span>/<span id='totalCount'>0</span></p><p>已获取最后庆会时间：<span id='earliestTime'>N/A</span></p>`);
-        dialog.style.display = 'block';
-
-        // 添加样式优化
-        dialog.querySelector('p').style.textAlign = 'center';
-        dialog.querySelector('p').style.fontSize = '18px';
-        dialog.querySelector('p').style.fontWeight = 'bold';
-        dialog.querySelector('p').style.marginTop = '20px';
-
-        let shouldContinue = true; // 引入标志位
+    async function collectParties() {
+        if (state.collecting) return;
+        state.collecting = true;
+        state.cancelRequested = false;
+        state.parties = [];
+        const progress = createProgressDialog();
+        const partyIds = new Set();
         let page = 1;
-        let errorCount = 0;
-        const maxErrorCount = 5;
-        while (shouldContinue) { // 使用标志位控制循环
-            const api = `https://api.live.bilibili.com/xlive/general-interface/v2/party/square?page=${page++}&page_size=100`;
-
-            try {
-                const data = await apiRequest(api);
-                const items = data?.data?.list;
-
-                if (!items) {
-                    errorCount++;
-                    if (errorCount >= maxErrorCount) {
-                        console.error(`获取数据失败，已重试 ${maxErrorCount} 次，停止任务。`);
-                        break;
+        let total = 0;
+        let earliestDate = null;
+        let latestDate = null;
+        try {
+            while (!state.cancelRequested) {
+                const square = await apiRequest(`https://api.live.bilibili.com/xlive/general-interface/v2/party/square?page=${page}&page_size=${PAGE_SIZE}`);
+                const items = square?.data?.list;
+                total = Number(square?.data?.total) || total;
+                if (!Array.isArray(items) || items.length === 0) break;
+                const uniqueItems = items.filter(item => {
+                    if (!item?.party_id || partyIds.has(item.party_id)) return false;
+                    partyIds.add(item.party_id);
+                    return true;
+                });
+                let resolvedInPage = 0;
+                const resolvedItems = await mapWithConcurrency(uniqueItems, LOTTERY_CONCURRENCY, async item => {
+                    try {
+                        const lottery = item.sid
+                            ? await apiRequest(`https://api.vc.bilibili.com/lottery_svr/v1/lottery_svr/lottery_notice?business_id=${item.sid}&business_type=10`)
+                            : null;
+                        return { ...item, reserveInfo: lottery?.data || {} };
+                    } catch (error) {
+                        if (error.name === 'AbortError') throw error;
+                        console.warn(`无法获取庆会 ${item.party_id} 的预约信息`, error);
+                        return { ...item, reserveInfo: {} };
+                    } finally {
+                        const partyDate = Number(item.party_date);
+                        if (Number.isFinite(partyDate)) {
+                            earliestDate = earliestDate === null ? partyDate : Math.min(earliestDate, partyDate);
+                            latestDate = latestDate === null ? partyDate : Math.max(latestDate, partyDate);
+                        }
+                        resolvedInPage++;
+                        progress.update(state.parties.length + resolvedInPage, total, earliestDate, latestDate);
                     }
-                    continue;
-                }
-                errorCount = 0;
-
-                for (let item of items) {
-                    // 新增：根据 party_id 去重
-                    if (collectedPartyIds.has(item.party_id)) {
-                        continue;
-                    }
-                    collectedPartyIds.add(item.party_id);
-
-                    item.display = true;
-
-                    // 获取预约信息
-                    item.reserveInfo = (await apiRequest(`https://api.vc.bilibili.com/lottery_svr/v1/lottery_svr/lottery_notice?business_id=${item.sid}&business_type=10`)).data;
-
-                    partyList.push(item);
-                    collectedCount++;
-                    contentArea.querySelector('#collectedCount').textContent = partyList.length;
-                    contentArea.querySelector('#totalCount').textContent = data.data.total;
-                    contentArea.querySelector('#earliestTime').textContent = new Date(partyList[partyList.length - 1].party_date * 1000).toLocaleString();
-                }
-
-                if (shouldContinue) { // 检查标志位
-                    if (partyList.length >= data.data.total || items.length === 0) shouldContinue = false; // 没有更多数据时结束循环
-                }
-            } catch (e) {
-                console.error(`Error fetching data: ${e.message}`);
-                continue; // 出错时继续
+                });
+                state.parties.push(...resolvedItems);
+                progress.update(state.parties.length, total, earliestDate, latestDate);
+                if (items.length < PAGE_SIZE || (total && state.parties.length >= total)) break;
+                page++;
             }
+            if (state.parties.length > 0) showResultsDialog();
+        } catch (error) {
+            if (error.name !== 'AbortError') {
+                console.error('庆会广场查询失败：', error);
+                alert(`庆会广场查询失败：${error.message || '请检查网络后重试。'}`);
+            }
+        } finally {
+            state.collecting = false;
+            progress.close();
         }
-        console.log(`${partyList.length}/${collectedCount}`);
-        console.log(partyList);
-
-        dialog.style.display = 'none';
-        showResultsDialog();
     }
 
-    // 注册菜单项
-    GM_registerMenuCommand("检查庆会广场", collectparty);
+    GM_registerMenuCommand('检查庆会广场', collectParties);
 })();

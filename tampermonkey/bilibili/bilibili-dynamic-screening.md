@@ -1,42 +1,32 @@
 # Bilibili 动态筛选
-通过油猴菜单执行
 
-![image](https://github.com/user-attachments/assets/d769a529-99b0-4980-8f21-bfda88e27616)
+从油猴菜单运行「检查动态」或「只看自己动态」。先选择日期范围，再开始收集；收集过程可以取消，已经收集的部分仍会进入结果页。
 
-注意：受限于B站Api，只能从最新动态向以前获取
+> Bilibili 的动态接口只能从最新内容向过去读取。日期范围越长，查询耗时越久；涉及预约或抽奖的动态还会额外查询参与和开奖状态。
 
-效果如图所示：
+## 结果页
 
-![image](https://github.com/user-attachments/assets/3a98e480-1ff8-4489-8dc4-7207686eb9ce)
+- 顶部搜索可匹配作者、UID、标题和正文。
+- 筛选按常用条件、动态类型和自定义规则分组，多个启用条件会同时生效。
+- 「重置筛选」会清空搜索和全部筛选条件。
+- 「仅显示海报」会隐藏文字层，但保持卡片高度不变。
+- 结果按批次加载，继续加载不会改变当前筛选状态。
 
-![image](https://github.com/user-attachments/assets/a6fe01c0-5597-491c-b749-80610d076128)
+## 自定义规则
 
-首次执行后，会出现储存界面，可以在这里增加自定义筛选规则
+结果页右上角的「自定义规则」可直接编辑并保存 JSON。每项需要指定 type 和 filter；checkbox 在勾选时生效，text 在输入非空内容时生效。filter 是字符串形式的箭头函数，返回 true 的动态才会保留。
 
-规则生效逻辑：text不为空/checkbox为真时
-
-规则记录格式：
-```json5
+~~~json
 {
-    "customFilters": {
-        "全部显示": {
-            "type": "checkbox",
-            "filter": "(item, input) => true"
-        },
-        "全部不显示": {
-            "type": "checkbox",
-            "filter": "(item, input) => false"
-        }
-    }
+  "全部显示": {
+    "type": "checkbox",
+    "filter": "(item, input) => true"
+  },
+  "按正文搜索": {
+    "type": "text",
+    "filter": "(item, input) => (item.modules.module_dynamic.desc?.text || '').includes(input)"
+  }
 }
-// 格式说明
-"显示名称": {
-    "type": "checkbox", // 类型：text/checkbox
-    "filter": "(item, input) => false" // 过滤条件，`item`一条动态对象，`input`text/checkbox的值，返回true则显示，受json格式限制，请写成字符串
-}
-```
-> item格式可根据控制台日志确认
+~~~
 
-![image](https://github.com/user-attachments/assets/b45f5b94-1c74-4ba4-97fc-640ba10f3e13)
-
-![image](https://github.com/user-attachments/assets/a320cccb-faa6-44d1-b63f-c40f6ce33658)
+规则保存在油猴脚本存储中。格式或语法错误时不会覆盖原有规则。item 是 Bilibili 动态接口返回的一条动态对象，转发动态的原内容位于 item.orig。

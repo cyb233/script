@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Bilibili 收藏集奖励筛查脚本
 // @namespace    Schwi
-// @version      1.8
-// @description  调用 API 来收集自己的 Bilibili 收藏集，并筛选未领取的奖励。注意，一套收藏集中至少存在一张卡牌才能本项目的接口被检测到!
+// @version      2.0.0
+// @description  查询 Bilibili 收藏集卡池，并筛选可领取奖励
 // @author       Schwi
 // @match        *://*.bilibili.com/*
 // @connect      api.bilibili.com
@@ -15,12 +15,9 @@
 // ==/UserScript==
 
 (function () {
-    "use strict";
+    'use strict';
 
-    let collectionCount = 0; // 收藏集数量
-    let totalCardNum = 0; // 卡片总数
-
-    const REDEEM_ITEM_TYPE = {
+    const REDEEM_ITEM_TYPE = Object.freeze({
         Card: 1,
         Emoji: 2,
         Pendant: 3,
@@ -34,624 +31,335 @@
         CustomReward: 11,
         DynamicEmoji: 15,
         DiamondAvatar: 1000,
-        CollectorMedal: 1001,
+        CollectorMedal: 1001
+    });
+    const IDS = {
+        styles: 'bdc-styles',
+        results: 'bdc-results-dialog',
+        progress: 'bdc-progress-dialog'
+    };
+    const COLLECTION_CONCURRENCY = 3;
+    const LOTTERY_CONCURRENCY = 4;
+    const state = {
+        collecting: false,
+        cancelRequested: false,
+        items: [],
+        collectionCount: 0,
+        totalCardNum: 0
     };
 
-    /**
-     * 别问我为啥这么写，B站前端JS就是这么判断的
-     *
-     * @param {object} reward 每条奖励的信息
-     * @param {string} scene 不知道是啥，还没研究明白，先这么写着
-     * @returns boolean 这个奖励是否能被领取
-     */
-    function canGetReward(reward, scene = "milestone") {
-        const curTime = new Date().getTime();
-        const has_redeemed_cnt = reward.has_redeemed_cnt;
-        const redeem_item_type = reward.redeem_item_type;
-        const total_stock = reward.total_stock;
-        const remain_stock = reward.remain_stock;
-        const redeem_cond_type = reward.redeem_cond_type;
-        const owned_item_amount = reward.owned_item_amount;
-        const require_item_amount = reward.require_item_amount;
-        const unlock_condition = reward.unlock_condition;
-        const redeem_count = reward.redeem_count;
-        const end_time = reward.end_time;
-        const unlock_condition_1 = unlock_condition || {};
-        const unlocked = unlock_condition_1.unlocked;
-        const lock_type = unlock_condition_1.lock_type;
-        const unlock_threshold = unlock_condition_1.unlock_threshold;
-        const expire_at = unlock_condition_1.expire_at;
-        let exceedReceiveTime = false;
-        if ([REDEEM_ITEM_TYPE.CollectorMedal, REDEEM_ITEM_TYPE.DiamondAvatar].includes(redeem_item_type)) {
-            exceedReceiveTime = curTime > end_time;
-        } else {
-            if (!(curTime > end_time)) {
-                exceedReceiveTime = true;
-            }
-            if (!reward.effective_forever) {
-                exceedReceiveTime = true;
-            }
-        }
-        if (unlocked || "milestone" === scene) {
-            if (!(has_redeemed_cnt && [REDEEM_ITEM_TYPE.CustomReward].includes(redeem_item_type))) {
-                if (!(has_redeemed_cnt && "card_number" !== redeem_cond_type)) {
-                    if (!((+total_stock > -1 && +remain_stock <= 0) || exceedReceiveTime)) {
-                        if (!("custom" === redeem_cond_type || [REDEEM_ITEM_TYPE.DiamondAvatar].includes(redeem_item_type))) {
-                            if (!((owned_item_amount || 0) < require_item_amount)) {
-                                return true
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        return false
+    function createElement(tagName, options = {}) {
+        const node = document.createElement(tagName);
+        if (options.className) node.className = options.className;
+        if (options.text !== undefined) node.textContent = options.text;
+        if (options.attributes) Object.entries(options.attributes).forEach(([name, value]) => node.setAttribute(name, value));
+        if (options.styles) Object.assign(node.style, options.styles);
+        return node;
     }
 
-    const defaultFilters = {
-        已集齐: { type: "checkbox", filter: (item, input) => item.owned >= item.total },
-        未集齐: { type: "checkbox", filter: (item, input) => item.owned < item.total },
-        未领奖励: {
-            type: "checkbox", filter: (item, input) =>
-                item.lottery.collect_list.collect_infos?.some(
-                    (lottery) =>
-                        canGetReward(lottery)
-                )
-                ||
-                item.lottery.collect_list.collect_chain?.some(
-                    (lottery) =>
-                        canGetReward(lottery)
-                )
-        },
-        搜索: {
-            type: "text",
-            filter: (item, input) => {
-                const searchText = input.toLocaleUpperCase();
-                const title = item.title.toLocaleUpperCase();
-                const name = item.name.toLocaleUpperCase();
-                const userinfos = item.act.related_user_infos;
+    function addStyles() {
+        if (document.getElementById(IDS.styles)) return;
+        const style = createElement('style', { attributes: { id: IDS.styles } });
+        style.textContent = `
+            #${IDS.results},#${IDS.progress}{box-sizing:border-box;font-family:Arial,"Microsoft YaHei",sans-serif;color:#202124}#${IDS.results}{position:fixed;z-index:2147483646;inset:3vh 3vw;display:flex;flex-direction:column;overflow:hidden;background:#f6f8fa;border:1px solid #b9c0c9;border-radius:8px;box-shadow:0 18px 50px rgba(0,0,0,.32)}#${IDS.results} *{box-sizing:border-box}#${IDS.results} .bdc-header{display:flex;align-items:center;min-height:62px;padding:12px 18px;background:#fff;border-bottom:1px solid #d8dee4}#${IDS.results} .bdc-title{margin:0;font-size:18px;font-weight:700}#${IDS.results} .bdc-subtitle{margin:3px 0 0;color:#667085;font-size:12px}#${IDS.results} .bdc-header-actions{display:flex;gap:8px;margin-left:auto}#${IDS.results} button,#${IDS.progress} button{height:34px;padding:0 11px;border:1px solid #aeb7c2;border-radius:4px;background:#fff;color:#25364a;cursor:pointer;font-size:13px}#${IDS.results} button:hover,#${IDS.progress} button:hover{background:#f0f5ff;border-color:#6b96d8}#${IDS.results} .bdc-close{width:34px;padding:0;color:#57606a;font-size:24px;line-height:1}
+            #${IDS.results} .bdc-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:14px 18px 10px;background:#fff}#${IDS.results} .bdc-stat{padding:9px 12px;background:#f6f8fa;border:1px solid #e2e6ea;border-radius:5px}#${IDS.results} .bdc-stat-label{color:#667085;font-size:12px}#${IDS.results} .bdc-stat-value{margin-top:3px;color:#1769aa;font-size:19px;font-weight:700}#${IDS.results} .bdc-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:4px 18px 12px;background:#fff;border-bottom:1px solid #e2e6ea}#${IDS.results} .bdc-search,#${IDS.results} .bdc-select{height:34px;padding:0 10px;border:1px solid #b9c0c9;border-radius:4px;background:#fff;color:#25364a;font-size:13px;outline:0}#${IDS.results} .bdc-search{width:min(270px,100%)}#${IDS.results} .bdc-search:focus,#${IDS.results} .bdc-select:focus{border-color:#00a1d6;box-shadow:0 0 0 2px rgba(0,161,214,.18)}#${IDS.results} .bdc-count{margin-left:auto;color:#667085;font-size:12px;white-space:nowrap}#${IDS.results} .bdc-list{flex:1;min-height:0;overflow:auto;padding:16px 18px 24px}#${IDS.results} .bdc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(245px,1fr));gap:12px;align-content:start}#${IDS.results} .bdc-card{position:relative;display:flex;flex-direction:column;min-width:0;height:230px;overflow:hidden;border:1px solid #d8dee4;border-radius:6px;background:#252b36;color:#fff;box-shadow:0 1px 2px rgba(0,0,0,.08)}#${IDS.results} .bdc-card:hover{border-color:#50b7e2;box-shadow:0 6px 18px rgba(0,54,93,.2)}#${IDS.results} .bdc-cover{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}#${IDS.results} .bdc-card-body{position:relative;display:flex;flex:1;flex-direction:column;padding:12px;background:linear-gradient(180deg,rgba(0,0,0,.12),rgba(0,0,0,.86))}#${IDS.results} .bdc-badges{display:flex;flex-wrap:wrap;gap:5px;min-height:20px}#${IDS.results} .bdc-badge{padding:2px 6px;border-radius:3px;background:rgba(0,0,0,.58);font-size:11px}#${IDS.results} .bdc-badge-reward{background:#d56b16}#${IDS.results} .bdc-card-title{display:-webkit-box;margin:8px 0 4px;overflow:hidden;font-size:16px;line-height:1.35;-webkit-box-orient:vertical;-webkit-line-clamp:2}#${IDS.results} .bdc-card-meta{color:#e6ebf0;font-size:12px}#${IDS.results} .bdc-card-actions{display:flex;gap:8px;margin-top:auto}#${IDS.results} .bdc-card-actions a{flex:1;height:30px;padding:7px 8px;border:1px solid rgba(255,255,255,.55);border-radius:4px;color:#fff;text-align:center;text-decoration:none;font-size:12px}#${IDS.results} .bdc-card-actions a:hover{background:rgba(255,255,255,.18)}#${IDS.results} .bdc-load-more{display:block;min-width:140px;margin:18px auto 0}#${IDS.results} .bdc-empty{padding:48px 12px;color:#667085;text-align:center}
+            #${IDS.progress}{position:fixed;z-index:2147483647;top:50%;left:50%;width:min(400px,calc(100vw - 32px));padding:20px;transform:translate(-50%,-50%);background:#fff;border:1px solid #d0d7de;border-radius:8px;box-shadow:0 18px 50px rgba(0,0,0,.28)}#${IDS.progress} h2{margin:0 0 8px;font-size:18px}#${IDS.progress} p{margin:0 0 12px;color:#57606a;font-size:13px;line-height:1.5}#${IDS.progress} progress{width:100%;height:8px;margin-bottom:12px;accent-color:#00a1d6}#${IDS.progress} .bdc-progress-actions{display:flex;justify-content:flex-end}@media(max-width:680px){#${IDS.results}{inset:0;border:0;border-radius:0}#${IDS.results} .bdc-header,#${IDS.results} .bdc-summary,#${IDS.results} .bdc-toolbar{padding-left:12px;padding-right:12px}#${IDS.results} .bdc-search{order:1;width:100%}#${IDS.results} .bdc-count{margin-left:0}#${IDS.results} .bdc-list{padding:12px}}
+        `;
+        document.head.appendChild(style);
+    }
 
-                return title.includes(searchText) || name.includes(searchText) ||
-                    (userinfos && Object.values(userinfos).some(userinfo => {
-                        const userName = userinfo.nickname.toLocaleUpperCase();
-                        const userId = userinfo.uid.toString().toLocaleUpperCase();
-                        return userName.includes(searchText) || userId.includes(searchText);
-                    }))
-            }
-        },
-        排序: {
-            type: "select",
-            options: [
-                { value: "按拥有卡片数量", text: "按拥有卡片数量", sort: (a, b) => b.num - a.num },
-                { value: "按名称", text: "按名称", sort: (a, b) => a.title.localeCompare(b.title) },
-                { value: "按卡池大小", text: "按卡池大小", sort: (a, b) => b.total - a.total },
-                { value: "按集齐卡片数量", text: "按集齐卡片数量", sort: (a, b) => b.owned - a.owned },
-                { value: "按销量", text: "按销量", sort: (a, b) => b.sale - a.sale }
-            ],
-            filter: (item, input) => true
+    const sleep = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+    const abortError = () => Object.assign(new Error('查询已取消'), { name: 'AbortError' });
+
+    function canGetReward(reward, scene = 'milestone') {
+        const currentTime = Date.now();
+        const unlock = reward.unlock_condition || {};
+        let unavailableByTime = false;
+        if ([REDEEM_ITEM_TYPE.CollectorMedal, REDEEM_ITEM_TYPE.DiamondAvatar].includes(reward.redeem_item_type)) {
+            unavailableByTime = currentTime > reward.end_time;
+        } else {
+            unavailableByTime = !(currentTime > reward.end_time) || !reward.effective_forever;
         }
-    };
+        if (!(unlock.unlocked || scene === 'milestone')) return false;
+        if (reward.has_redeemed_cnt && [REDEEM_ITEM_TYPE.CustomReward].includes(reward.redeem_item_type)) return false;
+        if (reward.has_redeemed_cnt && reward.redeem_cond_type !== 'card_number') return false;
+        if ((+reward.total_stock > -1 && +reward.remain_stock <= 0) || unavailableByTime) return false;
+        if (reward.redeem_cond_type === 'custom' || [REDEEM_ITEM_TYPE.DiamondAvatar].includes(reward.redeem_item_type)) return false;
+        return (reward.owned_item_amount || 0) >= reward.require_item_amount;
+    }
 
-    // 创建进度条容器
-    function createProgressBar(totalTasks) {
-        const progressContainer = document.createElement("div");
-        progressContainer.style.position = "fixed";
-        progressContainer.style.top = "50%";
-        progressContainer.style.left = "50%";
-        progressContainer.style.transform = "translate(-50%, -50%)";
-        progressContainer.style.width = "80%";
-        progressContainer.style.padding = "10px";
-        progressContainer.style.backgroundColor = "#fff";
-        progressContainer.style.borderRadius = "10px";
-        progressContainer.style.boxShadow = "0 4px 8px rgba(0, 0, 0, 0.2)";
-        progressContainer.style.zIndex = "10000";
-        progressContainer.style.textAlign = "center";
+    function hasUnclaimedReward(item) {
+        const list = item.lottery?.collect_list || {};
+        return [...(list.collect_infos || []), ...(list.collect_chain || [])].some(reward => canGetReward(reward));
+    }
 
-        const progressTitle = document.createElement("h3");
-        progressTitle.textContent = "任务进行中...";
-        progressContainer.appendChild(progressTitle);
+    function apiRequest(url, retry = 3) {
+        const requestUrl = new URL(url, location.origin);
+        requestUrl.searchParams.set('_ts', Date.now().toString());
+        return new Promise((resolve, reject) => {
+            let attempt = 0;
+            const request = () => {
+                if (state.cancelRequested) return reject(abortError());
+                GM_xmlhttpRequest({
+                    method: 'GET',
+                    url: requestUrl.toString(),
+                    onload(response) {
+                        if (state.cancelRequested) return reject(abortError());
+                        try {
+                            const data = JSON.parse(response.responseText);
+                            if (data.code !== 0) throw new Error(data.message || `接口返回错误 ${data.code}`);
+                            resolve(data);
+                        } catch (error) {
+                            retryRequest(error);
+                        }
+                    },
+                    onerror(error) { retryRequest(error); }
+                });
+            };
+            const retryRequest = error => {
+                attempt++;
+                if (attempt >= retry) return reject(error instanceof Error ? error : new Error('请求失败'));
+                setTimeout(request, 800 * attempt);
+            };
+            request();
+        });
+    }
 
-        const progressBar = document.createElement("progress");
-        progressBar.style.width = "100%";
-        progressBar.max = totalTasks;
-        progressBar.value = 0;
-        progressContainer.appendChild(progressBar);
-
-        const progressText = document.createElement("p");
-        progressText.style.marginTop = "10px";
-        progressText.textContent = `0/${totalTasks} 完成`;
-        progressContainer.appendChild(progressText);
-
-        document.body.appendChild(progressContainer);
-
-        return {
-            update: function (currentTask) {
-                progressBar.value = currentTask;
-                progressText.textContent = `${currentTask}/${totalTasks} 完成`;
-            },
-            hide: function () {
-                document.body.removeChild(progressContainer);
+    async function mapWithConcurrency(items, concurrency, mapper) {
+        const result = new Array(items.length);
+        let nextIndex = 0;
+        async function worker() {
+            while (nextIndex < items.length) {
+                if (state.cancelRequested) throw abortError();
+                const index = nextIndex++;
+                result[index] = await mapper(items[index]);
             }
+        }
+        await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
+        return result;
+    }
+
+    function createProgressDialog(total) {
+        document.getElementById(IDS.progress)?.remove();
+        addStyles();
+        const dialog = createElement('section', { attributes: { id: IDS.progress, role: 'status', 'aria-live': 'polite' } });
+        const title = createElement('h2', { text: '正在检查收藏集' });
+        const detail = createElement('p', { text: `已完成 0 / ${total} 个收藏集` });
+        const progress = createElement('progress', { attributes: { value: '0', max: Math.max(total, 1) } });
+        const found = createElement('p', { text: '已发现 0 个卡池' });
+        const cancel = createElement('button', { text: '取消', attributes: { type: 'button' } });
+        cancel.addEventListener('click', () => { state.cancelRequested = true; cancel.disabled = true; cancel.textContent = '正在取消'; });
+        const actions = createElement('div', { className: 'bdc-progress-actions' });
+        actions.appendChild(cancel);
+        dialog.append(title, detail, progress, found, actions);
+        document.body.appendChild(dialog);
+        return {
+            update(completed, discovered) {
+                progress.value = completed;
+                detail.textContent = `已完成 ${completed} / ${total} 个收藏集`;
+                found.textContent = `已发现 ${discovered} 个拥有卡片的卡池`;
+            },
+            close() { dialog.remove(); }
         };
     }
 
-    // 工具函数：创建 dialog
-    function createDialog(id, title, content) {
-        let dialog = document.createElement('div');
-        dialog.id = id;
-        dialog.style.position = 'fixed';
-        dialog.style.top = '5%';
-        dialog.style.left = '5%';
-        dialog.style.width = '90%';
-        dialog.style.height = '90%';
-        dialog.style.backgroundColor = '#fff';
-        dialog.style.border = '1px solid #ccc';
-        dialog.style.boxShadow = '0 0 10px rgba(0,0,0,0.5)';
-        dialog.style.zIndex = '9999';
-        dialog.style.display = 'none';
-        dialog.style.overflow = 'hidden';
+    function createSelect(label, options) {
+        const select = createElement('select', { className: 'bdc-select', attributes: { 'aria-label': label } });
+        options.forEach(([value, text]) => select.appendChild(createElement('option', { text, attributes: { value } })));
+        return select;
+    }
 
-        let header = document.createElement('div');
-        header.style.display = 'flex';
-        header.style.justifyContent = 'space-between';
-        header.style.alignItems = 'center';
-        header.style.padding = '10px';
-        header.style.borderBottom = '1px solid #ccc';
-        header.style.backgroundColor = '#f9f9f9';
+    function createCardItem(item) {
+        const card = createElement('article', { className: 'bdc-card' });
+        const coverUrl = item.act?.act_square_img;
+        if (coverUrl) card.appendChild(createElement('img', { className: 'bdc-cover', attributes: { src: coverUrl, alt: '', loading: 'lazy' } }));
+        const body = createElement('div', { className: 'bdc-card-body' });
+        const badges = createElement('div', { className: 'bdc-badges' });
+        badges.appendChild(createElement('span', { className: 'bdc-badge', text: `持有 ${item.num} 张` }));
+        badges.appendChild(createElement('span', { className: 'bdc-badge', text: `${item.owned} / ${item.total}${item.owned >= item.total ? ' 已集齐' : ''}` }));
+        if (hasUnclaimedReward(item)) badges.appendChild(createElement('span', { className: 'bdc-badge bdc-badge-reward', text: '可领奖励' }));
+        const title = createElement('h2', { className: 'bdc-card-title', text: item.title || '未命名收藏集' });
+        const meta = createElement('div', { className: 'bdc-card-meta', text: `${item.name || '未命名卡池'} · 销量 ${item.sale || 0}` });
+        const actions = createElement('div', { className: 'bdc-card-actions' });
+        actions.appendChild(createElement('a', { text: '查看活动详情', attributes: { href: item.url, target: '_blank', rel: 'noopener noreferrer' } }));
+        body.append(badges, title, meta, actions);
+        card.appendChild(body);
+        return card;
+    }
 
-        let titleElement = document.createElement('span');
-        titleElement.textContent = title;
-        header.appendChild(titleElement);
-
-        let closeButton = document.createElement('button');
-        closeButton.textContent = '关闭';
-        closeButton.style.backgroundColor = '#ff4d4f';
-        closeButton.style.color = '#fff';
-        closeButton.style.border = 'none';
-        closeButton.style.borderRadius = '5px';
-        closeButton.style.cursor = 'pointer';
-        closeButton.style.padding = '5px 10px';
-        closeButton.style.transition = 'background-color 0.3s';
-        closeButton.onmouseover = () => { closeButton.style.backgroundColor = '#d93637'; };
-        closeButton.onmouseout = () => { closeButton.style.backgroundColor = '#ff4d4f'; };
-        closeButton.onclick = () => dialog.remove();
-        header.appendChild(closeButton);
-
-        dialog.appendChild(header);
-
-        let contentArea = document.createElement('div');
-        contentArea.innerHTML = content;
-        contentArea.style.padding = '10px';
-        dialog.appendChild(contentArea);
-
+    function showResultsDialog() {
+        document.getElementById(IDS.results)?.remove();
+        addStyles();
+        const dialog = createElement('section', { attributes: { id: IDS.results, role: 'dialog', 'aria-modal': 'true', 'aria-label': '收藏集奖励筛查结果', tabindex: '-1' } });
+        const header = createElement('header', { className: 'bdc-header' });
+        const heading = document.createElement('div');
+        heading.append(createElement('h1', { className: 'bdc-title', text: '收藏集奖励筛查' }), createElement('p', { className: 'bdc-subtitle', text: `已检查 ${state.collectionCount} 个收藏集` }));
+        const headerActions = createElement('div', { className: 'bdc-header-actions' });
+        const refresh = createElement('button', { text: '重新检查', attributes: { type: 'button' } });
+        refresh.addEventListener('click', () => { dialog.remove(); collectDigitalCards(); });
+        const close = createElement('button', { className: 'bdc-close', text: '×', attributes: { type: 'button', title: '关闭（Esc）', 'aria-label': '关闭' } });
+        close.addEventListener('click', () => dialog.remove());
+        headerActions.append(refresh, close);
+        header.append(heading, headerActions);
+        const summary = createElement('div', { className: 'bdc-summary' });
+        const rewardCount = state.items.filter(hasUnclaimedReward).length;
+        [['收藏集', state.collectionCount], ['拥有卡片', state.totalCardNum], ['可领奖励', rewardCount]].forEach(([label, value]) => {
+            const stat = createElement('div', { className: 'bdc-stat' });
+            stat.append(createElement('div', { className: 'bdc-stat-label', text: label }), createElement('div', { className: 'bdc-stat-value', text: Number(value).toLocaleString() }));
+            summary.appendChild(stat);
+        });
+        const toolbar = createElement('div', { className: 'bdc-toolbar' });
+        const search = createElement('input', { className: 'bdc-search', attributes: { type: 'search', placeholder: '搜索收藏集、卡池、UP 主或 UID', 'aria-label': '搜索收藏集' } });
+        const completeness = createSelect('集齐状态', [['all', '集齐：全部'], ['complete', '已集齐'], ['incomplete', '未集齐']]);
+        const rewards = createSelect('奖励状态', [['all', '奖励：全部'], ['claimable', '可领奖励'], ['none', '无可领奖励']]);
+        const sort = createSelect('排序方式', [['owned', '按持有卡片数'], ['completion', '按集齐进度'], ['pool', '按卡池大小'], ['sales', '按销量'], ['name', '按名称']]);
+        const reset = createElement('button', { text: '重置筛选', attributes: { type: 'button' } });
+        const count = createElement('span', { className: 'bdc-count' });
+        toolbar.append(search, completeness, rewards, sort, reset, count);
+        const list = createElement('main', { className: 'bdc-list' });
+        const grid = createElement('div', { className: 'bdc-grid' });
+        const empty = createElement('div', { className: 'bdc-empty', text: '没有符合筛选条件的卡池', attributes: { hidden: '' } });
+        const loadMore = createElement('button', { className: 'bdc-load-more', text: '加载更多', attributes: { type: 'button' } });
+        list.append(grid, empty, loadMore);
+        dialog.append(header, summary, toolbar, list);
         document.body.appendChild(dialog);
 
-        return {
-            dialog: dialog,
-            header: header,
-            titleElement: titleElement,
-            closeButton: closeButton,
-            contentArea: contentArea
-        };
+        let filtered = [];
+        let rendered = 0;
+        const batchSize = 36;
+        function matches(item) {
+            const term = search.value.trim().toLocaleLowerCase();
+            if (term) {
+                const users = Object.values(item.act?.related_user_infos || {}).map(user => `${user.nickname || ''} ${user.uid || ''}`).join(' ');
+                if (!`${item.title || ''} ${item.name || ''} ${users}`.toLocaleLowerCase().includes(term)) return false;
+            }
+            const complete = item.owned >= item.total;
+            const claimable = hasUnclaimedReward(item);
+            if (completeness.value === 'complete' && !complete) return false;
+            if (completeness.value === 'incomplete' && complete) return false;
+            if (rewards.value === 'claimable' && !claimable) return false;
+            if (rewards.value === 'none' && claimable) return false;
+            return true;
+        }
+        function sortItems(items) {
+            const sorted = [...items];
+            const sorters = {
+                owned: (a, b) => b.num - a.num,
+                completion: (a, b) => (b.owned / Math.max(b.total, 1)) - (a.owned / Math.max(a.total, 1)),
+                pool: (a, b) => b.total - a.total,
+                sales: (a, b) => b.sale - a.sale,
+                name: (a, b) => (a.title || '').localeCompare(b.title || '')
+            };
+            return sorted.sort(sorters[sort.value]);
+        }
+        function renderNext() {
+            const fragment = document.createDocumentFragment();
+            const end = Math.min(rendered + batchSize, filtered.length);
+            for (; rendered < end; rendered++) fragment.appendChild(createCardItem(filtered[rendered]));
+            grid.appendChild(fragment);
+            loadMore.hidden = rendered >= filtered.length;
+        }
+        function applyFilters() {
+            filtered = sortItems(state.items.filter(matches));
+            rendered = 0;
+            grid.replaceChildren();
+            empty.hidden = filtered.length > 0;
+            count.textContent = `显示 ${filtered.length.toLocaleString()} / ${state.items.length.toLocaleString()} 个卡池`;
+            renderNext();
+        }
+        [search, completeness, rewards, sort].forEach(control => control.addEventListener(control === search ? 'input' : 'change', applyFilters));
+        reset.addEventListener('click', () => {
+            search.value = '';
+            completeness.value = 'all';
+            rewards.value = 'all';
+            sort.value = 'owned';
+            applyFilters();
+        });
+        loadMore.addEventListener('click', renderNext);
+        dialog.addEventListener('keydown', event => { if (event.key === 'Escape') dialog.remove(); });
+        applyFilters();
+        dialog.focus();
     }
 
-    // 发起 API 请求的函数
-    function apiRequest(url, callback, retryCount = 0) {
-        // 为url添加时间戳参数防范风控
-        const ts = Date.now();
-        let urlObj = new URL(url, location.origin);
-        urlObj.searchParams.set('_ts', ts);
-        const finalUrl = urlObj.toString();
-
-        console.debug(`正在请求: ${finalUrl}`);
-        GM_xmlhttpRequest({
-            method: "GET",
-            url: finalUrl,
-            onload: function (response) {
+    async function getCollectionItems(collection) {
+        try {
+            const detail = await apiRequest(`https://api.bilibili.com/x/vas/dlc_act/act/basic?act_id=${collection.act_id}`);
+            const lotteries = detail.data?.lottery_list || [];
+            const items = await mapWithConcurrency(lotteries, LOTTERY_CONCURRENCY, async lottery => {
                 try {
-                    const data = JSON.parse(response.responseText);
-                    console.debug(`来自 ${finalUrl} 的响应:`, data);
-                    callback(data);
+                    const card = await apiRequest(`https://api.bilibili.com/x/vas/dlc_act/lottery_home_detail?act_id=${collection.act_id}&lottery_id=${lottery.lottery_id}`);
+                    return {
+                        title: detail.data.act_title,
+                        name: card.data?.name || lottery.lottery_name,
+                        num: collection.card_num || 0,
+                        owned: lottery.item_owned_cnt || 0,
+                        total: lottery.item_total_cnt || 0,
+                        sale: lottery.total_sale_amount || 0,
+                        url: `https://www.bilibili.com/blackboard/activity-Mz9T5bO5Q3.html?id=${collection.act_id}&type=dlc`,
+                        act: detail.data,
+                        lottery: card.data || {}
+                    };
                 } catch (error) {
-                    console.error(`解析来自 ${finalUrl} 的响应时出错:`, error);
-                    callback(null);
+                    if (error.name === 'AbortError') throw error;
+                    console.warn(`无法获取 ${collection.act_name} 的卡池 ${lottery.lottery_id}`, error);
+                    return null;
                 }
-            },
-            onerror: function (error) {
-                console.error(`请求 ${finalUrl} 失败:`, error);
-                // 失败重试，最多3次，每次等待1秒
-                if (retryCount < 3) {
-                    setTimeout(() => {
-                        apiRequest(url, callback, retryCount + 1);
-                    }, 1000);
-                } else {
-                    callback(null);
-                }
-            },
-        });
-    }
-
-    // 显示筛选结果的对话框
-    function showResultsDialog(collectList) {
-        const { dialog, titleElement } = createDialog('resultsDialog', `收藏集（${collectList.length}/${collectList.length}/${collectionCount}）总卡片张数 ${totalCardNum}`, '');
-
-        let gridContainer = document.createElement('div');
-        gridContainer.style.display = 'grid';
-        gridContainer.style.gridTemplateColumns = 'repeat(auto-fill,minmax(200px,1fr))';
-        gridContainer.style.gap = '10px';
-        gridContainer.style.padding = '10px';
-        gridContainer.style.height = 'calc(90% - 50px)';
-        gridContainer.style.overflowY = 'auto';
-        gridContainer.style.alignContent = 'flex-start';
-
-        const deal = (collectList) => {
-            let checkedFilters = [];
-            let sortOption = defaultFilters["排序"].options[0]; // 默认排序
-            for (let key in defaultFilters) {
-                const f = defaultFilters[key];
-                const filter = filterButtonsContainer.querySelector(`#${key}`);
-                let checkedFilter;
-                switch (f.type) {
-                    case 'checkbox':
-                        checkedFilter = { ...f, value: filter.checked };
-                        break;
-                    case 'text':
-                        checkedFilter = { ...f, value: filter.value };
-                        break;
-                    case 'select':
-                        checkedFilter = { ...f, value: filter.value };
-                        // 记录当前排序选项
-                        sortOption = f.options.find(opt => opt.value === filter.value) || f.options[0];
-                        break;
-                }
-                checkedFilters.push(checkedFilter);
-            }
-            collectList.forEach(item => {
-                item.display = checkedFilters.every(f => f.type === "select" ? true : (f.value ? f.filter(item, f.value) : true));
             });
-
-            // 排序
-            collectList.sort(sortOption.sort);
-
-            const filteredList = collectList.filter(item => item.display);
-            const filteredTotalCards = filteredList.reduce((sum, item) => sum + item.num, 0); // 计算筛选后的总卡片张数
-            titleElement.textContent = `收藏集（${filteredList.length}/${collectList.length}/${collectionCount}）总卡片张数 ${totalCardNum}`;
-
-            observer.disconnect();
-            renderedCount = 0;
-            gridContainer.innerHTML = '';
-            renderBatch();
-        };
-
-        // 封装生成筛选按钮的函数
-        const createFilterButtons = (filters, list) => {
-            let mainContainer = document.createElement('div');
-            mainContainer.style.display = 'flex';
-            mainContainer.style.flexWrap = 'wrap';
-            mainContainer.style.width = '100%';
-
-            for (let key in filters) {
-                let filter = filters[key];
-                let input;
-                if (filter.type === 'select') {
-                    input = document.createElement('select');
-                    input.id = key;
-                    input.style.marginRight = '5px';
-                    filter.options.forEach(opt => {
-                        let option = document.createElement('option');
-                        option.value = opt.value;
-                        option.textContent = opt.text;
-                        input.appendChild(option);
-                    });
-                } else {
-                    input = document.createElement('input');
-                    input.type = filter.type;
-                    input.id = key;
-                    input.style.marginRight = '5px';
-                    if (filter.type === 'text') {
-                        input.style.border = '1px solid #ccc';
-                        input.style.padding = '5px';
-                        input.style.borderRadius = '5px';
-                    }
-                }
-
-                let label = document.createElement('label');
-                label.htmlFor = key;
-                label.textContent = key;
-                label.style.display = 'flex';
-                label.style.alignItems = 'center';
-                label.style.marginRight = '5px';
-
-                let container = document.createElement('div');
-                container.style.display = 'flex';
-                container.style.alignItems = 'center';
-                container.style.marginRight = '10px';
-
-                if (filter.type === 'checkbox' || filter.type === 'radio') {
-                    (function (list, filter, input) {
-                        input.addEventListener('change', () => deal(list));
-                    })(list, filter, input);
-                    container.appendChild(input);
-                    container.appendChild(label);
-                } else if (filter.type === 'select') {
-                    (function (list, filter, input) {
-                        input.addEventListener('change', () => deal(list));
-                    })(list, filter, input);
-                    container.appendChild(label);
-                    container.appendChild(input);
-                } else {
-                    let timeout;
-                    (function (list, filter, input) {
-                        input.addEventListener('input', () => {
-                            clearTimeout(timeout);
-                            timeout = setTimeout(() => deal(list), 1000);
-                        });
-                    })(list, filter, input);
-                    container.appendChild(label);
-                    container.appendChild(input);
-                }
-
-                mainContainer.appendChild(container);
-            }
-
-            return mainContainer;
-        };
-
-        const filterButtonsContainer = document.createElement('div');
-        filterButtonsContainer.style.marginBottom = '10px';
-        filterButtonsContainer.style.display = 'flex';
-        filterButtonsContainer.style.flexWrap = 'wrap';
-        filterButtonsContainer.style.gap = '10px';
-        filterButtonsContainer.style.padding = '10px';
-        filterButtonsContainer.style.alignItems = 'center';
-
-        filterButtonsContainer.appendChild(createFilterButtons(defaultFilters, collectList));
-
-        const createCardItem = (item) => {
-            let card = document.createElement('div');
-            card.style.position = "relative";
-            card.style.border = "1px solid #ddd";
-            card.style.borderRadius = "10px";
-            card.style.overflow = "hidden";
-            card.style.height = "200px";
-            card.style.backgroundImage = `url(${item.act.act_square_img})`;
-            card.style.backgroundSize = "cover";
-            card.style.backgroundPosition = "center";
-            card.style.display = "flex";
-            card.style.flexDirection = "column";
-            card.style.justifyContent = "flex-end";
-            card.style.padding = "10px";
-            card.style.color = "#fff";
-
-            const numBadge = document.createElement("div");
-            numBadge.textContent = item.num;
-            numBadge.style.position = "absolute";
-            numBadge.style.top = "10px";
-            numBadge.style.right = "10px";
-            numBadge.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
-            numBadge.style.color = "#fff";
-            numBadge.style.padding = "5px 10px";
-            numBadge.style.borderRadius = "10px";
-            numBadge.style.fontSize = "14px";
-            numBadge.style.fontWeight = "bold";
-            card.appendChild(numBadge);
-
-            const ownedTotalBadge = document.createElement("div");
-            ownedTotalBadge.textContent = `${item.owned} / ${item.total}${item.owned === item.total ? ' 👑' : ''}`;
-            ownedTotalBadge.style.position = "absolute";
-            ownedTotalBadge.style.top = "10px";
-            ownedTotalBadge.style.left = "10px";
-            ownedTotalBadge.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
-            ownedTotalBadge.style.color = "#fff";
-            ownedTotalBadge.style.padding = "5px 10px";
-            ownedTotalBadge.style.borderRadius = "10px";
-            ownedTotalBadge.style.fontSize = "14px";
-            ownedTotalBadge.style.fontWeight = "bold";
-            card.appendChild(ownedTotalBadge);
-
-            const titleContainer = document.createElement("div");
-            titleContainer.style.background = "rgba(0, 0, 0, 0.5)";
-            titleContainer.style.backdropFilter = "blur(5px)";
-            titleContainer.style.borderRadius = "5px";
-            titleContainer.style.padding = "5px";
-            titleContainer.style.marginBottom = "5px";
-
-            const cardTitle = document.createElement("div");
-            cardTitle.style.fontWeight = "bold";
-            cardTitle.style.textShadow = "0 2px 4px rgba(0, 0, 0, 0.8)";
-            cardTitle.textContent = item.title;
-
-            const subtitleContainer = document.createElement("div");
-            subtitleContainer.style.display = "flex";
-            subtitleContainer.style.justifyContent = "space-between";
-            subtitleContainer.style.fontSize = "14px";
-            subtitleContainer.style.marginTop = "2px";
-
-            const cardSubtitle = document.createElement("span");
-            cardSubtitle.textContent = item.name;
-
-            const cardSale = document.createElement("span");
-            cardSale.textContent = `销量: ${item.sale}`;
-
-            subtitleContainer.appendChild(cardSubtitle);
-            subtitleContainer.appendChild(cardSale);
-
-            titleContainer.appendChild(cardTitle);
-            titleContainer.appendChild(subtitleContainer);
-
-            const link = document.createElement("a");
-            link.href = item.url;
-            link.target = "_blank";
-            link.textContent = "查看详情";
-            link.style.backgroundColor = "rgba(0, 0, 0, 0.6)";
-            link.style.color = "#fff";
-            link.style.padding = "5px 10px";
-            link.style.borderRadius = "5px";
-            link.style.textDecoration = "none";
-            link.style.textAlign = "center";
-
-            card.appendChild(titleContainer);
-            card.appendChild(link);
-
-            return card;
-        };
-
-        const batchSize = 50;
-        let renderedCount = 0;
-
-        const renderBatch = () => {
-            const renderList = collectList.filter(item => item.display);
-            for (let i = 0; i < batchSize && renderedCount < renderList.length; i++, renderedCount++) {
-                const cardItem = createCardItem(renderList[renderedCount]);
-                cardItem.style.display = renderList[renderedCount].display ? 'flex' : 'none';
-                gridContainer.appendChild(cardItem);
-            }
-            if (renderedCount < renderList.length) {
-                observer.observe(gridContainer.lastElementChild);
-            } else {
-                observer.disconnect();
-            }
-        };
-
-        const observer = new IntersectionObserver((entries) => {
-            if (entries[0].isIntersecting) {
-                observer.unobserve(entries[0].target);
-                renderBatch();
-            }
-        });
-
-        collectList.forEach(item => {
-            item.display = true;
-        });
-
-        renderBatch();
-
-        dialog.appendChild(filterButtonsContainer);
-        dialog.appendChild(gridContainer);
-        dialog.style.display = 'block';
+            return items.filter(item => item?.owned > 0);
+        } catch (error) {
+            if (error.name === 'AbortError') throw error;
+            console.warn(`无法获取收藏集 ${collection.act_name}（${collection.act_id}）`, error);
+            return [];
+        }
     }
 
-    // 修改主函数调用筛选结果对话框
-    function collectDigitalCards() {
-        console.log("开始收集收藏集...");
-        const collectionUrl =
-            "https://api.bilibili.com/x/vas/smelt/my_decompose/info?scene=1";
-        let collectList = [];
-
-        apiRequest(collectionUrl, function (collectionData) {
-            if (!collectionData || collectionData.code !== 0) {
-                const errorMsg = `获取收藏列表失败: ${collectionData ? collectionData.message : "无响应"}`
-                console.error(errorMsg);
-                alert(errorMsg)
+    async function collectDigitalCards() {
+        if (state.collecting) return;
+        state.collecting = true;
+        state.cancelRequested = false;
+        state.items = [];
+        try {
+            const response = await apiRequest('https://api.bilibili.com/x/vas/smelt/my_decompose/info?scene=1');
+            const collections = response.data?.list || [];
+            if (collections.length === 0) {
+                alert('未找到拥有卡片的收藏集。');
                 return;
             }
-            if (!collectionData.data.list) {
-                const errorMsg = `获取收藏列表失败: 您没有收藏集`
-                console.error(errorMsg);
-                alert(errorMsg)
-                return;
-            }
-
-            totalCardNum = collectionData.data.list.reduce((acc, item) => acc + item.card_num, 0);
-
-            console.log("成功获取收藏列表:", collectionData.data.list);
-            console.log("卡片总数:", collectionData.data.list.reduce((acc, item) => acc + item.card_num, 0));
-            const collections = collectionData.data.list;
-            collectionCount = collections.length;
-            let processedCollections = 0;
-
-            const progressBar = createProgressBar(collectionCount);
-
-            collections.forEach((collection, index) => {
-                console.debug(`处理收藏: ${collection.act_name}(ID: ${collection.act_id})`);
-                const detailUrl = `https://api.bilibili.com/x/vas/dlc_act/act/basic?act_id=${collection.act_id}`;
-
-                apiRequest(detailUrl, function (detailData) {
-                    if (!detailData || detailData.code !== 0) {
-                        console.error(
-                            `获取 ${collection.act_name}(act_id:${collection.act_id}) 的基本信息失败:`,
-                            detailData ? detailData.message : "无响应"
-                        );
-                        processedCollections++;
-                        progressBar.update(processedCollections);
-                        checkCompletion();
-                        return;
+            state.collectionCount = collections.length;
+            state.totalCardNum = collections.reduce((total, item) => total + (item.card_num || 0), 0);
+            const progress = createProgressDialog(collections.length);
+            let completed = 0;
+            let discovered = 0;
+            try {
+                const groups = await mapWithConcurrency(collections, COLLECTION_CONCURRENCY, async collection => {
+                    try {
+                        const items = await getCollectionItems(collection);
+                        discovered += items.length;
+                        return items;
+                    } finally {
+                        completed++;
+                        progress.update(completed, discovered);
                     }
-
-                    console.debug(
-                        `成功获取 ${collection.act_name}(act_id:${collection.act_id}) 的基本信息:`,
-                        detailData.data
-                    );
-                    const lotteries = detailData.data.lottery_list;
-                    let processedLotteries = 0;
-
-                    lotteries.forEach((lottery) => {
-                        console.debug(
-                            `处理详情: ${lottery.lottery_name} (ID: ${lottery.lottery_id})`
-                        );
-                        const item_owned_cnt = lottery.item_owned_cnt;
-                        const item_total_cnt = lottery.item_total_cnt;
-                        const total_sale_amount = lottery.total_sale_amount;
-
-                        const cardDetailUrl = `https://api.bilibili.com/x/vas/dlc_act/lottery_home_detail?act_id=${collection.act_id}&lottery_id=${lottery.lottery_id}`;
-
-                        apiRequest(cardDetailUrl, function (cardData) {
-                            if (!cardData || cardData.code !== 0) {
-                                console.error(
-                                    `获取 ${collection.act_name}(act_id:${collection.act_id}&lottery_id:${lottery.lottery_id}) 的详情失败:`,
-                                    cardData ? cardData.message : "无响应"
-                                );
-                                processedLotteries++;
-                                progressBar.update(processedCollections);
-                                checkLotteryCompletion();
-                                return;
-                            }
-
-                            console.debug(
-                                `成功获取 ${collection.act_name}[${cardData.data.name}](act_id:${collection.act_id}&lottery_id:${lottery.lottery_id}) 的详情:`,
-                                cardData.data
-                            );
-                            collectList.push({
-                                title: detailData.data.act_title,
-                                name: cardData.data.name,
-                                num: collection.card_num,
-                                owned: item_owned_cnt,
-                                total: item_total_cnt,
-                                sale: total_sale_amount,
-                                url: `https://www.bilibili.com/blackboard/activity-Mz9T5bO5Q3.html?id=${collection.act_id}&type=dlc`,
-                                act: detailData.data,
-                                lottery: cardData.data
-                            });
-                            processedLotteries++;
-                            progressBar.update(processedCollections);
-                            checkLotteryCompletion();
-                        });
-
-                        function checkLotteryCompletion() {
-                            if (processedLotteries === lotteries.length) {
-                                processedCollections++;
-                                progressBar.update(processedCollections);
-                                checkCompletion();
-                            }
-                        }
-                    });
                 });
-
-            });
-
-            function checkCompletion() {
-                if (processedCollections === collectionCount) {
-                    console.log("所有收藏已处理。");
-                    console.log("最终收集列表:", collectList);
-
-                    collectList = collectList.filter((collectItem) => collectItem.owned);
-
-                    progressBar.hide();
-                    showResultsDialog(collectList);
-                }
+                state.items = groups.flat();
+                progress.update(completed, discovered);
+            } finally {
+                progress.close();
             }
-        });
+            if (state.items.length === 0) {
+                alert('未找到拥有卡片的卡池，或详情接口暂不可用。');
+                return;
+            }
+            showResultsDialog();
+        } catch (error) {
+            if (error.name !== 'AbortError') {
+                console.error('收藏集检查失败：', error);
+                alert(`收藏集检查失败：${error.message || '请检查网络后重试。'}`);
+            }
+        } finally {
+            state.collecting = false;
+        }
     }
 
-    GM_registerMenuCommand("检查收藏集", collectDigitalCards);
+    GM_registerMenuCommand('检查收藏集', collectDigitalCards);
 })();

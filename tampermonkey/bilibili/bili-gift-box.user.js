@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Bilibili 盲盒统计
 // @namespace    Schwi
-// @version      1.8.3
-// @description  调用 API 来收集自己的 Bilibili 盲盒概率，公示概率和你的概率一致吗？（受API限制，获取的记录大约只有最近2个自然月，本脚本会本地持久化储存记录）
+// @version      2.0.0
+// @description  统计 Bilibili 盲盒概率，支持本地历史合并、收益筛选与公示概率对照
 // @author       Schwi
 // @match        *://*.bilibili.com/*
 // @match        https://gift.shuvi.moe/gifts/*
@@ -34,6 +34,13 @@
     },
     giftInfo: 'https://gift.shuvi.moe/api/blind-gifts'
   };
+  const UI_IDS = {
+    styles: 'bgb-styles',
+    progress: 'bgb-progress-dialog',
+    results: 'bgb-results-dialog'
+  };
+  let collecting = false;
+  let cancelRequested = false;
 
   const FALLBACK_BLIND_GIFTS = [
     {
@@ -226,67 +233,6 @@
     return GM_listValues().map(key => ({ key, gifts: GM_getValue(key, []) }));
   }
 
-  // 工具函数：创建 dialog
-  function createDialog(id, title, content = '') {
-    document.getElementById(id)?.remove();
-    const dialog = document.createElement('div');
-    dialog.id = id;
-    dialog.style.position = 'fixed';
-    dialog.style.top = '5%';
-    dialog.style.left = '5%';
-    dialog.style.width = '90%';
-    dialog.style.height = '90%';
-    dialog.style.backgroundColor = '#fff';
-    dialog.style.border = '1px solid #ccc';
-    dialog.style.boxShadow = '0 0 10px rgba(0,0,0,0.5)';
-    dialog.style.zIndex = '9999';
-    dialog.style.display = 'none';
-    dialog.style.overflow = 'hidden';
-
-    let header = document.createElement('div');
-    header.style.display = 'flex';
-    header.style.justifyContent = 'space-between';
-    header.style.alignItems = 'center';
-    header.style.padding = '10px';
-    header.style.borderBottom = '1px solid #ccc';
-    header.style.backgroundColor = '#f9f9f9';
-
-    let titleElement = document.createElement('span');
-    titleElement.textContent = title;
-    header.appendChild(titleElement);
-
-    let closeButton = document.createElement('button');
-    closeButton.textContent = '关闭';
-    closeButton.style.backgroundColor = '#ff4d4f';
-    closeButton.style.color = '#fff';
-    closeButton.style.border = 'none';
-    closeButton.style.borderRadius = '5px';
-    closeButton.style.cursor = 'pointer';
-    closeButton.style.padding = '5px 10px';
-    closeButton.style.transition = 'background-color 0.3s';
-    closeButton.onmouseover = () => { closeButton.style.backgroundColor = '#d93637'; }
-    closeButton.onmouseout = () => { closeButton.style.backgroundColor = '#ff4d4f'; }
-    closeButton.onclick = () => dialog.remove();
-    header.appendChild(closeButton);
-
-    dialog.appendChild(header);
-
-    const contentArea = document.createElement('div');
-    if (content instanceof Node) {
-      contentArea.appendChild(content);
-    } else {
-      contentArea.textContent = content;
-    }
-    contentArea.style.padding = '10px';
-    contentArea.style.overflowY = 'auto'; // 允许垂直滚动
-    contentArea.style.height = 'calc(100% - 40px)'; // 减去 header 的高度
-    dialog.appendChild(contentArea);
-
-    document.body.appendChild(dialog);
-
-    return { dialog, contentArea };
-  }
-
   // 盲盒数据分组统计函数
   function groupGiftStats(giftList, giftInfo) {
     const groupedGiftStats = new Map();
@@ -325,274 +271,185 @@
     return box && gift ? gift.price - box.price : null;
   }
 
-  // 礼物筛选条件
-  const defaultFilters = {
-    '正收益礼物': {
-      type: 'checkbox', filter: (item, input, giftInfo) => {
-        const profitDelta = getProfitDelta(item, giftInfo);
-        return profitDelta !== null && profitDelta >= 0;
-      }
-    },
-    '负收益礼物': {
-      type: 'checkbox', filter: (item, input, giftInfo) => {
-        const profitDelta = getProfitDelta(item, giftInfo);
-        return profitDelta !== null && profitDelta < 0;
-      }
-    },
-    '搜索': {
-      type: 'text',
-      attribute: { placeholder: '输入主播的完整uid或昵称', list: 'box-search-list', autocomplete: 'off' },
-      filter: (item, searchTerms) => {
-        if (searchTerms.size === 0) return true;
-        const uid = String(item.ruid || '').toUpperCase();
-        const name = String(item.rname || '').toUpperCase();
-        return searchTerms.has(uid) || searchTerms.has(name);
-      }
-    }
-  };
+  function createUiElement(tagName, options = {}) {
+    const node = document.createElement(tagName);
+    if (options.className) node.className = options.className;
+    if (options.text !== undefined) node.textContent = options.text;
+    if (options.attributes) Object.entries(options.attributes).forEach(([name, value]) => node.setAttribute(name, value));
+    return node;
+  }
 
-  // 循环请求盲盒数据
+  function addUiStyles() {
+    if (document.getElementById(UI_IDS.styles)) return;
+    const style = createUiElement('style', { attributes: { id: UI_IDS.styles } });
+    style.textContent = `
+      #${UI_IDS.results},#${UI_IDS.progress}{box-sizing:border-box;font-family:Arial,"Microsoft YaHei",sans-serif;color:#202124}#${UI_IDS.results}{position:fixed;z-index:2147483646;inset:3vh 3vw;display:flex;flex-direction:column;overflow:hidden;background:#f6f8fa;border:1px solid #b9c0c9;border-radius:8px;box-shadow:0 18px 50px rgba(0,0,0,.32)}#${UI_IDS.results} *{box-sizing:border-box}#${UI_IDS.results} .bgb-header{display:flex;align-items:center;min-height:62px;padding:12px 18px;background:#fff;border-bottom:1px solid #d8dee4}#${UI_IDS.results} .bgb-title{margin:0;font-size:18px;font-weight:700}#${UI_IDS.results} .bgb-subtitle{margin:3px 0 0;color:#667085;font-size:12px}#${UI_IDS.results} .bgb-header-actions{display:flex;gap:8px;margin-left:auto}#${UI_IDS.results} button,#${UI_IDS.progress} button{height:34px;padding:0 11px;border:1px solid #aeb7c2;border-radius:4px;background:#fff;color:#25364a;cursor:pointer;font-size:13px}#${UI_IDS.results} button:hover,#${UI_IDS.progress} button:hover{background:#f0f5ff;border-color:#6b96d8}#${UI_IDS.results} .bgb-close{width:34px;padding:0;color:#57606a;font-size:24px;line-height:1}
+      #${UI_IDS.results} .bgb-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:14px 18px 10px;background:#fff}#${UI_IDS.results} .bgb-stat{padding:9px 12px;background:#f6f8fa;border:1px solid #e2e6ea;border-radius:5px}#${UI_IDS.results} .bgb-stat-label{color:#667085;font-size:12px}#${UI_IDS.results} .bgb-stat-value{margin-top:3px;color:#1769aa;font-size:19px;font-weight:700}#${UI_IDS.results} .bgb-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:4px 18px 12px;background:#fff;border-bottom:1px solid #e2e6ea}#${UI_IDS.results} .bgb-search,#${UI_IDS.results} .bgb-select{height:34px;padding:0 10px;border:1px solid #b9c0c9;border-radius:4px;background:#fff;color:#25364a;font-size:13px;outline:0}#${UI_IDS.results} .bgb-search{width:min(280px,100%)}#${UI_IDS.results} .bgb-search:focus,#${UI_IDS.results} .bgb-select:focus{border-color:#00a1d6;box-shadow:0 0 0 2px rgba(0,161,214,.18)}#${UI_IDS.results} .bgb-count{margin-left:auto;color:#667085;font-size:12px;white-space:nowrap}#${UI_IDS.results} .bgb-content{flex:1;min-height:0;overflow:auto;padding:16px 18px 24px}#${UI_IDS.results} .bgb-section{margin-bottom:22px}#${UI_IDS.results} .bgb-section-title{display:flex;align-items:baseline;gap:10px;margin:0 0 8px;font-size:15px}#${UI_IDS.results} .bgb-section-title a{color:#1769aa;text-decoration:none}#${UI_IDS.results} .bgb-section-meta{color:#667085;font-size:12px;font-weight:400}#${UI_IDS.results} table{width:100%;table-layout:fixed;border-collapse:separate;border-spacing:0;font-size:13px;background:#fff}#${UI_IDS.results} th,#${UI_IDS.results} td{padding:8px 10px;overflow:hidden;border-bottom:1px solid #e3e7eb;text-align:left;text-overflow:ellipsis;white-space:nowrap}#${UI_IDS.results} th{background:#f6f8fa;color:#455468;font-size:12px}#${UI_IDS.results} tbody tr:hover{background:#f4f8ff}#${UI_IDS.results} td:nth-child(n+2),#${UI_IDS.results} th:nth-child(n+2){text-align:right}#${UI_IDS.results} td a{color:#1769aa;text-decoration:none}#${UI_IDS.results} .bgb-positive{color:#137333;font-weight:700}#${UI_IDS.results} .bgb-negative{color:#b42318;font-weight:700}#${UI_IDS.results} .bgb-empty{padding:48px 12px;color:#667085;text-align:center}
+      #${UI_IDS.progress}{position:fixed;z-index:2147483647;top:50%;left:50%;width:min(390px,calc(100vw - 32px));padding:20px;transform:translate(-50%,-50%);background:#fff;border:1px solid #d0d7de;border-radius:8px;box-shadow:0 18px 50px rgba(0,0,0,.28)}#${UI_IDS.progress} h2{margin:0 0 8px;font-size:18px}#${UI_IDS.progress} p{margin:0 0 12px;color:#57606a;font-size:13px;line-height:1.5}#${UI_IDS.progress} progress{width:100%;height:8px;margin-bottom:12px;accent-color:#00a1d6}#${UI_IDS.progress} .bgb-progress-actions{display:flex;justify-content:flex-end}@media(max-width:680px){#${UI_IDS.results}{inset:0;border:0;border-radius:0}#${UI_IDS.results} .bgb-header,#${UI_IDS.results} .bgb-summary,#${UI_IDS.results} .bgb-toolbar{padding-left:12px;padding-right:12px}#${UI_IDS.results} .bgb-search{order:1;width:100%}#${UI_IDS.results} .bgb-count{margin-left:0}#${UI_IDS.results} .bgb-content{padding:12px}}
+    `;
+    document.head.appendChild(style);
+  }
+
+  function createCollectionProgress() {
+    document.getElementById(UI_IDS.progress)?.remove();
+    addUiStyles();
+    const dialog = createUiElement('section', { attributes: { id: UI_IDS.progress, role: 'status', 'aria-live': 'polite' } });
+    const title = createUiElement('h2', { text: '正在收集盲盒记录' });
+    const detail = createUiElement('p', { text: '已读取 0 条新记录' });
+    const progress = createUiElement('progress', { attributes: { value: '0', max: '1' } });
+    const status = createUiElement('p', { text: '将与本地历史记录自动去重合并。' });
+    const cancel = createUiElement('button', { text: '取消', attributes: { type: 'button' } });
+    cancel.addEventListener('click', () => { cancelRequested = true; cancel.disabled = true; cancel.textContent = '正在取消'; });
+    const actions = createUiElement('div', { className: 'bgb-progress-actions' });
+    actions.appendChild(cancel);
+    dialog.append(title, detail, progress, status, actions);
+    document.body.appendChild(dialog);
+    return {
+      update(records, page) {
+        detail.textContent = `已读取 ${records.toLocaleString()} 条新记录`;
+        progress.max = Math.max(page, 1);
+        progress.value = page;
+        status.textContent = `已完成第 ${page} 页，正在继续读取可用历史记录。`;
+      },
+      close() { dialog.remove(); }
+    };
+  }
+
+  function createSelect(label, options) {
+    const select = createUiElement('select', { className: 'bgb-select', attributes: { 'aria-label': label } });
+    options.forEach(([value, text]) => select.appendChild(createUiElement('option', { text, attributes: { value } })));
+    return select;
+  }
+
   async function fetchAllBlindBoxes() {
+    if (collecting) return;
+    collecting = true;
+    cancelRequested = false;
+    const progress = createCollectionProgress();
+    const records = [];
     let nextId = 0;
     let month = '';
-    let isMore = 1;
-
-    const allGiftList = [];
-
-    const progressContent = document.createElement('p');
-    progressContent.append('已收集盲盒数：');
-    const collectedCount = document.createElement('span');
-    collectedCount.textContent = '0';
-    progressContent.appendChild(collectedCount);
-    const { dialog: progressDialog } = createDialog('progressDialog', '盲盒数据收集进度', progressContent);
-    progressDialog.style.display = 'block';
-    const userDataRequest = getUserData();
-    const giftInfoRequest = getGiftInfo();
-
+    let isMore = true;
+    let page = 0;
     try {
-      while (isMore) {
+      const [userData, giftInfo] = await Promise.all([getUserData(), getGiftInfo()]);
+      while (isMore && !cancelRequested) {
         const response = await apiRequest(API.blindGiftStream(nextId, month));
-        if (response.code !== 0 || !response.data) {
-          throw new Error(response.message || 'API 返回的数据无效');
-        }
-
+        if (response.code !== 0 || !response.data) throw new Error(response.message || 'API 返回的数据无效');
         const { list = [], params = {} } = response.data;
-        const normalizedList = list.map(({ giftImg, ...gift }) => ({
+        records.push(...list.map(({ giftImg, ...gift }) => ({
           ...gift,
           id: Number(gift.id),
           originalGiftId: Number(gift.originalGiftId),
           giftId: Number(gift.giftId),
           giftNum: Number(gift.giftNum)
-        }));
-        allGiftList.push(...normalizedList);
-        console.log('当前盲盒数据:', normalizedList, params);
+        })));
+        page++;
+        progress.update(records.length, page);
         nextId = params.nextId;
         month = params.month;
         isMore = Boolean(params.isMore);
-        collectedCount.textContent = allGiftList.length;
       }
+      const mergedRecords = saveGiftList(userData.profile.mid, records);
+      showResultsDialog(mergedRecords, giftInfo, cancelRequested ? '查询已取消，以下为已保存的历史统计结果。' : '已合并本次记录与本地历史记录。');
     } catch (error) {
       console.error('盲盒数据请求失败:', error);
+      alert(`盲盒数据收集失败：${error.message || '请检查登录状态和网络。'}`);
     } finally {
-      progressDialog.remove();
+      collecting = false;
+      progress.close();
     }
-
-    // 去重并存储
-    const mergedGiftList = saveGiftList((await userDataRequest).profile.mid, allGiftList);
-    console.log('合并后的盲盒数据:', mergedGiftList);
-
-    // 相关主播列表去重输出
-    const anchorSet = new Map();
-    mergedGiftList.forEach(gift => {
-      if (gift.ruid && gift.rname) {
-        anchorSet.set(gift.ruid, gift.rname);
-      }
-    });
-    console.log('相关主播列表', Array.from(anchorSet, ([uid, name]) => ({ uid, name })));
-
-    document.getElementById('box-search-list')?.remove();
-    const datalist = document.createElement('datalist');
-    datalist.id = 'box-search-list';
-    const fragment = document.createDocumentFragment();
-    for (const [uid, name] of anchorSet.entries()) {
-      const option = document.createElement('option');
-      option.value = `${name} ${uid}`;
-      fragment.appendChild(option);
-    }
-    datalist.appendChild(fragment);
-    document.body.appendChild(datalist);
-
-    const giftInfo = await giftInfoRequest;
-    showResultsDialog(mergedGiftList, giftInfo);
   }
 
-  // 显示结果 dialog，支持筛选
-  function showResultsDialog(allGiftList, giftInfo) {
-    const { dialog, contentArea } = createDialog('resultsDialog', '盲盒统计结果');
+  function showResultsDialog(allGiftList, giftInfo, subtitle = '') {
+    document.getElementById(UI_IDS.results)?.remove();
+    addUiStyles();
+    const dialog = createUiElement('section', { attributes: { id: UI_IDS.results, role: 'dialog', 'aria-modal': 'true', 'aria-label': '盲盒统计结果', tabindex: '-1' } });
+    const header = createUiElement('header', { className: 'bgb-header' });
+    const heading = document.createElement('div');
+    heading.append(createUiElement('h1', { className: 'bgb-title', text: '盲盒统计' }), createUiElement('p', { className: 'bgb-subtitle', text: subtitle }));
+    const headerActions = createUiElement('div', { className: 'bgb-header-actions' });
+    const refresh = createUiElement('button', { text: '重新收集', attributes: { type: 'button' } });
+    refresh.addEventListener('click', () => { dialog.remove(); fetchAllBlindBoxes(); });
+    const close = createUiElement('button', { className: 'bgb-close', text: '×', attributes: { type: 'button', title: '关闭（Esc）', 'aria-label': '关闭' } });
+    close.addEventListener('click', () => dialog.remove());
+    headerActions.append(refresh, close);
+    header.append(heading, headerActions);
+    const totalDraws = allGiftList.reduce((total, item) => total + (Number(item.giftNum) || 0), 0);
+    const groups = groupGiftStats(allGiftList, giftInfo);
+    const summary = createUiElement('div', { className: 'bgb-summary' });
+    [['记录', allGiftList.length], ['总抽数', totalDraws], ['盲盒种类', groups.size]].forEach(([label, value]) => {
+      const stat = createUiElement('div', { className: 'bgb-stat' });
+      stat.append(createUiElement('div', { className: 'bgb-stat-label', text: label }), createUiElement('div', { className: 'bgb-stat-value', text: Number(value).toLocaleString() }));
+      summary.appendChild(stat);
+    });
+    const toolbar = createUiElement('div', { className: 'bgb-toolbar' });
+    const search = createUiElement('input', { className: 'bgb-search', attributes: { type: 'search', placeholder: '搜索主播 UID 或昵称', 'aria-label': '搜索主播 UID 或昵称' } });
+    const profit = createSelect('收益状态', [['all', '收益：全部'], ['positive', '正收益'], ['negative', '负收益'], ['unknown', '未知']]);
+    const box = createSelect('盲盒类型', [['all', '盲盒：全部'], ...[...groups.entries()].map(([id, group]) => [String(id), group.originalGiftName || `盲盒 ${id}`])]);
+    const reset = createUiElement('button', { text: '重置筛选', attributes: { type: 'button' } });
+    const count = createUiElement('span', { className: 'bgb-count' });
+    toolbar.append(search, profit, box, reset, count);
+    const content = createUiElement('main', { className: 'bgb-content' });
+    const empty = createUiElement('div', { className: 'bgb-empty', text: '没有符合筛选条件的记录', attributes: { hidden: '' } });
+    content.appendChild(empty);
+    dialog.append(header, summary, toolbar, content);
+    document.body.appendChild(dialog);
 
-    // 筛选按钮区域
-    let filterButtonsContainer = document.createElement('div');
-    filterButtonsContainer.style.marginBottom = '10px';
-    filterButtonsContainer.style.display = 'flex';
-    filterButtonsContainer.style.flexWrap = 'wrap';
-    filterButtonsContainer.style.gap = '10px';
-    filterButtonsContainer.style.padding = '10px';
-    filterButtonsContainer.style.alignItems = 'center';
-
-    // 生成筛选按钮
-    function createFilterButtons(filters) {
-      let mainContainer = document.createElement('div');
-      mainContainer.style.display = 'flex';
-      mainContainer.style.flexWrap = 'wrap';
-      mainContainer.style.width = '100%';
-      for (let key in filters) {
-        let filter = filters[key];
-        let input = document.createElement('input');
-        input.type = filter.type;
-        input.id = key;
-        input.style.marginRight = '5px';
-        if (filter.type === 'text') {
-          input.style.border = '1px solid #ccc';
-          input.style.padding = '5px';
-          input.style.borderRadius = '5px';
-        }
-        Object.entries(filter.attribute || {}).forEach(([attr, value]) => {
-          input.setAttribute(attr, value);
-        });
-        let label = document.createElement('label');
-        label.htmlFor = key;
-        label.textContent = key;
-        label.style.display = 'flex';
-        label.style.alignItems = 'center';
-        label.style.marginRight = '5px';
-        let container = document.createElement('div');
-        container.style.display = 'flex';
-        container.style.alignItems = 'center';
-        container.style.marginRight = '10px';
-        if (['checkbox', 'radio'].includes(filter.type)) {
-          input.addEventListener('change', () => deal());
-          container.appendChild(input);
-          container.appendChild(label);
-        } else {
-          let timeout;
-          input.addEventListener('input', () => {
-            clearTimeout(timeout);
-            timeout = setTimeout(() => deal(), 500);
-          });
-          container.appendChild(label);
-          container.appendChild(input);
-        }
-        mainContainer.appendChild(container);
-      }
-      return mainContainer;
+    function matches(item) {
+      const term = search.value.trim().toLocaleLowerCase();
+      if (term && !`${item.ruid || ''} ${item.rname || ''}`.toLocaleLowerCase().includes(term)) return false;
+      if (box.value !== 'all' && String(item.originalGiftId) !== box.value) return false;
+      const delta = getProfitDelta(item, giftInfo);
+      if (profit.value === 'positive' && !(delta !== null && delta >= 0)) return false;
+      if (profit.value === 'negative' && !(delta !== null && delta < 0)) return false;
+      if (profit.value === 'unknown' && delta !== null) return false;
+      return true;
     }
-
-    filterButtonsContainer.appendChild(createFilterButtons(defaultFilters));
-    contentArea.appendChild(filterButtonsContainer);
-
-    // 结果区域
-    let resultArea = document.createElement('div');
-    contentArea.appendChild(resultArea);
-
-    // 筛选和重算逻辑
-    function deal() {
-      const enabledFilters = Object.entries(defaultFilters).flatMap(([key, filter]) => {
-        const input = filterButtonsContainer.querySelector(`#${CSS.escape(key)}`);
-        if (filter.type === 'checkbox') {
-          return input.checked ? [{ ...filter, value: true }] : [];
-        }
-        const searchTerms = new Set(input.value.trim().toUpperCase().split(/\s+/).filter(Boolean));
-        return [{ ...filter, value: searchTerms }];
-      });
-      const filteredGiftList = allGiftList.filter(item =>
-        enabledFilters.every(filter => filter.filter(item, filter.value, giftInfo))
-      );
-      renderResult(groupGiftStats(filteredGiftList, giftInfo));
-    }
-
-    // 渲染统计结果
-    function renderResult(groupedGiftStats) {
-      resultArea.replaceChildren();
-      const sortedGroups = Array.from(groupedGiftStats.entries()).sort(([boxIdA], [boxIdB]) => {
-        const indexA = giftInfo.boxOrderById.get(boxIdA) ?? Number.MAX_SAFE_INTEGER;
-        const indexB = giftInfo.boxOrderById.get(boxIdB) ?? Number.MAX_SAFE_INTEGER;
-        return indexA - indexB || boxIdA - boxIdB;
-      });
-
-      sortedGroups.forEach(([originalGiftId, group]) => {
-        const title = document.createElement('h2');
-        const titleLink = document.createElement('a');
-        titleLink.href = `https://gift.shuvi.moe/gifts/${originalGiftId}`;
-        titleLink.textContent = `${group.originalGiftName} (总抽数: ${group.totalCount})`;
-        titleLink.target = '_blank';
-        titleLink.rel = 'noopener noreferrer';
-        title.appendChild(titleLink);
-        title.style.marginTop = '20px';
-        resultArea.appendChild(title);
-
+    function render() {
+      const filtered = allGiftList.filter(matches);
+      const stats = groupGiftStats(filtered, giftInfo);
+      const filteredDraws = filtered.reduce((total, item) => total + (Number(item.giftNum) || 0), 0);
+      count.textContent = `显示 ${filteredDraws.toLocaleString()} / ${totalDraws.toLocaleString()} 抽 · ${stats.size} 种盲盒`;
+      content.replaceChildren(empty);
+      empty.hidden = stats.size > 0;
+      const sortedGroups = [...stats.entries()].sort(([firstId], [secondId]) => (giftInfo.boxOrderById.get(firstId) ?? Number.MAX_SAFE_INTEGER) - (giftInfo.boxOrderById.get(secondId) ?? Number.MAX_SAFE_INTEGER) || firstId - secondId);
+      sortedGroups.forEach(([boxId, group]) => {
+        const section = createUiElement('section', { className: 'bgb-section' });
+        const title = createUiElement('h2', { className: 'bgb-section-title' });
+        const link = createUiElement('a', { text: group.originalGiftName || `盲盒 ${boxId}`, attributes: { href: `https://gift.shuvi.moe/gifts/${boxId}`, target: '_blank', rel: 'noopener noreferrer' } });
+        title.append(link, createUiElement('span', { className: 'bgb-section-meta', text: `共 ${group.totalCount.toLocaleString()} 抽` }));
         const table = document.createElement('table');
-        table.style.width = '100%';
-        table.style.borderCollapse = 'collapse';
-        table.style.margin = '10px 0';
-
-        const headerRow = table.createTHead().insertRow();
-        ['礼物名称', '数量', '你的概率', null].forEach((headerText, index) => {
-          const th = document.createElement('th');
-          if (index === 3) {
-            const link = document.createElement('a');
-            link.href = `https://gift.shuvi.moe/gifts/${originalGiftId}`;
-            link.textContent = '公示概率 (取基础概率，点击查看完整概率)';
-            link.target = '_blank';
-            link.rel = 'noopener noreferrer';
-            th.appendChild(link);
-          } else {
-            th.textContent = headerText;
-          }
-          th.style.padding = '8px';
-          th.style.border = '1px solid #ddd';
-          th.style.textAlign = 'left';
-          headerRow.appendChild(th);
+        const columns = document.createElement('colgroup');
+        ['36%', '16%', '16%', '16%', '16%'].forEach(width => {
+          columns.appendChild(createUiElement('col', { attributes: { style: `width:${width}` } }));
         });
-
-        const boxInfo = giftInfo.boxById.get(originalGiftId);
-        const giftOrderById = new Map(boxInfo?.gifts.map((gift, index) => [gift.id, index]));
-        const sortedGifts = Array.from(group.gifts.entries()).sort(([giftIdA], [giftIdB]) => {
-          const indexA = giftOrderById.get(giftIdA) ?? Number.MAX_SAFE_INTEGER;
-          const indexB = giftOrderById.get(giftIdB) ?? Number.MAX_SAFE_INTEGER;
-          return indexA - indexB || giftIdA - giftIdB;
+        table.appendChild(columns);
+        const head = table.createTHead().insertRow();
+        ['礼物', '数量', '你的概率', '公示概率', '收益'].forEach(label => head.appendChild(createUiElement('th', { text: label })));
+        const order = new Map(giftInfo.boxById.get(boxId)?.gifts.map((gift, index) => [gift.id, index]));
+        const body = table.createTBody();
+        [...group.gifts.entries()].sort(([firstId], [secondId]) => (order.get(firstId) ?? Number.MAX_SAFE_INTEGER) - (order.get(secondId) ?? Number.MAX_SAFE_INTEGER) || firstId - secondId).forEach(([giftId, gift]) => {
+          const row = body.insertRow();
+          const giftData = giftInfo.resolveGift(boxId, giftId).gift;
+          const official = giftData?.percentage?.[0];
+          const delta = giftData ? giftData.price - (giftInfo.boxById.get(boxId)?.price || 0) : null;
+          const nameCell = row.insertCell();
+          nameCell.appendChild(createUiElement('a', { text: gift.giftName, attributes: { href: `https://gift.shuvi.moe/gifts/${giftId}`, target: '_blank', rel: 'noopener noreferrer' } }));
+          [gift.count.toLocaleString(), `${(gift.count / group.totalCount * 100).toFixed(2)}%`, Number.isFinite(official) ? `${official}%` : 'N/A'].forEach(value => row.insertCell().textContent = value);
+          const profitCell = row.insertCell();
+          profitCell.textContent = delta === null ? '未知' : `${delta >= 0 ? '+' : ''}${delta}`;
+          profitCell.className = delta === null ? '' : (delta >= 0 ? 'bgb-positive' : 'bgb-negative');
         });
-        const tbody = table.createTBody();
-
-        sortedGifts.forEach(([giftId, gift]) => {
-          const row = tbody.insertRow();
-          const cells = Array.from({ length: 4 }, () => row.insertCell());
-          const giftLink = document.createElement('a');
-          giftLink.href = `https://gift.shuvi.moe/gifts/${giftId}`;
-          giftLink.textContent = gift.giftName;
-          giftLink.target = '_blank';
-          giftLink.rel = 'noopener noreferrer';
-          cells[0].appendChild(giftLink);
-          cells[1].textContent = gift.count;
-          cells[2].textContent = group.totalCount > 0
-            ? `${(gift.count / group.totalCount * 100).toFixed(2)}%`
-            : '0%';
-
-          const officialPercentage = giftInfo.resolveGift(originalGiftId, giftId).gift?.percentage?.[0];
-          cells[3].textContent = Number.isFinite(officialPercentage) ? `${officialPercentage}%` : 'N/A';
-          cells.forEach(cell => {
-            cell.style.padding = '8px';
-            cell.style.border = '1px solid #ddd';
-            cell.style.textAlign = 'left';
-          });
-        });
-
-        resultArea.appendChild(table);
+        section.append(title, table);
+        content.appendChild(section);
       });
     }
-
-    deal();
-
-    dialog.style.display = 'block';
+    [search, profit, box].forEach(control => control.addEventListener(control === search ? 'input' : 'change', render));
+    reset.addEventListener('click', () => { search.value = ''; profit.value = 'all'; box.value = 'all'; render(); });
+    dialog.addEventListener('keydown', event => { if (event.key === 'Escape') dialog.remove(); });
+    render();
+    dialog.focus();
   }
 
   // 注册菜单项

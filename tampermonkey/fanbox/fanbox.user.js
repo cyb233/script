@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      4.6.2
-// @description  快速下载你赞助的fanbox用户的所有投稿
+// @version      4.7.0
+// @description  查询并下载你赞助的 fanbox 用户投稿，支持限定查询数量
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
 // @icon         https://s.pximg.net/common/images/fanbox/favicon.ico
@@ -25,6 +25,7 @@
 
     const DEFAULT_PATH_FORMAT = '{postId}_{title}/{filename}';
     const PATH_FORMAT_STORAGE_KEY = 'pathFormat';
+    const QUERY_LIMIT_STORAGE_KEY = 'queryLimit';
     const REQUEST_OPTIONS = { credentials: 'include' };
     const MAX_DOWNLOAD_ATTEMPTS = 3;
 
@@ -67,11 +68,21 @@
     const state = {
         posts: [],
         planCounts: {},
-        creatorInfo: null
+        creatorInfo: null,
+        queryLimit: null,
+        hasLoadedPosts: false,
+        postsCreatorId: null
     };
 
     const sleep = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
     const formatSize = size => filesize.filesize(size, { base: 2 });
+
+    function normalizeQueryLimit(value) {
+        const normalizedValue = String(value ?? '').trim();
+        if (!normalizedValue) return null;
+        const limit = Number(normalizedValue);
+        return Number.isSafeInteger(limit) && limit > 0 ? limit : null;
+    }
 
     function applyStyles(element, styles) {
         Object.assign(element.style, styles);
@@ -156,6 +167,7 @@
                 }
                 return data;
             } catch (error) {
+                if (error?.name === 'AbortError') throw error;
                 console.error(
                     `Request to ${url} failed on attempt ${attempt + 1}/${maxRetries}:`,
                     getErrorMessage(error)
@@ -268,25 +280,27 @@
         return planCounts;
     }
 
-    async function fetchAllPosts(progressBar) {
+    async function fetchAllPosts(progressBar, queryLimit, signal) {
         const { creatorId } = await getCreatorInfo();
-        const planResponse = await fetchJsonWithRetry(API.plans(creatorId), REQUEST_OPTIONS);
+        const requestOptions = { ...REQUEST_OPTIONS, signal };
+        const planResponse = await fetchJsonWithRetry(API.plans(creatorId), requestOptions);
         const plans = planResponse.body.plans;
         const subscribedPlans = plans.filter(plan => plan.paymentMethod);
         const userFee = subscribedPlans.length === 0 ? 0 : subscribedPlans[0].fee;
         const planCounts = createPlanCounts(plans, userFee);
 
-        const listResponse = await fetchJsonWithRetry(API.creatorPosts(creatorId), REQUEST_OPTIONS);
+        const listResponse = await fetchJsonWithRetry(API.creatorPosts(creatorId), requestOptions);
         let nextPostId = listResponse.body.posts[0]?.id;
         const posts = [];
         let requestedCount = 0;
+        let accessibleCount = 0;
 
-        while (nextPostId) {
+        while (nextPostId && (queryLimit === null || requestedCount < queryLimit)) {
             requestedCount += 1;
             console.log(`请求第${requestedCount}个, Post ID: ${nextPostId}`);
             const response = await fetchJsonWithRetry(
                 API.post(nextPostId),
-                REQUEST_OPTIONS,
+                requestOptions,
                 5,
                 2000,
                 true
@@ -308,18 +322,26 @@
                 );
             }
 
-            if (post.body) {
+            post.isAccessible = minimumFee <= userFee && Boolean(post.body);
+            if (post.isAccessible) {
+                accessibleCount += 1;
                 planCounts['-1'].count += 1;
                 normalizePost(post, nextPostId);
-                posts.push(post);
             }
+            posts.push(post);
 
-            progressBar.update(posts.length, requestedCount);
+            progressBar.update({
+                requested: requestedCount,
+                accessible: accessibleCount,
+                inaccessible: requestedCount - accessibleCount
+            });
             nextPostId = post.prevPost?.id;
         }
 
+        if (queryLimit !== null && requestedCount === queryLimit && nextPostId) {
+            console.info(`查询达到上限 ${queryLimit}，停止继续请求。`);
+        }
         console.log(`共${posts.length}个作品`, posts);
-        progressBar.close();
         return { posts, planCounts };
     }
 
@@ -922,74 +944,184 @@
         return `${hours > 0 ? `${hours}小时` : ''}${minutes > 0 || hours > 0 ? `${minutes}分钟` : ''}${seconds}秒`;
     }
 
-    function createPostFetchProgress() {
-        const element = createElement('div', {
-            text: '已获取 0/0 个投稿',
+    function createPostFetchProgress(queryLimit, onCancel) {
+        const progress = createElement('aside', {
             styles: {
                 position: 'fixed',
-                bottom: '10px',
-                left: '10px',
-                backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                color: 'white',
-                padding: '5px 10px',
-                borderRadius: '5px'
+                right: '20px',
+                bottom: '20px',
+                zIndex: '2147483641',
+                width: 'min(360px, calc(100vw - 32px))',
+                padding: '14px 16px',
+                backgroundColor: '#202124',
+                color: '#fff',
+                borderRadius: '6px',
+                boxShadow: '0 10px 28px rgba(0, 0, 0, 0.28)',
+                fontFamily: 'Arial, Microsoft YaHei, sans-serif'
             }
         });
-        document.body.appendChild(element);
+        const copy = createElement('div', { styles: { flexGrow: '1', minWidth: '0' } });
+        const title = createElement('div', { text: '正在查询投稿', styles: { fontWeight: '700', fontSize: '14px' } });
+        const detail = createElement('div', {
+            text: `已查询 0/${queryLimit ?? '不限'} 篇 · 可见 0 · 不可见 0`,
+            styles: { marginTop: '4px', color: '#c7cbd1', fontSize: '12px' }
+        });
+        const cancel = createButton('取消', {
+            color: 'transparent',
+            hoverColor: '#3b4047',
+            styles: { border: '1px solid #72777d', flexShrink: '0' },
+            onClick: onCancel
+        });
+        const row = createElement('div', { styles: { display: 'flex', alignItems: 'center', gap: '12px' } });
+        appendChildren(copy, title, detail);
+        appendChildren(row, copy, cancel);
+        progress.appendChild(row);
+        document.body.appendChild(progress);
         return {
-            update(visible, requested) {
-                element.innerText = `已获取 ${visible}/${requested} 个投稿`;
+            update({ requested, accessible, inaccessible }) {
+                detail.innerText = `已查询 ${requested}/${queryLimit ?? '不限'} 篇 · 可见 ${accessible} · 不可见 ${inaccessible}`;
             },
             close() {
-                removeElement(element);
+                removeElement(progress);
             }
         };
     }
 
+    function createQuerySettingsDialog(forceRefresh = false) {
+        document.getElementById('fanbox-query-settings')?.remove();
+        const dialog = createElement('form', {
+            styles: {
+                position: 'fixed',
+                zIndex: '2147483642',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: 'min(420px, calc(100vw - 32px))',
+                padding: '20px',
+                backgroundColor: '#fff',
+                border: '1px solid #d0d7de',
+                borderRadius: '8px',
+                boxShadow: '0 18px 50px rgba(0, 0, 0, 0.28)',
+                fontFamily: 'Arial, Microsoft YaHei, sans-serif'
+            }
+        });
+        dialog.id = 'fanbox-query-settings';
+        const title = createElement('h2', { text: '查询投稿', styles: { margin: '0 0 6px', fontSize: '18px' } });
+        const description = createElement('p', {
+            text: '可按需限制本次查询的最新投稿数量。留空将查询全部可追溯投稿。',
+            styles: { margin: '0 0 18px', color: '#667085', fontSize: '13px', lineHeight: '1.5' }
+        });
+        const label = createElement('label', {
+            text: '最大查询投稿数',
+            styles: { display: 'block', marginBottom: '6px', color: '#344054', fontSize: '13px', fontWeight: '700' }
+        });
+        const input = createElement('input', {
+            styles: { width: '260px', maxWidth: '100%', boxSizing: 'border-box', height: '36px', padding: '0 10px', border: '1px solid #b9c0c9', borderRadius: '4px', fontSize: '14px' }
+        });
+        input.type = 'number';
+        input.min = '1';
+        input.step = '1';
+        input.inputMode = 'numeric';
+        input.placeholder = '留空为不限制';
+        input.value = GM_getValue(QUERY_LIMIT_STORAGE_KEY, '');
+        const hint = createElement('p', { styles: { minHeight: '18px', margin: '6px 0 16px', color: '#667085', fontSize: '12px' } });
+        const actions = createElement('div', { styles: { display: 'flex', justifyContent: 'flex-end', gap: '8px' } });
+        const cancel = createButton('取消', {
+            color: '#fff',
+            hoverColor: '#f2f4f7',
+            styles: { color: '#344054', border: '1px solid #aeb7c2' },
+            onClick: () => removeElement(dialog)
+        });
+        cancel.type = 'button';
+        const submit = createButton(forceRefresh ? '重新获取' : '开始查询', { styles: { padding: '6px 14px' } });
+        appendChildren(actions, cancel, submit);
+        appendChildren(dialog, title, description, label, input, hint, actions);
+        dialog.addEventListener('submit', event => {
+            event.preventDefault();
+            const value = input.value.trim();
+            const queryLimit = normalizeQueryLimit(value);
+            if (value && queryLimit === null) {
+                hint.innerText = '请输入大于 0 的整数，或清空输入框以不限制。';
+                hint.style.color = COLORS.danger;
+                input.focus();
+                return;
+            }
+            GM_setValue(QUERY_LIMIT_STORAGE_KEY, value);
+            removeElement(dialog);
+            main({ queryLimit, forceRefresh });
+        });
+        document.body.appendChild(dialog);
+        input.focus();
+    }
+
+    function updatePostVisibility(dialog) {
+        const query = dialog.dataset.searchQuery || '';
+        let visible = 0;
+        dialog.querySelectorAll('.post-element').forEach(card => {
+            const isInaccessible = card.dataset.accessible !== 'true';
+            const matchesSearch = !query || card.dataset.search.includes(query);
+            const shouldHide = !matchesSearch || (isInaccessible && dialog.dataset.showInaccessible !== 'true');
+            card.hidden = shouldHide;
+            card.style.display = shouldHide ? 'none' : 'flex';
+            card.setAttribute('aria-hidden', String(shouldHide));
+            if (!shouldHide) visible += 1;
+        });
+        const searchCount = dialog.querySelector('.fanbox-search-count');
+        if (searchCount) searchCount.innerText = query ? `匹配 ${visible} 项` : `${visible} 项`;
+        return visible;
+    }
+
     function createResultDialog(posts, planCounts) {
         const totalPosts = planCounts['-2'].count;
+        const accessiblePosts = posts.filter(post => post.isAccessible).length;
+        const queriedLabel = state.queryLimit === null
+            ? `已查询 ${totalPosts} 篇`
+            : `已查询 ${totalPosts}/${state.queryLimit} 篇`;
         const dialog = createElement('div', {
             styles: {
                 position: 'fixed',
-                top: '5%',
-                left: '5%',
-                width: '90%',
-                height: '90%',
-                backgroundColor: 'white',
-                zIndex: '1000',
-                padding: '20px',
-                boxShadow: '0 0 10px rgba(0, 0, 0, 0.5)',
+                inset: '3vh 3vw',
+                backgroundColor: '#f6f8fa',
+                zIndex: '2147483640',
+                border: '1px solid #b9c0c9',
+                borderRadius: '8px',
+                boxShadow: '0 18px 50px rgba(0, 0, 0, 0.32)',
                 display: 'flex',
                 flexDirection: 'column',
-                fontFamily: 'Arial, sans-serif'
+                overflow: 'hidden',
+                fontFamily: 'Arial, Microsoft YaHei, sans-serif'
             }
         });
 
         const title = createElement('h2', {
-            text: `投稿查询结果 0/${posts.length}/${totalPosts}`,
-            styles: { margin: '0' }
+            text: `投稿查询结果 0/${accessiblePosts} 可下载 · ${queriedLabel}`,
+            styles: { margin: '0', fontSize: '18px' }
         });
         const header = createResultHeader(dialog, title);
+        dialog.dataset.searchQuery = '';
+        dialog.dataset.showInaccessible = 'false';
         const planSummary = createPlanSummary(dialog, posts, planCounts, updateTitle);
         const controls = createResultControls(dialog, posts, updateTitle);
         const content = createElement('div', {
             styles: {
                 display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
-                gap: '20px',
-                padding: '20px',
+                gap: '12px',
+                padding: '16px 20px 22px',
                 flexGrow: '1',
-                overflowY: 'auto'
+                overflowY: 'auto',
+                alignContent: 'start'
             }
         });
 
         posts.forEach((post, index) => content.appendChild(createPostCard(post, index, updateTitle)));
         appendChildren(dialog, header, planSummary, controls, content);
         document.body.appendChild(dialog);
+        updatePostVisibility(dialog);
 
         function updateTitle() {
-            const selectedCount = dialog.querySelectorAll('input[type="checkbox"]:checked').length;
-            title.innerText = `投稿查询结果 ${selectedCount}/${posts.length}/${totalPosts}`;
+            const selectedCount = dialog.querySelectorAll('.post-element input[type="checkbox"]:checked').length;
+            title.innerText = `投稿查询结果 ${selectedCount}/${accessiblePosts} 可下载 · ${queriedLabel}`;
         }
     }
 
@@ -999,16 +1131,16 @@
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                paddingBottom: '20px',
-                fontSize: '18px'
+                padding: '14px 20px',
+                backgroundColor: '#fff',
+                borderBottom: '1px solid #d8dee4'
             }
         });
         const buttonGroup = createElement('div', { styles: { display: 'flex', gap: '10px' } });
         const refreshButton = createButton('重新获取', {
             onClick: async () => {
                 removeElement(dialog);
-                state.posts.length = 0;
-                await main();
+                createQuerySettingsDialog(true);
             }
         });
         const closeButton = createButton('关闭', {
@@ -1034,25 +1166,41 @@
             .join(' | ');
         const summary = createElement('p', {
             html: `各档位投稿数量: ${summaryHtml}`,
-            styles: { marginBottom: '20px' }
+            styles: { margin: '0', padding: '10px 20px', backgroundColor: '#fff', borderBottom: '1px solid #e2e6ea', fontSize: '13px' }
         });
+        const inaccessibleCount = posts.filter(post => !post.isAccessible).length;
+        if (inaccessibleCount > 0) {
+            const unavailableLabel = createElement('label', {
+                styles: { display: 'inline-flex', alignItems: 'center', marginLeft: '12px', paddingLeft: '12px', borderLeft: '1px solid #d0d7de', color: '#667085', cursor: 'pointer' }
+            });
+            const unavailableToggle = createElement('input', { styles: { margin: '0 6px 0 0' } });
+            unavailableToggle.type = 'checkbox';
+            unavailableToggle.addEventListener('change', () => {
+                dialog.dataset.showInaccessible = unavailableToggle.checked ? 'true' : 'false';
+                updatePostVisibility(dialog);
+            });
+            appendChildren(unavailableLabel, unavailableToggle, document.createTextNode(`显示不可见投稿 (${inaccessibleCount})`));
+            summary.appendChild(unavailableLabel);
+        }
 
         summary.addEventListener('click', event => {
             if (!event.target.classList.contains('plan-fee-btn')) return;
             const fee = Number(event.target.dataset.fee);
-            const checkboxes = dialog.querySelectorAll('input[type="checkbox"]');
+            const checkboxes = dialog.querySelectorAll('.post-element input[type="checkbox"]');
             const postElements = dialog.querySelectorAll('.post-element');
             let allChecked = true;
 
             checkboxes.forEach(checkbox => {
+                if (checkbox.disabled) return;
                 if (posts[checkbox.dataset.index].minFeeRequired === fee && !checkbox.checked) {
                     allChecked = false;
                 }
             });
             checkboxes.forEach((checkbox, index) => {
+                if (checkbox.disabled) return;
                 if (posts[checkbox.dataset.index].minFeeRequired !== fee) return;
                 checkbox.checked = !allChecked;
-                postElements[index].style.backgroundColor = checkbox.checked ? 'lightblue' : 'white';
+                postElements[index].style.backgroundColor = checkbox.checked ? '#eaf2ff' : '#fff';
             });
             updateTitle();
         });
@@ -1065,29 +1213,45 @@
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                marginBottom: '20px'
+                gap: '12px',
+                flexWrap: 'wrap',
+                padding: '10px 20px',
+                backgroundColor: '#fff',
+                borderBottom: '1px solid #e2e6ea'
             }
         });
         const leftControls = createElement('div', {
-            styles: { display: 'flex', alignItems: 'center' }
+            styles: { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }
         });
-        const selectAllButton = createButton('全选', { styles: { marginRight: '10px' } });
+        const search = createElement('input', {
+            styles: { width: '210px', height: '34px', padding: '0 10px', border: '1px solid #b9c0c9', borderRadius: '4px', fontSize: '13px' }
+        });
+        search.type = 'search';
+        search.placeholder = '搜索投稿标题或内容';
+        const accessibleCount = posts.filter(post => post.isAccessible).length;
+        const searchCount = createElement('span', { className: 'fanbox-search-count', text: `${accessibleCount} 项`, styles: { color: '#667085', fontSize: '12px' } });
+        search.addEventListener('input', () => {
+            dialog.dataset.searchQuery = search.value.trim().toLocaleLowerCase();
+            updatePostVisibility(dialog);
+        });
+        const selectAllButton = createButton('全选可见');
         selectAllButton.onclick = () => {
-            const shouldSelect = !selectAllButton.classList.contains('deselect');
-            const checkboxes = dialog.querySelectorAll('input[type="checkbox"]');
-            const postElements = dialog.querySelectorAll('.post-element');
-            checkboxes.forEach((checkbox, index) => {
+            const postElements = [...dialog.querySelectorAll('.post-element')]
+                .filter(card => !card.hidden && !card.querySelector('input[type="checkbox"]').disabled);
+            const shouldSelect = postElements.some(card => !card.querySelector('input[type="checkbox"]').checked);
+            postElements.forEach(card => {
+                const checkbox = card.querySelector('input[type="checkbox"]');
                 checkbox.checked = shouldSelect;
-                postElements[index].style.backgroundColor = shouldSelect ? 'lightblue' : 'white';
+                card.style.backgroundColor = shouldSelect ? '#eaf2ff' : '#fff';
             });
-            selectAllButton.classList.toggle('deselect');
+            selectAllButton.innerText = shouldSelect ? '取消全选可见' : '全选可见';
             updateTitle();
         };
 
-        const downloadButton = createButton('下载', {
+        const downloadButton = createButton('下载选中', {
             onClick: async () => {
                 const selectedPosts = Array.from(
-                    dialog.querySelectorAll('input[type="checkbox"]:checked'),
+                    dialog.querySelectorAll('.post-element input[type="checkbox"]:checked'),
                     checkbox => posts[checkbox.dataset.index]
                 );
                 if (selectedPosts.length === 0) {
@@ -1098,7 +1262,7 @@
                 await downloadPosts(selectedPosts, pathFormat).catch(error => console.error(error));
             }
         });
-        appendChildren(leftControls, selectAllButton, downloadButton);
+        appendChildren(leftControls, search, searchCount, selectAllButton, downloadButton);
 
         const rightControls = createPathFormatControls();
         return appendChildren(controls, leftControls, rightControls);
@@ -1131,58 +1295,77 @@
     }
 
     function createPostCard(post, index, updateTitle) {
+        const isAccessible = post.isAccessible;
         const card = createElement('div', {
             className: 'post-element',
             styles: {
-                border: '1px solid #ccc',
-                padding: '10px',
-                borderRadius: '10px',
+                border: isAccessible ? '1px solid #d8dee4' : '1px dashed #c8ced6',
+                padding: '12px',
+                borderRadius: '6px',
+                backgroundColor: isAccessible ? '#fff' : '#f2f4f7',
+                color: isAccessible ? '#202124' : '#98a2b3',
                 display: 'flex',
                 flexDirection: 'column',
-                alignItems: 'center',
+                alignItems: 'stretch',
                 justifyContent: 'space-between',
-                height: '250px',
-                boxShadow: '0 2px 5px rgba(0, 0, 0, 0.1)',
-                transition: 'transform 0.2s'
+                height: '270px',
+                boxShadow: isAccessible ? '0 1px 2px rgba(0, 0, 0, 0.05)' : 'none',
+                transition: 'border-color 0.2s, box-shadow 0.2s'
             }
         });
-        card.onmouseover = () => { card.style.transform = 'scale(1.05)'; };
-        card.onmouseout = () => { card.style.transform = 'scale(1)'; };
+        card.dataset.accessible = String(isAccessible);
+        card.hidden = !isAccessible;
+        card.dataset.search = `${post.title} ${POST_TYPES[post.type]?.name || post.type} ${getPostPreviewText(post)}`.toLocaleLowerCase();
+        if (isAccessible) {
+            card.onmouseover = () => { card.style.borderColor = '#6b96d8'; card.style.boxShadow = '0 4px 12px rgba(31, 111, 235, 0.14)'; };
+            card.onmouseout = () => { card.style.borderColor = '#d8dee4'; card.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.05)'; };
+        }
 
-        const checkbox = createElement('input', { styles: { marginBottom: '10px' } });
+        const checkbox = createElement('input', { styles: { alignSelf: 'flex-end', marginBottom: '8px' } });
         checkbox.type = 'checkbox';
         checkbox.dataset.index = index;
+        checkbox.disabled = !isAccessible;
+        if (!isAccessible) checkbox.title = '当前投稿不可见，不能选择下载';
+        const updateSelection = () => {
+            if (!isAccessible) return;
+            card.style.backgroundColor = checkbox.checked ? '#eaf2ff' : '#fff';
+            updateTitle();
+        };
+        checkbox.addEventListener('click', event => event.stopPropagation());
+        checkbox.addEventListener('change', updateSelection);
 
         const title = createSingleLineText('h3', post.title, {
             margin: '0',
             fontSize: '16px',
-            minHeight: '20px'
+            minHeight: '20px',
+            color: isAccessible ? '#202124' : '#667085'
         });
         const type = createSingleLineText(
             'p',
             `${POST_TYPES[post.type]?.name || post.type} · ${post.minFeeRequired} 日元`,
-            { margin: '0', fontSize: '14px', color: '#555', minHeight: '15px' }
+            { margin: '0', fontSize: '14px', color: isAccessible ? '#555' : '#98a2b3', minHeight: '15px' }
         );
 
-        const images = post.body.images || [];
-        const files = post.body.files || [];
-        const coverCount = post.body.cover ? 1 : 0;
+        const body = post.body || {};
+        const images = body.images || [];
+        const files = body.files || [];
+        const coverCount = body.cover ? 1 : 0;
         const mediaCount = createSingleLineText(
             'p',
             `${images.length} 张图片 | ${files.length} 个文件 | ${coverCount} 个封面`,
-            { margin: '0', fontSize: '14px', color: '#555', minHeight: '15px' }
+            { margin: '0', fontSize: '14px', color: isAccessible ? '#555' : '#98a2b3', minHeight: '15px' }
         );
         const publishTime = createSingleLineText(
             'p',
             `发布时间：${new Date(post.publishedDatetime).toLocaleString()}`,
-            { margin: '0', fontSize: '14px', color: '#555', minHeight: '15px' }
+            { margin: '0', fontSize: '14px', color: isAccessible ? '#555' : '#98a2b3', minHeight: '15px' }
         );
         const text = createElement('div', {
-            text: getPostPreviewText(post),
+            text: isAccessible ? getPostPreviewText(post) : '当前档位不可见，无法选择下载。',
             styles: {
                 marginTop: '10px',
                 fontSize: '14px',
-                color: '#333',
+                color: isAccessible ? '#333' : '#98a2b3',
                 overflowY: 'auto',
                 overflowX: 'hidden',
                 wordBreak: 'break-all',
@@ -1199,9 +1382,9 @@
         });
 
         card.onclick = () => {
+            if (!isAccessible) return;
             checkbox.checked = !checkbox.checked;
-            card.style.backgroundColor = checkbox.checked ? 'lightblue' : 'white';
-            updateTitle();
+            updateSelection();
         };
         return appendChildren(card, checkbox, title, type, mediaCount, publishTime, text, viewButton);
     }
@@ -1222,34 +1405,44 @@
     }
 
     function getPostPreviewText(post) {
+        if (!post.body) return '';
         if (post.body.text) return post.body.text;
         if (!post.body.html) return '';
         const documentFromHtml = new DOMParser().parseFromString(post.body.html, 'text/html');
         return documentFromHtml.body.innerText;
     }
 
-    async function main() {
+    async function main({ queryLimit = null, forceRefresh = false } = {}) {
         try {
-            const cachedCreatorId = state.creatorInfo?.creatorId;
             const currentCreator = await getCreatorInfo(true);
-            if (state.posts.length === 0 || cachedCreatorId !== currentCreator.creatorId) {
-                const progressBar = createPostFetchProgress();
-                const result = await fetchAllPosts(progressBar);
-                if (!result) {
-                    console.error('Failed to get posts. Aborting.');
-                    alert('获取投稿失败，请查看控制台获取更多信息。');
+            const shouldFetch = forceRefresh
+                || !state.hasLoadedPosts
+                || state.postsCreatorId !== currentCreator.creatorId
+                || state.queryLimit !== queryLimit;
+            if (shouldFetch) {
+                const controller = new AbortController();
+                const progressBar = createPostFetchProgress(queryLimit, () => controller.abort());
+                try {
+                    const result = await fetchAllPosts(progressBar, queryLimit, controller.signal);
+                    state.posts = result.posts;
+                    state.planCounts = result.planCounts;
+                    state.queryLimit = queryLimit;
+                    state.hasLoadedPosts = true;
+                    state.postsCreatorId = currentCreator.creatorId;
+                } finally {
                     progressBar.close();
-                    return;
                 }
-                state.posts = result.posts;
-                state.planCounts = result.planCounts;
             }
             createResultDialog(state.posts, state.planCounts);
         } catch (error) {
+            if (error?.name === 'AbortError') {
+                console.info('Post query cancelled');
+                return;
+            }
             console.error('An error occurred in the main process:', error);
             alert(`脚本运行出错: ${getErrorMessage(error)}\n请检查控制台以获取详细信息。`);
         }
     }
 
-    GM_registerMenuCommand('查询投稿', main);
+    GM_registerMenuCommand('查询投稿', () => createQuerySettingsDialog());
 }());
