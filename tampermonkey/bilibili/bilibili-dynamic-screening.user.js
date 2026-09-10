@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 动态筛选
 // @namespace    Schwi
-// @version      4.0.1
+// @version      4.0.2
 // @description  按时间收集、筛选和浏览 Bilibili 动态
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -18,7 +18,7 @@
     'use strict';
     const IDS = { styles: 'bds-styles', task: 'bds-task', progress: 'bds-progress', results: 'bds-results', rules: 'bds-rules' };
     const TYPE_NAMES = {
-        DYNAMIC_TYPE_NONE: '动态失效', DYNAMIC_TYPE_AV: '视频', DYNAMIC_TYPE_PGC: '剧集', DYNAMIC_TYPE_COURSES: '课程', DYNAMIC_TYPE_WORD: '文本', DYNAMIC_TYPE_DRAW: '图文', DYNAMIC_TYPE_ARTICLE: '专栏', DYNAMIC_TYPE_MUSIC: '音乐', DYNAMIC_TYPE_COMMON_SQUARE: '卡片', DYNAMIC_TYPE_COMMON_VERTICAL: '竖屏', DYNAMIC_TYPE_LIVE: '直播', DYNAMIC_TYPE_MEDIALIST: '收藏夹', DYNAMIC_TYPE_COURSES_SEASON: '课程合集', DYNAMIC_TYPE_COURSES_BATCH: '课程批次', DYNAMIC_TYPE_AD: '广告', DYNAMIC_TYPE_APPLET: '小程序', DYNAMIC_TYPE_SUBSCRIPTION: '订阅', DYNAMIC_TYPE_LIVE_RCMD: '直播推荐', DYNAMIC_TYPE_BANNER: '横幅', DYNAMIC_TYPE_UGC_SEASON: '合集', DYNAMIC_TYPE_PGC_UNION: '番剧影视', DYNAMIC_TYPE_SUBSCRIPTION_NEW: '新订阅'
+        DYNAMIC_TYPE_NONE: '动态失效', DYNAMIC_TYPE_AV: '视频', DYNAMIC_TYPE_PGC: '剧集', DYNAMIC_TYPE_COURSES: '课程', DYNAMIC_TYPE_WORD: '文本', DYNAMIC_TYPE_DRAW: '图文', DYNAMIC_TYPE_ARTICLE: '专栏', DYNAMIC_TYPE_MUSIC: '音乐', DYNAMIC_TYPE_COMMON_SQUARE: '卡片', DYNAMIC_TYPE_COMMON_VERTICAL: '竖屏', DYNAMIC_TYPE_LIVE: '直播', DYNAMIC_TYPE_MEDIALIST: '收藏夹', DYNAMIC_TYPE_COURSES_SEASON: '课程合集', DYNAMIC_TYPE_COURSES_BATCH: '课程批次', DYNAMIC_TYPE_AD: '广告', DYNAMIC_TYPE_APPLET: '小程序', DYNAMIC_TYPE_SUBSCRIPTION: '订阅', DYNAMIC_TYPE_LIVE_RCMD: '直播', DYNAMIC_TYPE_BANNER: '横幅', DYNAMIC_TYPE_UGC_SEASON: '合集', DYNAMIC_TYPE_PGC_UNION: '番剧影视', DYNAMIC_TYPE_SUBSCRIPTION_NEW: '新订阅'
     };
     const state = { dynamics: [], user: null, collecting: false, cancel: false };
     const PAGE_SIZE = 48;
@@ -43,17 +43,16 @@
     }
 
     async function request(url, retries = 3) {
-        const endpoint = url + (url.includes('?') ? '&' : '?') + '_ts=' + Date.now();
         for (let attempt = 1; attempt <= retries; attempt++) {
             if (state.cancel) throw abort();
             try {
+                const endpoint = url + (url.includes('?') ? '&' : '?') + '_ts=' + Date.now();
                 const response = await GM.xmlHttpRequest({ method: 'GET', url: endpoint });
                 const data = JSON.parse(response.responseText);
-                if (data.code && data.code !== 0) throw new Error(data.message || '接口返回错误 ' + data.code);
                 return data;
             } catch (error) {
                 if (error.name === 'AbortError' || attempt === retries) throw error;
-                await wait(700 * attempt);
+                await wait(1000);
             }
         }
     }
@@ -68,20 +67,61 @@
     function filterGroups() {
         const mine = item => item && item.modules && item.modules.module_author && item.modules.module_author.mid === state.user?.profile?.mid;
         const common = [
-            ['mine', '只看自己', mine], ['not-mine', '排除自己', item => !mine(item)], ['forward', '只看转发', item => item && item.type === 'DYNAMIC_TYPE_FORWARD'], ['not-forward', '排除转发', item => !item || item.type !== 'DYNAMIC_TYPE_FORWARD'], ['video-reserve', '视频更新预告', isVideoReserve], ['live-reserve', '直播预告', isLiveReserve], ['reward-reserve', '有奖预约', hasReward], ['lottery', '互动抽奖', isLottery], ['charge-lottery', '充电互动抽奖', isChargeLottery], ['normal-lottery', '非充电互动抽奖', item => isLottery(item) && !isChargeLottery(item)],
-            ['participated', '已参与', item => (hasReward(item) && item.reserve && item.reserve.isFollow === 1) || (isLottery(item) && item.reserveInfo && item.reserveInfo.followed && item.reserveInfo.reposted) || (isChargeLottery(item) && item.reserveInfo && item.reserveInfo.has_charge_right && item.reserveInfo.participated)], ['not-participated', '未参与', item => (hasReward(item) && item.reserve && item.reserve.isFollow === 0) || (isLottery(item) && !(item.reserveInfo && item.reserveInfo.followed && item.reserveInfo.reposted)) || (isChargeLottery(item) && !(item.reserveInfo && item.reserveInfo.has_charge_right && item.reserveInfo.participated))], ['drawn', '已开奖', item => Boolean(item.reserveInfo && item.reserveInfo.lottery_result)], ['not-drawn', '未开奖', item => Boolean(item.reserveInfo) && !item.reserveInfo.lottery_result]
+            ['mine', '只看自己', mine], ['not-mine', '排除自己', item => !mine(item)], ['forward', '只看转发', item => item && item.type === 'DYNAMIC_TYPE_FORWARD'], ['not-forward', '排除转发', item => !item || item.type !== 'DYNAMIC_TYPE_FORWARD'], ['video-reserve', '视频更新预告', isVideoReserve], ['live-reserve', '直播预告', isLiveReserve], ['charge', '充电动态', item => { const dynamic = base(item); return dynamic?.modules?.module_author?.icon_badge?.text === '充电专属'; }], ['reward-reserve', '有奖预约', hasReward], ['lottery', '互动抽奖', isLottery], ['charge-lottery', '充电互动抽奖', isChargeLottery], ['normal-lottery', '非充电互动抽奖', item => isLottery(item) && !isChargeLottery(item)],
+            ['participated', '已参与', item => (hasReward(item) && item.reserve?.isFollow === 1) || (isLottery(item) && (item.reserveInfo?.followed && item.reserveInfo?.reposted)) || (isChargeLottery(item) && (item.reserveInfo?.has_charge_right && item.reserveInfo?.participated))], ['not-participated', '未参与', item => (hasReward(item) && item.reserve?.isFollow === 0) || (isLottery(item) && !(item.reserveInfo?.followed && item.reserveInfo?.reposted)) || (isChargeLottery(item) && !(item.reserveInfo?.has_charge_right && item.reserveInfo?.participated))], ['drawn', '已开奖', item => item.reserveInfo?.lottery_result], ['not-drawn', '未开奖', item => item.reserveInfo && !item.reserveInfo.lottery_result], ['winner', '我中奖的', item => { const result = item.reserveInfo?.lottery_result; if (!result) return false; return Object.values(result).some(list => list.some(prize => prize.uid === state.user?.profile?.mid)); }], ['not-winner', '未中奖', item => Boolean(item.reserveInfo?.lottery_result) && !common.find(rule => rule[0] === 'winner')[2](item)]
         ].map(row => ({ id: row[0], name: row[1], type: 'checkbox', filter: row[2] }));
-        const types = Object.entries(TYPE_NAMES).map(([key, name]) => ({ id: 'type-' + key, name, type: 'checkbox', filter: item => item.baseType === key }));
+        const typeMap = {};
+        Object.entries(TYPE_NAMES).forEach(([key, name]) => {
+            if (key === 'DYNAMIC_TYPE_FORWARD') return;
+            const match = typeMap[name];
+            if (match) {
+                const previous = match.filter;
+                match.filter = item => previous(item) || item.baseType === key;
+            } else {
+                typeMap[name] = { id: 'type-' + name, name, type: 'checkbox', filter: item => item.baseType === key };
+            }
+        });
+        const types = Object.values(typeMap);
         return [['常用', common], ['动态类型', types], ['自定义', customRules()]];
     }
-    function dynamicText(item) { const dynamic = base(item); const content = dynamic && dynamic.modules && dynamic.modules.module_dynamic || {}; const author = item && item.modules && item.modules.module_author || {}; const original = dynamic && dynamic.modules && dynamic.modules.module_author || {}; return [author.name, author.mid, original.name, original.mid, content.major && content.major.opus && content.major.opus.title, content.major && content.major.opus && content.major.opus.summary && content.major.opus.summary.text, content.major && content.major.archive && content.major.archive.title, content.major && content.major.archive && content.major.archive.desc, content.desc && content.desc.text].filter(Boolean).join('\n').toLocaleUpperCase(); }
+    function getDescText(dynamic, isForward = false) {
+        const content = dynamic?.modules?.module_dynamic || {};
+        const major = content.major || {};
+        const titleText = major.opus?.title || major.archive?.title || '';
+        let descText = major.opus?.summary?.text || content.desc?.text || major.archive?.desc || '';
+        if (isForward && dynamic.orig) {
+            if (dynamic.orig.type === 'DYNAMIC_TYPE_NONE') {
+                descText += '<hr />' + (dynamic.orig.modules?.module_dynamic?.major?.none?.tips || '');
+            } else {
+                descText += '<hr />' + getDescText(dynamic.orig);
+            }
+        }
+        return (titleText ? '<h3>' + titleText + '</h3><br />' : '') + descText;
+    }
+    function descriptionPlainText(dynamic, isForward = false) {
+        const html = getDescText(dynamic, isForward);
+        const container = document.createElement('div');
+        container.innerHTML = html;
+        return container.textContent || '';
+    }
+    function dynamicText(item) {
+        const content = item?.modules?.module_dynamic || {};
+        const author = item?.modules?.module_author || {};
+        const titleText = (content.major?.opus?.title || content.major?.archive?.title || '').toLocaleUpperCase();
+        const descText = (content.major?.opus?.summary?.text || content.desc?.text || content.major?.archive?.desc || '').toLocaleUpperCase();
+        const originalAuthor = item?.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig?.modules?.module_author || {} : {};
+        const originalDesc = item?.type === 'DYNAMIC_TYPE_FORWARD' ? (item.orig?.modules?.module_dynamic?.major?.opus?.summary?.text || '').toLocaleUpperCase() : '';
+        return [author.name, author.mid, titleText, descText, originalAuthor.name, originalAuthor.mid, originalDesc].filter(Boolean).join('\n').toLocaleUpperCase();
+    }
     function dynamicCard(item) {
         const dynamic = base(item) || {}; const author = item.modules && item.modules.module_author || {}; const dynamicModules = dynamic.modules || {}; const original = dynamicModules.module_author || author; const major = dynamicModules.module_dynamic && dynamicModules.module_dynamic.major || {}; const cover = major.opus && major.opus.pics && major.opus.pics[0] && major.opus.pics[0].url || major.archive && major.archive.cover || major.article && major.article.covers && major.article.covers[0] || major.pgc && major.pgc.cover || ''; const node = el('article', { className: 'card' });
         if (cover) node.appendChild(el('img', { className: 'poster', attributes: { src: cover, loading: 'lazy', alt: '' } }));
         const badges = el('div', { className: 'badges' }); badges.appendChild(el('span', { className: 'badge', text: TYPE_NAMES[item.baseType] || item.baseType || '未知类型' })); if (item.type === 'DYNAMIC_TYPE_FORWARD') badges.appendChild(el('span', { className: 'badge', text: '转发' })); if (hasReward(item) || isLottery(item) || isChargeLottery(item)) badges.appendChild(el('span', { className: 'badge reward', text: '抽奖' }));
         const title = el('div', { className: 'card-title' }); title.append(el('a', { text: author.name || '未知用户', attributes: { href: 'https://space.bilibili.com/' + (author.mid || ''), target: '_blank', rel: 'noreferrer' } }), item.type === 'DYNAMIC_TYPE_FORWARD' ? ' 转发了 ' + (original.name || '原动态') : ' 发布了动态');
-        const content = dynamicModules.module_dynamic || {}; const description = content.major && content.major.opus && content.major.opus.summary && content.major.opus.summary.text || content.desc && content.desc.text || content.major && content.major.archive && content.major.archive.desc || content.major && content.major.opus && content.major.opus.title || '暂无可显示的文字内容';
-        const actions = el('div', { className: 'card-actions' }); actions.appendChild(el('a', { text: '查看详情', attributes: { href: 'https://t.bilibili.com/' + item.id_str, target: '_blank', rel: 'noreferrer' } })); const body = el('div', { className: 'card-body' }); body.append(badges, title, el('div', { className: 'card-time', text: formatTime(time(item)) }), el('div', { className: 'desc', text: description }), actions); node.appendChild(body); return node;
+        const description = getDescText(item, item?.type === 'DYNAMIC_TYPE_FORWARD') || '暂无可显示的文字内容';
+        const desc = el('div', { className: 'desc' });
+        desc.innerHTML = description;
+        const actions = el('div', { className: 'card-actions' }); actions.appendChild(el('a', { text: '查看详情', attributes: { href: 'https://t.bilibili.com/' + item.id_str, target: '_blank', rel: 'noreferrer' } })); const body = el('div', { className: 'card-body' }); body.append(badges, title, el('div', { className: 'card-time', text: formatTime(time(item)) }), desc, actions); node.appendChild(body); return node;
     }
     function ruleDialog(onSaved) {
         document.getElementById(IDS.rules)?.remove(); addStyles(); const dialog = el('section', { attributes: { id: IDS.rules, role: 'dialog', 'aria-modal': 'true' } }); const editor = el('textarea', { attributes: { spellcheck: 'false' } }); editor.value = JSON.stringify(customSource(), null, 2); const error = el('div', { className: 'rule-error' }); const cancel = el('button', { text: '取消' }); const save = el('button', { className: 'primary', text: '保存规则' }); cancel.onclick = () => dialog.remove(); save.onclick = () => { try { const rules = JSON.parse(editor.value || '{}'); if (!rules || Array.isArray(rules) || typeof rules !== 'object') throw new Error('规则根节点必须是对象。'); Object.entries(rules).forEach(([name, rule]) => { if (!name.trim() || !rule || !['checkbox', 'text'].includes(rule.type) || typeof rule.filter !== 'string' || typeof new Function('return (' + rule.filter + ');')() !== 'function') throw new Error('规则“' + name + '”格式无效。'); }); GM_setValue('customFilters', rules); dialog.remove(); onSaved(); } catch (exception) { error.textContent = exception.message || '规则格式无效。'; } }; const actions = el('div', { className: 'bds-actions' }); actions.append(cancel, save); dialog.append(el('h2', { text: '自定义筛选规则' }), el('p', { text: '每项包含 type（checkbox 或 text）和 filter（箭头函数字符串）。启用复选框或填写文本后，规则返回 true 的动态才会显示。' }), editor, error, actions); document.body.appendChild(dialog);
@@ -100,30 +140,58 @@
         document.getElementById(IDS.progress)?.remove(); addStyles(); const dialog = el('section', { attributes: { id: IDS.progress, role: 'status' } }); const detail = el('p', { text: '正在读取动态列表...' }); const progress = el('progress', { attributes: { value: '0', max: '1' } }); const range = el('p'); const cancel = el('button', { text: '取消' }); cancel.onclick = () => { state.cancel = true; cancel.disabled = true; cancel.textContent = '正在取消'; }; const actions = el('div', { className: 'bds-actions' }); actions.appendChild(cancel); dialog.append(el('h2', { text: '正在收集动态' }), detail, progress, range, actions); document.body.appendChild(dialog); return { update(kept, scanned, earliest, latest) { detail.textContent = '已保留 ' + kept.toLocaleString() + ' 条，已扫描 ' + scanned.toLocaleString() + ' 条'; progress.max = Math.max(scanned, 1); progress.value = scanned; range.textContent = earliest && latest ? '已扫描时间范围：' + formatTime(earliest) + ' 至 ' + formatTime(latest) : ''; }, close() { dialog.remove(); } };
     }
     function taskDialog(selfOnly) {
-        document.getElementById(IDS.task)?.remove(); addStyles(); const today = new Date(); const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1); const toDate = value => value.toISOString().slice(0, 10); const dialog = el('section', { attributes: { id: IDS.task, role: 'dialog', 'aria-modal': 'true' } }); const hint = el('p', { text: 'Bilibili 只能从最新动态向前读取。时间范围越长，收集和抽奖状态查询耗时越久。' }); const start = el('input', { attributes: { type: 'date', value: toDate(yesterday) } }); const end = el('input', { attributes: { type: 'date', value: toDate(today) } }); const cancel = el('button', { text: '取消' }); const begin = el('button', { className: 'primary', text: '开始收集' }); cancel.onclick = () => dialog.remove(); begin.onclick = () => { const from = new Date(start.value + 'T00:00:00').getTime() / 1000; const to = new Date(end.value + 'T23:59:59').getTime() / 1000; if (!start.value || !end.value || Number.isNaN(from) || Number.isNaN(to) || from > to) { hint.textContent = '请选择有效的日期范围，且开始日期不能晚于结束日期。'; hint.style.color = '#c83d3d'; return; } dialog.remove(); collect(from, to, selfOnly); }; const actions = el('div', { className: 'bds-actions' }); actions.append(cancel, begin); dialog.append(el('h2', { text: selfOnly ? '收集自己的动态' : '收集动态' }), hint, el('label', { text: '开始日期' }), start, el('label', { text: '结束日期' }), end, actions); document.body.appendChild(dialog);
+        document.getElementById(IDS.task)?.remove(); addStyles(); const today = new Date(); const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1); const toDate = value => value.toISOString().slice(0, 10); const dialog = el('section', { attributes: { id: IDS.task, role: 'dialog', 'aria-modal': 'true' } }); const hint = el('p', { text: 'Bilibili 只能从最新动态向前读取。时间范围越长，收集和抽奖状态查询耗时越久。' }); const start = el('input', { attributes: { type: 'date', value: toDate(yesterday) } }); const end = el('input', { attributes: { type: 'date', value: toDate(today) } }); const cancel = el('button', { text: '取消' }); const begin = el('button', { className: 'primary', text: '开始收集' }); cancel.onclick = () => dialog.remove(); begin.onclick = () => { const from = new Date(start.value + 'T00:00:00').getTime() / 1000; const to = new Date(end.value + 'T00:00:00').getTime() / 1000; if (!start.value || !end.value || Number.isNaN(from) || Number.isNaN(to) || from > to) { hint.textContent = '请选择有效的日期范围，且开始日期不能晚于结束日期。'; hint.style.color = '#c83d3d'; return; } dialog.remove(); collect(from, to, selfOnly); }; const actions = el('div', { className: 'bds-actions' }); actions.append(cancel, begin); dialog.append(el('h2', { text: selfOnly ? '收集自己的动态' : '收集动态' }), hint, el('label', { text: '开始日期' }), start, el('label', { text: '结束日期' }), end, actions); document.body.appendChild(dialog);
     }
     async function enrich(item) {
         const dynamic = base(item) || {}; item.baseType = dynamic.type || item.type; item.reserve = null; item.reserveInfo = null;
-        try {
-            if (isLiveReserve(item)) { const rid = additional(item).reserve.rid; if (rid) { item.reserveInfo = (await request('https://api.vc.bilibili.com/lottery_svr/v1/lottery_svr/lottery_notice?business_id=' + rid + '&business_type=10')).data; const businessId = item.reserveInfo && item.reserveInfo.business_id; if (businessId) item.reserve = (await request('https://api.bilibili.com/x/activity/up/reserve/relation/info?ids=' + businessId)).data?.list?.[businessId] || null; } } else if ((isLottery(item) || isChargeLottery(item)) && dynamic.id_str) item.reserveInfo = (await request('https://api.vc.bilibili.com/lottery_svr/v1/lottery_svr/lottery_notice?business_id=' + dynamic.id_str + '&business_type=' + (isChargeLottery(item) ? 12 : 1))).data;
-        } catch (error) { if (error.name === 'AbortError') throw error; console.warn('抽奖状态读取失败，已保留动态本身', error); }
+        if (isLiveReserve(item)) { const rid = additional(item).reserve.rid; if (rid) { item.reserveInfo = (await request('https://api.vc.bilibili.com/lottery_svr/v1/lottery_svr/lottery_notice?business_id=' + rid + '&business_type=10')).data; const businessId = item.reserveInfo && item.reserveInfo.business_id; if (businessId) item.reserve = (await request('https://api.bilibili.com/x/activity/up/reserve/relation/info?ids=' + businessId)).data?.list?.[businessId] || null; } }
+        if (isLottery(item) && dynamic.id_str) item.reserveInfo = (await request('https://api.vc.bilibili.com/lottery_svr/v1/lottery_svr/lottery_notice?business_id=' + dynamic.id_str + '&business_type=1')).data;
+        if (isChargeLottery(item) && dynamic.id_str) item.reserveInfo = (await request('https://api.vc.bilibili.com/lottery_svr/v1/lottery_svr/lottery_notice?business_id=' + dynamic.id_str + '&business_type=12')).data;
         return item;
     }
     async function collect(start, end, selfOnly) {
-        if (state.collecting) return; state.collecting = true; state.cancel = false; state.dynamics = []; const progress = progressDialog(); const ids = new Set(); let offset = ''; let scanned = 0; let earliest = 0; let latest = 0; let more = true; let partial = false;
+        if (state.collecting) return;
+        state.collecting = true; state.cancel = false; state.dynamics = [];
+        const progress = progressDialog(); const ids = new Set();
+        let offset = ''; let scanned = 0; let earliest = 0; let latest = 0; let more = true; let partial = false; let shouldInclude = false; let errorCount = 0;
         try {
             const user = await getUser();
             while (more) {
                 if (state.cancel) throw abort();
-                const endpoint = selfOnly ? 'https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?host_mid=' + user.profile.mid + '&offset=' + offset : 'https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all?type=all&offset=' + offset;
-                const data = await request(endpoint); const items = data?.data?.items || []; if (!items.length) break; const accepted = []; let crossedStart = false;
-                for (const item of items) { if (!item?.id_str || ids.has(item.id_str)) continue; ids.add(item.id_str); scanned++; const value = time(item); if (value) { earliest = !earliest ? value : Math.min(earliest, value); latest = Math.max(latest, value); } if (item.type !== 'DYNAMIC_TYPE_LIVE_RCMD' && value && value < start) crossedStart = true; if (value >= start && value <= end) accepted.push(item); }
-                for (let index = 0; index < accepted.length; index += 5) { state.dynamics.push(...await Promise.all(accepted.slice(index, index + 5).map(enrich))); progress.update(state.dynamics.length, scanned, earliest, latest); }
-                offset = data?.data?.offset || items[items.length - 1]?.id_str || ''; more = Boolean(data?.data?.has_more && offset && !crossedStart); progress.update(state.dynamics.length, scanned, earliest, latest);
+                try {
+                    const features = '&features=itemOpusStyle,listOnlyfans,opusBigCover,onlyfansVote,decorationCard,onlyfansAssetsV2,forwardListHidden,ugcDelete,onlyfansQaCard,commentsNewVersion';
+                    const endpoint = selfOnly ? 'https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?host_mid=' + user.profile.mid + '&offset=' + offset + features : 'https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all?type=all&offset=' + offset + features;
+                    const data = await request(endpoint); const items = data?.data?.items || []; errorCount = 0;
+                    if (!shouldInclude) shouldInclude = items.some(item => time(item) > 0 && time(item) < end + 24 * 60 * 60);
+                    for (const item of items) {
+                        if (!item?.id_str || ids.has(item.id_str)) continue;
+                        ids.add(item.id_str); scanned++;
+                        const value = time(item);
+                        if (value) { earliest = !earliest ? value : Math.min(earliest, value); latest = Math.max(latest, value); }
+                        if (item.type !== 'DYNAMIC_TYPE_LIVE_RCMD' && value && value < start) more = false;
+                        item.baseType = item.type === 'DYNAMIC_TYPE_FORWARD' ? item.orig?.type : item.type;
+                        item.display = true;
+                        if (shouldInclude) { state.dynamics.push(await enrich(item)); progress.update(state.dynamics.length, scanned, earliest, latest); }
+                    }
+                    offset = data?.data?.offset || items[items.length - 1]?.id_str || '';
+                    more = more && Boolean(data?.data?.has_more && offset);
+                    progress.update(state.dynamics.length, scanned, earliest, latest);
+                } catch (error) {
+                    if (error.name === 'AbortError') throw error;
+                    errorCount++;
+                    if (errorCount >= 5) { partial = true; break; }
+                    console.error('动态页面读取失败，正在重试', error);
+                    await wait(1000);
+                }
             }
-        } catch (error) { partial = true; if (error.name !== 'AbortError') console.error('收集动态失败', error); }
-        finally { state.collecting = false; progress.close(); }
-        state.dynamics.sort((a, b) => time(b) - time(a)); resultsDialog(partial ? '查询未完整结束，以下为已收集的结果' : '查询完成');
+        } catch (error) {
+            partial = true;
+            if (error.name !== 'AbortError') console.error('收集动态失败', error);
+        } finally {
+            state.collecting = false; progress.close();
+        }
+        state.dynamics.sort((a, b) => time(b) - time(a));
+        resultsDialog(partial ? '查询未完整结束，以下为已收集的结果' : '查询完成');
     }
     GM_registerMenuCommand('检查动态', () => taskDialog(false));
     GM_registerMenuCommand('只看自己动态', () => taskDialog(true));
