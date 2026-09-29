@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 盲盒统计
 // @namespace    Schwi
-// @version      2.0.0
+// @version      2.0.1
 // @description  统计 Bilibili 盲盒概率，支持本地历史合并、收益筛选与公示概率对照
 // @author       Schwi
 // @match        *://*.bilibili.com/*
@@ -87,6 +87,7 @@
       ]
     }
   ];
+  const FALLBACK_BLIND_GIFT_IDS = new Set(FALLBACK_BLIND_GIFTS.map(({ id }) => id));
 
   // API 请求函数
   async function apiRequest(url, retry = 3) {
@@ -413,7 +414,10 @@
       count.textContent = `显示 ${filteredDraws.toLocaleString()} / ${totalDraws.toLocaleString()} 抽 · ${stats.size} 种盲盒`;
       content.replaceChildren(empty);
       empty.hidden = stats.size > 0;
-      const sortedGroups = [...stats.entries()].sort(([firstId], [secondId]) => (giftInfo.boxOrderById.get(firstId) ?? Number.MAX_SAFE_INTEGER) - (giftInfo.boxOrderById.get(secondId) ?? Number.MAX_SAFE_INTEGER) || firstId - secondId);
+      const sortedGroups = [...stats.entries()].sort(([firstId], [secondId]) => {
+        const fallbackOrder = Number(FALLBACK_BLIND_GIFT_IDS.has(secondId)) - Number(FALLBACK_BLIND_GIFT_IDS.has(firstId));
+        return fallbackOrder || secondId - firstId;
+      });
       sortedGroups.forEach(([boxId, group]) => {
         const section = createUiElement('section', { className: 'bgb-section' });
         const title = createUiElement('h2', { className: 'bgb-section-title' });
