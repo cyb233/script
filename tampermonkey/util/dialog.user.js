@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Shadow DOM Dialog Utility
 // @namespace    Schwi
-// @version      1.2.0
+// @version      1.3.0
 // @description  Reusable Shadow DOM dialog utility for Tampermonkey scripts.
 // @grant        none
 // ==/UserScript==
@@ -22,6 +22,7 @@
  * @property {string} [title] Initial dialog title.
  * @property {boolean} [closeOnBackdropClick=true] Close when the overlay is clicked.
  * @property {boolean} [closeOnEscape=true] Close when Escape is pressed.
+ * @property {boolean} [showHeader=true] Show the built-in header.
  * @property {boolean} [showCloseButton=true] Show the built-in close button.
  * @property {string} [ariaLabel] Accessible label used when no title is set.
  * @property {(dialog: DialogWindow) => void} [onshow] Called after the dialog is shown.
@@ -77,6 +78,7 @@ async function createDialog(width, height, config = {}) {
   const options = {
     closeOnBackdropClick: true,
     closeOnEscape: true,
+    showHeader: true,
     showCloseButton: true,
     ...config
   };
@@ -111,8 +113,11 @@ async function createDialog(width, height, config = {}) {
     if (options.closeOnEscape && event.key === 'Escape') close();
   });
 
-  header.append(title, closeButton);
-  dialog.append(header, content);
+  if (options.showHeader) {
+    header.append(title, closeButton);
+    dialog.append(header);
+  }
+  dialog.append(content);
   overlay.append(dialog);
   shadow.append(style, overlay);
 

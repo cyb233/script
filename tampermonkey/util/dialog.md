@@ -72,6 +72,7 @@ dialog.onclose = current => console.log('已关闭', current);
   title: '初始标题',
   closeOnBackdropClick: true,
   closeOnEscape: true,
+  showHeader: true,
   showCloseButton: true,
   ariaLabel: '无障碍标签',
   onshow: dialog => {},
@@ -83,6 +84,7 @@ dialog.onclose = current => console.log('已关闭', current);
 
 - `closeOnBackdropClick: true`：点击窗口外部的遮罩关闭。
 - `closeOnEscape: true`：按 Escape 关闭。
+- `showHeader: true`：显示内置标题栏。设为 `false` 时，标题和内置关闭按钮也不会显示。
 - `showCloseButton: true`：显示内置关闭按钮。
 - `title`：初始标题；调用 `setTitle()` 可以更新。
 - `ariaLabel`：没有 `title` 时使用的无障碍标签。
