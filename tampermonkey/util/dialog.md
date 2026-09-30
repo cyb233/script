@@ -2,6 +2,10 @@
 
 一个供其他 Tampermonkey 脚本复用的 Shadow DOM 弹窗工具。弹窗默认不会显示，调用 `show()` 后才会插入页面；调用方可以通过 `content` 填充内容，并通过 `element` 监听事件或添加 class。
 
+## 效果示例
+[Shadow DOM Dialog Utility Example](https://greasyfork.org/zh-CN/scripts/598027-shadow-dom-dialog-utility-example)
+<img width="1265" height="575" alt="image" src="https://github.com/user-attachments/assets/57ddf8bd-891f-4a5a-9419-104e5233cb60" />
+
 ## 引用
 
 在用户脚本头部加入已发布的 `@require`：
@@ -9,7 +13,7 @@
 ```js
 // @require      https://update.greasyfork.org/scripts/597988/<version>/Shadow%20DOM%20Dialog%20Utility.js
 ```
-version应在 [https://greasyfork.org/zh-CN/scripts/597988-shadow-dom-dialog-utility](https://greasyfork.org/zh-CN/scripts/597988-shadow-dom-dialog-utility) 查看
+具体各版本require地址应在 [https://greasyfork.org/zh-CN/scripts/597988-shadow-dom-dialog-utility](https://greasyfork.org/zh-CN/scripts/597988-shadow-dom-dialog-utility) 查看
 
 工具加载后通过 `SchwiDialog.createDialog` 使用。使用命名空间可以避免与其他脚本的通用全局变量重名。
 
@@ -88,4 +92,3 @@ dialog.onclose = current => console.log('已关闭', current);
 
 - `content` 中添加的元素属于 Shadow DOM，页面原有 CSS 不会直接影响弹窗内部样式。
 - `@require` 只负责加载工具，不会自动显示弹窗；请在需要时调用 `show()`。
-- 如需在多个页面使用，请在主脚本中配置合适的 `@match`，不要修改工具脚本的 `@match`。
