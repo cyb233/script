@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Shadow DOM Dialog Utility
 // @namespace    Schwi
-// @version      1.1.0
+// @version      1.1.1
 // @description  Reusable Shadow DOM dialog utility for Tampermonkey scripts.
 // @grant        none
 // ==/UserScript==
@@ -51,7 +51,7 @@ async function createDialog(width, height, config = {}) {
     :host { all: initial; }
     *, *::before, *::after { box-sizing: border-box; }
     .overlay { position: fixed; z-index: 2147483647; inset: 0; display: grid; place-items: center; padding: 16px; background: rgb(0 0 0 / 45%); font-family: Arial, "Microsoft YaHei", sans-serif; }
-    .dialog { display: flex; flex-direction: column; width: min(${size(width)}, calc(100vw - 32px)); height: min(${size(height)}, calc(100vh - 32px)); overflow: hidden; background: #fff; border-radius: 6px; box-shadow: 0 12px 36px rgb(0 0 0 / 35%); color: #202124; }
+    .dialog { display: flex; flex-direction: column; width: min(${size(width)}, calc(100vw - 32px)); height: min(${size(height)}, calc(100vh - 32px)); overflow: hidden; outline: none; background: #fff; border-radius: 6px; box-shadow: 0 12px 36px rgb(0 0 0 / 35%); color: #202124; }
     .header { display: flex; align-items: center; min-height: 44px; padding: 14px; border-bottom: 1px solid #ddd; font-size: 16px; font-weight: 600; }
     .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .close { width: 44px; height: 44px; padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 24px; line-height: 1; }
