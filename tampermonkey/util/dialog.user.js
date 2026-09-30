@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Shadow DOM Dialog Utility
 // @namespace    Schwi
-// @version      1.0.0
+// @version      1.1.0
 // @description  Reusable Shadow DOM dialog utility for Tampermonkey scripts.
 // @grant        none
 // ==/UserScript==
@@ -16,12 +16,22 @@
  */
 
 /**
+ * @typedef {Object} DialogConfig
+ * @property {string} [title] Initial dialog title.
+ * @property {boolean} [closeOnBackdropClick=true] Close when the overlay is clicked.
+ * @property {boolean} [closeOnEscape=true] Close when Escape is pressed.
+ * @property {boolean} [showCloseButton=true] Show the built-in close button.
+ * @property {string} [ariaLabel] Accessible label used when no title is set.
+ */
+
+/**
  * Creates a modal dialog isolated from page styles with a Shadow DOM.
  * @param {number|string} width
  * @param {number|string} height
+ * @param {DialogConfig} [config]
  * @returns {Promise<DialogWindow>}
  */
-async function createDialog(width, height) {
+async function createDialog(width, height, config = {}) {
   if (!document.body) {
     await new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve, { once: true }));
   }
@@ -42,11 +52,11 @@ async function createDialog(width, height) {
     *, *::before, *::after { box-sizing: border-box; }
     .overlay { position: fixed; z-index: 2147483647; inset: 0; display: grid; place-items: center; padding: 16px; background: rgb(0 0 0 / 45%); font-family: Arial, "Microsoft YaHei", sans-serif; }
     .dialog { display: flex; flex-direction: column; width: min(${size(width)}, calc(100vw - 32px)); height: min(${size(height)}, calc(100vh - 32px)); overflow: hidden; background: #fff; border-radius: 6px; box-shadow: 0 12px 36px rgb(0 0 0 / 35%); color: #202124; }
-    .header { display: flex; align-items: center; min-height: 44px; padding-left: 14px; border-bottom: 1px solid #ddd; font-size: 16px; font-weight: 600; }
+    .header { display: flex; align-items: center; min-height: 44px; padding: 14px; border-bottom: 1px solid #ddd; font-size: 16px; font-weight: 600; }
     .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .close { width: 44px; height: 44px; padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 24px; line-height: 1; }
     .close:hover { background: #f2f2f2; }
-    .content { flex: 1; min-height: 0; overflow: auto; }
+    .content { flex: 1; min-height: 0; overflow: auto; padding: 14px; }
   `;
   overlay.className = 'overlay';
   dialog.className = 'dialog';
@@ -60,6 +70,13 @@ async function createDialog(width, height) {
   closeButton.setAttribute('aria-label', '关闭');
   content.className = 'content';
 
+  const options = {
+    closeOnBackdropClick: true,
+    closeOnEscape: true,
+    showCloseButton: true,
+    ...config
+  };
+
   const show = () => {
     if (!host.isConnected) {
       document.body.append(host);
@@ -72,13 +89,16 @@ async function createDialog(width, height) {
     dialog.setAttribute('aria-label', value);
   };
 
+  closeButton.hidden = !options.showCloseButton;
+  if (options.title != null) setTitle(options.title);
+  else if (options.ariaLabel != null) dialog.setAttribute('aria-label', options.ariaLabel);
   closeButton.addEventListener('click', close);
   overlay.addEventListener('click', event => {
-    if (event.target === overlay) close();
+    if (options.closeOnBackdropClick && event.target === overlay) close();
   });
   dialog.tabIndex = -1;
   dialog.addEventListener('keydown', event => {
-    if (event.key === 'Escape') close();
+    if (options.closeOnEscape && event.key === 'Escape') close();
   });
 
   header.append(title, closeButton);
