@@ -1,13 +1,14 @@
 // ==UserScript==
 // @name         Bilibili 盲盒统计
 // @namespace    Schwi
-// @version      2.0.1
+// @version      2.0.2
 // @description  统计 Bilibili 盲盒概率，支持本地历史合并、收益筛选与公示概率对照
 // @author       Schwi
 // @match        *://*.bilibili.com/*
 // @match        https://gift.shuvi.moe/gifts/*
 // @match        https://legacy-gift.shuvi.moe/box
 // @match        https://legacy-gift.shuvi.moe/box.html
+// @require      https://update.greasyfork.org/scripts/597988/1947281/Shadow%20DOM%20Dialog%20Utility.js
 // @connect      api.live.bilibili.com
 // @connect      api.bilibili.com
 // @connect      shuvi.moe
@@ -35,10 +36,10 @@
     giftInfo: 'https://gift.shuvi.moe/api/blind-gifts'
   };
   const UI_IDS = {
-    styles: 'bgb-styles',
     progress: 'bgb-progress-dialog',
     results: 'bgb-results-dialog'
   };
+  const windows = { progress: null, results: null, message: null };
   let collecting = false;
   let cancelRequested = false;
 
@@ -280,20 +281,35 @@
     return node;
   }
 
-  function addUiStyles() {
-    if (document.getElementById(UI_IDS.styles)) return;
-    const style = createUiElement('style', { attributes: { id: UI_IDS.styles } });
+  function addUiStyles(content) {
+    const style = createUiElement('style');
     style.textContent = `
       #${UI_IDS.results},#${UI_IDS.progress}{box-sizing:border-box;font-family:Arial,"Microsoft YaHei",sans-serif;color:#202124}#${UI_IDS.results}{position:fixed;z-index:2147483646;inset:3vh 3vw;display:flex;flex-direction:column;overflow:hidden;background:#f6f8fa;border:1px solid #b9c0c9;border-radius:8px;box-shadow:0 18px 50px rgba(0,0,0,.32)}#${UI_IDS.results} *{box-sizing:border-box}#${UI_IDS.results} .bgb-header{display:flex;align-items:center;min-height:62px;padding:12px 18px;background:#fff;border-bottom:1px solid #d8dee4}#${UI_IDS.results} .bgb-title{margin:0;font-size:18px;font-weight:700}#${UI_IDS.results} .bgb-subtitle{margin:3px 0 0;color:#667085;font-size:12px}#${UI_IDS.results} .bgb-header-actions{display:flex;gap:8px;margin-left:auto}#${UI_IDS.results} button,#${UI_IDS.progress} button{height:34px;padding:0 11px;border:1px solid #aeb7c2;border-radius:4px;background:#fff;color:#25364a;cursor:pointer;font-size:13px}#${UI_IDS.results} button:hover,#${UI_IDS.progress} button:hover{background:#f0f5ff;border-color:#6b96d8}#${UI_IDS.results} .bgb-close{width:34px;padding:0;color:#57606a;font-size:24px;line-height:1}
       #${UI_IDS.results} .bgb-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:14px 18px 10px;background:#fff}#${UI_IDS.results} .bgb-stat{padding:9px 12px;background:#f6f8fa;border:1px solid #e2e6ea;border-radius:5px}#${UI_IDS.results} .bgb-stat-label{color:#667085;font-size:12px}#${UI_IDS.results} .bgb-stat-value{margin-top:3px;color:#1769aa;font-size:19px;font-weight:700}#${UI_IDS.results} .bgb-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:4px 18px 12px;background:#fff;border-bottom:1px solid #e2e6ea}#${UI_IDS.results} .bgb-search,#${UI_IDS.results} .bgb-select{height:34px;padding:0 10px;border:1px solid #b9c0c9;border-radius:4px;background:#fff;color:#25364a;font-size:13px;outline:0}#${UI_IDS.results} .bgb-search{width:min(280px,100%)}#${UI_IDS.results} .bgb-search:focus,#${UI_IDS.results} .bgb-select:focus{border-color:#00a1d6;box-shadow:0 0 0 2px rgba(0,161,214,.18)}#${UI_IDS.results} .bgb-count{margin-left:auto;color:#667085;font-size:12px;white-space:nowrap}#${UI_IDS.results} .bgb-content{flex:1;min-height:0;overflow:auto;padding:16px 18px 24px}#${UI_IDS.results} .bgb-section{margin-bottom:22px}#${UI_IDS.results} .bgb-section-title{display:flex;align-items:baseline;gap:10px;margin:0 0 8px;font-size:15px}#${UI_IDS.results} .bgb-section-title a{color:#1769aa;text-decoration:none}#${UI_IDS.results} .bgb-section-meta{color:#667085;font-size:12px;font-weight:400}#${UI_IDS.results} table{width:100%;table-layout:fixed;border-collapse:separate;border-spacing:0;font-size:13px;background:#fff}#${UI_IDS.results} th,#${UI_IDS.results} td{padding:8px 10px;overflow:hidden;border-bottom:1px solid #e3e7eb;text-align:left;text-overflow:ellipsis;white-space:nowrap}#${UI_IDS.results} th{background:#f6f8fa;color:#455468;font-size:12px}#${UI_IDS.results} tbody tr:hover{background:#f4f8ff}#${UI_IDS.results} td:nth-child(n+2),#${UI_IDS.results} th:nth-child(n+2){text-align:right}#${UI_IDS.results} td a{color:#1769aa;text-decoration:none}#${UI_IDS.results} .bgb-positive{color:#137333;font-weight:700}#${UI_IDS.results} .bgb-negative{color:#b42318;font-weight:700}#${UI_IDS.results} .bgb-empty{padding:48px 12px;color:#667085;text-align:center}
-      #${UI_IDS.progress}{position:fixed;z-index:2147483647;top:50%;left:50%;width:min(390px,calc(100vw - 32px));padding:20px;transform:translate(-50%,-50%);background:#fff;border:1px solid #d0d7de;border-radius:8px;box-shadow:0 18px 50px rgba(0,0,0,.28)}#${UI_IDS.progress} h2{margin:0 0 8px;font-size:18px}#${UI_IDS.progress} p{margin:0 0 12px;color:#57606a;font-size:13px;line-height:1.5}#${UI_IDS.progress} progress{width:100%;height:8px;margin-bottom:12px;accent-color:#00a1d6}#${UI_IDS.progress} .bgb-progress-actions{display:flex;justify-content:flex-end}@media(max-width:680px){#${UI_IDS.results}{inset:0;border:0;border-radius:0}#${UI_IDS.results} .bgb-header,#${UI_IDS.results} .bgb-summary,#${UI_IDS.results} .bgb-toolbar{padding-left:12px;padding-right:12px}#${UI_IDS.results} .bgb-search{order:1;width:100%}#${UI_IDS.results} .bgb-count{margin-left:0}#${UI_IDS.results} .bgb-content{padding:12px}}
+      #${UI_IDS.progress}{position:fixed;z-index:2147483647;top:50%;left:50%;width:min(390px,calc(100vw - 32px));padding:20px;transform:translate(-50%,-50%);background:#fff;border:1px solid #d0d7de;border-radius:8px;box-shadow:0 18px 50px rgba(0,0,0,.28)}#${UI_IDS.progress} h2{margin:0 0 8px;font-size:18px}#${UI_IDS.progress} p{margin:0 0 12px;color:#57606a;font-size:13px;line-height:1.5}#${UI_IDS.progress} progress{width:100%;height:8px;margin-bottom:12px;accent-color:#00a1d6}#${UI_IDS.progress} .bgb-progress-actions{display:flex;justify-content:flex-end}@media(max-width:680px){#${UI_IDS.results}{inset:0;border:0;border-radius:0}#${UI_IDS.results} .bgb-header,#${UI_IDS.results} .bgb-summary,#${UI_IDS.results} .bgb-toolbar{padding-left:12px;padding-right:12px}#${UI_IDS.results} .bgb-search{order:1;width:100%}#${UI_IDS.results} .bgb-count{margin-left:0}#${UI_IDS.results} .bgb-content{padding:12px}}#${UI_IDS.results},#${UI_IDS.progress}{position:static;inset:auto;z-index:auto;transform:none;width:100%;height:100%;border:0;border-radius:0;box-shadow:none}
     `;
-    document.head.appendChild(style);
+    content.appendChild(style);
   }
 
-  function createCollectionProgress() {
-    document.getElementById(UI_IDS.progress)?.remove();
-    addUiStyles();
+  async function showMessage(title, message) {
+    windows.message?.close();
+    const window = await SchwiDialog.createDialog(420, 190, { title, showCloseButton: true });
+    const text = createUiElement('p', { text: message });
+    text.style.cssText = 'margin:0;line-height:1.6;white-space:pre-wrap';
+    const close = createUiElement('button', { text: '确定', attributes: { type: 'button' } });
+    close.style.cssText = 'float:right;margin-top:16px';
+    close.addEventListener('click', window.close);
+    window.content.append(text, close);
+    windows.message = window;
+    window.onclose = () => { if (windows.message === window) windows.message = null; };
+    window.show();
+  }
+
+  async function createCollectionProgress() {
+    windows.progress?.close();
+    const window = await SchwiDialog.createDialog(410, 240, { ariaLabel: '正在收集盲盒记录', showHeader: false, closeOnBackdropClick: false, closeOnEscape: false });
+    window.content.style.cssText = 'padding:0;overflow:hidden';
+    addUiStyles(window.content);
     const dialog = createUiElement('section', { attributes: { id: UI_IDS.progress, role: 'status', 'aria-live': 'polite' } });
     const title = createUiElement('h2', { text: '正在收集盲盒记录' });
     const detail = createUiElement('p', { text: '已读取 0 条新记录' });
@@ -304,7 +320,9 @@
     const actions = createUiElement('div', { className: 'bgb-progress-actions' });
     actions.appendChild(cancel);
     dialog.append(title, detail, progress, status, actions);
-    document.body.appendChild(dialog);
+    window.content.appendChild(dialog);
+    window.show();
+    windows.progress = window;
     return {
       update(records, page) {
         detail.textContent = `已读取 ${records.toLocaleString()} 条新记录`;
@@ -312,7 +330,10 @@
         progress.value = page;
         status.textContent = `已完成第 ${page} 页，正在继续读取可用历史记录。`;
       },
-      close() { dialog.remove(); }
+      close() {
+        window.close();
+        if (windows.progress === window) windows.progress = null;
+      }
     };
   }
 
@@ -326,7 +347,7 @@
     if (collecting) return;
     collecting = true;
     cancelRequested = false;
-    const progress = createCollectionProgress();
+    const progress = await createCollectionProgress();
     const records = [];
     let nextId = 0;
     let month = '';
@@ -352,28 +373,30 @@
         isMore = Boolean(params.isMore);
       }
       const mergedRecords = saveGiftList(userData.profile.mid, records);
-      showResultsDialog(mergedRecords, giftInfo, cancelRequested ? '查询已取消，以下为已保存的历史统计结果。' : '已合并本次记录与本地历史记录。');
+      await showResultsDialog(mergedRecords, giftInfo, cancelRequested ? '查询已取消，以下为已保存的历史统计结果。' : '已合并本次记录与本地历史记录。');
     } catch (error) {
       console.error('盲盒数据请求失败:', error);
-      alert(`盲盒数据收集失败：${error.message || '请检查登录状态和网络。'}`);
+      await showMessage('盲盒数据收集失败', error.message || '请检查登录状态和网络。');
     } finally {
       collecting = false;
       progress.close();
     }
   }
 
-  function showResultsDialog(allGiftList, giftInfo, subtitle = '') {
-    document.getElementById(UI_IDS.results)?.remove();
-    addUiStyles();
+  async function showResultsDialog(allGiftList, giftInfo, subtitle = '') {
+    windows.results?.close();
+    const window = await SchwiDialog.createDialog('94vw', '94vh', { ariaLabel: '盲盒统计结果', showHeader: false });
+    window.content.style.cssText = 'padding:0;overflow:hidden';
+    addUiStyles(window.content);
     const dialog = createUiElement('section', { attributes: { id: UI_IDS.results, role: 'dialog', 'aria-modal': 'true', 'aria-label': '盲盒统计结果', tabindex: '-1' } });
     const header = createUiElement('header', { className: 'bgb-header' });
     const heading = document.createElement('div');
     heading.append(createUiElement('h1', { className: 'bgb-title', text: '盲盒统计' }), createUiElement('p', { className: 'bgb-subtitle', text: subtitle }));
     const headerActions = createUiElement('div', { className: 'bgb-header-actions' });
     const refresh = createUiElement('button', { text: '重新收集', attributes: { type: 'button' } });
-    refresh.addEventListener('click', () => { dialog.remove(); fetchAllBlindBoxes(); });
+    refresh.addEventListener('click', () => { window.close(); fetchAllBlindBoxes(); });
     const close = createUiElement('button', { className: 'bgb-close', text: '×', attributes: { type: 'button', title: '关闭（Esc）', 'aria-label': '关闭' } });
-    close.addEventListener('click', () => dialog.remove());
+    close.addEventListener('click', window.close);
     headerActions.append(refresh, close);
     header.append(heading, headerActions);
     const totalDraws = allGiftList.reduce((total, item) => total + (Number(item.giftNum) || 0), 0);
@@ -395,7 +418,8 @@
     const empty = createUiElement('div', { className: 'bgb-empty', text: '没有符合筛选条件的记录', attributes: { hidden: '' } });
     content.appendChild(empty);
     dialog.append(header, summary, toolbar, content);
-    document.body.appendChild(dialog);
+    window.content.appendChild(dialog);
+    windows.results = window;
 
     function matches(item) {
       const term = search.value.trim().toLocaleLowerCase();
@@ -451,9 +475,8 @@
     }
     [search, profit, box].forEach(control => control.addEventListener(control === search ? 'input' : 'change', render));
     reset.addEventListener('click', () => { search.value = ''; profit.value = 'all'; box.value = 'all'; render(); });
-    dialog.addEventListener('keydown', event => { if (event.key === 'Escape') dialog.remove(); });
     render();
-    dialog.focus();
+    window.show();
   }
 
   // 注册菜单项

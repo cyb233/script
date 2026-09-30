@@ -1,10 +1,11 @@
 // ==UserScript==
 // @name         Bilibili 庆会广场
 // @namespace    Schwi
-// @version      1.0.0
+// @version      1.0.1
 // @description  查询、筛选和浏览 Bilibili 庆会广场活动
 // @author       Schwi
 // @match        *://*.bilibili.com/*
+// @require      https://update.greasyfork.org/scripts/597988/1947281/Shadow%20DOM%20Dialog%20Utility.js
 // @connect      api.live.bilibili.com
 // @connect      api.vc.bilibili.com
 // @grant        GM.xmlHttpRequest
@@ -19,10 +20,10 @@
     'use strict';
 
     const IDS = {
-        styles: 'bps-styles',
         results: 'bps-results-dialog',
         progress: 'bps-progress-dialog'
     };
+    const windows = { progress: null, results: null, message: null };
     const PAGE_SIZE = 50;
     const LOTTERY_CONCURRENCY = 6;
     const state = {
@@ -40,9 +41,8 @@
         return node;
     }
 
-    function addStyles() {
-        if (document.getElementById(IDS.styles)) return;
-        const style = createElement('style', { attributes: { id: IDS.styles } });
+    function addStyles(content) {
+        const style = createElement('style');
         style.textContent = `
             #${IDS.results}, #${IDS.progress} { box-sizing: border-box; font-family: Arial, "Microsoft YaHei", sans-serif; color: #202124; }
             #${IDS.results} { position: fixed; z-index: 2147483646; inset: 3vh 3vw; display: flex; flex-direction: column; overflow: hidden; background: #f6f8fa; border: 1px solid #b9c0c9; border-radius: 8px; box-shadow: 0 18px 50px rgba(0, 0, 0, .32); }
@@ -84,9 +84,21 @@
             #${IDS.progress} p { margin: 0 0 12px; color: #57606a; font-size: 13px; line-height: 1.5; }
             #${IDS.progress} progress { width: 100%; height: 8px; margin-bottom: 12px; accent-color: #00a1d6; }
             #${IDS.progress} .bps-progress-actions { display: flex; justify-content: flex-end; }
-            @media (max-width: 680px) { #${IDS.results} { inset: 0; border: 0; border-radius: 0; } #${IDS.results} .bps-header, #${IDS.results} .bps-toolbar { padding-left: 12px; padding-right: 12px; } #${IDS.results} .bps-search { order: 1; width: 100%; } #${IDS.results} .bps-count { margin-left: 0; } #${IDS.results} .bps-list { padding: 12px; } }
+            @media (max-width: 680px) { #${IDS.results} { inset: 0; border: 0; border-radius: 0; } #${IDS.results} .bps-header, #${IDS.results} .bps-toolbar { padding-left: 12px; padding-right: 12px; } #${IDS.results} .bps-search { order: 1; width: 100%; } #${IDS.results} .bps-count { margin-left: 0; } #${IDS.results} .bps-list { padding: 12px; } } #${IDS.results}, #${IDS.progress} { position: static; inset: auto; z-index: auto; transform: none; width: 100%; height: 100%; border: 0; border-radius: 0; box-shadow: none; }
         `;
-        document.head.appendChild(style);
+        content.appendChild(style);
+    }
+
+    async function showMessage(title, message) {
+        windows.message?.close();
+        const window = await SchwiDialog.createDialog(420, 190, { title, showCloseButton: true });
+        const text = createElement('p', { text: message, styles: { margin: '0', lineHeight: '1.6', whiteSpace: 'pre-wrap' } });
+        const close = createElement('button', { text: '确定', attributes: { type: 'button' }, styles: { float: 'right', marginTop: '16px' } });
+        close.addEventListener('click', window.close);
+        window.content.append(text, close);
+        windows.message = window;
+        window.onclose = () => { if (windows.message === window) windows.message = null; };
+        window.show();
     }
 
     const sleep = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
@@ -142,9 +154,11 @@
         return Number.isNaN(date.getTime()) ? '时间未知' : date.toLocaleString();
     }
 
-    function createProgressDialog() {
-        document.getElementById(IDS.progress)?.remove();
-        addStyles();
+    async function createProgressDialog() {
+        windows.progress?.close();
+        const window = await SchwiDialog.createDialog(410, 240, { ariaLabel: '正在查询庆会广场', showHeader: false, closeOnBackdropClick: false, closeOnEscape: false });
+        window.content.style.cssText = 'padding:0;overflow:hidden';
+        addStyles(window.content);
         const dialog = createElement('section', { attributes: { id: IDS.progress, role: 'status', 'aria-live': 'polite' } });
         const title = createElement('h2', { text: '正在查询庆会广场' });
         const detail = createElement('p', { text: '正在读取活动列表...' });
@@ -155,7 +169,9 @@
         const actions = createElement('div', { className: 'bps-progress-actions' });
         actions.appendChild(cancel);
         dialog.append(title, detail, progress, latest, actions);
-        document.body.appendChild(dialog);
+        window.content.appendChild(dialog);
+        window.show();
+        windows.progress = window;
         return {
             update(collected, total, earliestDate, latestDate) {
                 detail.textContent = `已收集 ${collected.toLocaleString()} / ${total ? total.toLocaleString() : '未知'} 个庆会`;
@@ -165,7 +181,10 @@
                     ? `活动时间范围：${formatDate(earliestDate)} 至 ${formatDate(latestDate)}`
                     : '';
             },
-            close() { dialog.remove(); }
+            close() {
+                window.close();
+                if (windows.progress === window) windows.progress = null;
+            }
         };
     }
 
@@ -203,9 +222,11 @@
         return card;
     }
 
-    function showResultsDialog() {
-        document.getElementById(IDS.results)?.remove();
-        addStyles();
+    async function showResultsDialog() {
+        windows.results?.close();
+        const window = await SchwiDialog.createDialog('94vw', '94vh', { ariaLabel: '庆会广场结果', showHeader: false });
+        window.content.style.cssText = 'padding:0;overflow:hidden';
+        addStyles(window.content);
         const dialog = createElement('section', { attributes: { id: IDS.results, role: 'dialog', 'aria-modal': 'true', 'aria-label': '庆会广场结果', tabindex: '-1' } });
         const header = createElement('header', { className: 'bps-header' });
         const heading = document.createElement('div');
@@ -214,9 +235,9 @@
         heading.append(title, subtitle);
         const headerActions = createElement('div', { className: 'bps-header-actions' });
         const refresh = createElement('button', { text: '重新查询', attributes: { type: 'button' } });
-        refresh.addEventListener('click', () => { dialog.remove(); collectParties(); });
+        refresh.addEventListener('click', () => { window.close(); collectParties(); });
         const close = createElement('button', { className: 'bps-close', text: '×', attributes: { type: 'button', title: '关闭（Esc）', 'aria-label': '关闭' } });
-        close.addEventListener('click', () => dialog.remove());
+        close.addEventListener('click', window.close);
         headerActions.append(refresh, close);
         header.append(heading, headerActions);
 
@@ -239,7 +260,8 @@
         const loadMore = createElement('button', { className: 'bps-load-more', text: '加载更多', attributes: { type: 'button' } });
         list.append(grid, empty, loadMore);
         dialog.append(header, toolbar, list);
-        document.body.appendChild(dialog);
+        window.content.appendChild(dialog);
+        windows.results = window;
 
         let filtered = [];
         let rendered = 0;
@@ -289,9 +311,8 @@
             applyFilters();
         });
         loadMore.addEventListener('click', renderNext);
-        dialog.addEventListener('keydown', event => { if (event.key === 'Escape') dialog.remove(); });
         applyFilters();
-        dialog.focus();
+        window.show();
     }
 
     async function collectParties() {
@@ -299,7 +320,7 @@
         state.collecting = true;
         state.cancelRequested = false;
         state.parties = [];
-        const progress = createProgressDialog();
+        const progress = await createProgressDialog();
         const partyIds = new Set();
         let page = 1;
         let total = 0;
@@ -342,11 +363,11 @@
                 if (items.length < PAGE_SIZE || (total && state.parties.length >= total)) break;
                 page++;
             }
-            if (state.parties.length > 0) showResultsDialog();
+            if (state.parties.length > 0) await showResultsDialog();
         } catch (error) {
             if (error.name !== 'AbortError') {
                 console.error('庆会广场查询失败：', error);
-                alert(`庆会广场查询失败：${error.message || '请检查网络后重试。'}`);
+                await showMessage('庆会广场查询失败', error.message || '请检查网络后重试。');
             }
         } finally {
             state.collecting = false;

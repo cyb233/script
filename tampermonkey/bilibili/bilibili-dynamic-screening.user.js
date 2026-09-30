@@ -1,10 +1,11 @@
 // ==UserScript==
 // @name         Bilibili 动态筛选
 // @namespace    Schwi
-// @version      4.1.0
+// @version      4.1.1
 // @description  按时间收集、筛选和浏览 Bilibili 动态
 // @author       Schwi
 // @match        *://*.bilibili.com/*
+// @require      https://update.greasyfork.org/scripts/597988/1947281/Shadow%20DOM%20Dialog%20Utility.js
 // @connect      api.bilibili.com
 // @connect      api.vc.bilibili.com
 // @grant        GM.xmlHttpRequest
@@ -20,6 +21,7 @@
 (function () {
     'use strict';
     const IDS = { styles: 'bds-styles', task: 'bds-task', progress: 'bds-progress', results: 'bds-results', rules: 'bds-rules' };
+    const windows = { task: null, progress: null, results: null, rules: null };
     const TYPE_NAMES = {
         DYNAMIC_TYPE_NONE: '动态失效', DYNAMIC_TYPE_AV: '视频', DYNAMIC_TYPE_PGC: '剧集', DYNAMIC_TYPE_COURSES: '课程', DYNAMIC_TYPE_WORD: '文本', DYNAMIC_TYPE_DRAW: '图文', DYNAMIC_TYPE_ARTICLE: '专栏', DYNAMIC_TYPE_MUSIC: '音乐', DYNAMIC_TYPE_COMMON_SQUARE: '卡片', DYNAMIC_TYPE_COMMON_VERTICAL: '竖屏', DYNAMIC_TYPE_LIVE: '直播', DYNAMIC_TYPE_MEDIALIST: '收藏夹', DYNAMIC_TYPE_COURSES_SEASON: '课程合集', DYNAMIC_TYPE_COURSES_BATCH: '课程批次', DYNAMIC_TYPE_AD: '广告', DYNAMIC_TYPE_APPLET: '小程序', DYNAMIC_TYPE_SUBSCRIPTION: '订阅', DYNAMIC_TYPE_LIVE_RCMD: '直播', DYNAMIC_TYPE_BANNER: '横幅', DYNAMIC_TYPE_UGC_SEASON: '合集', DYNAMIC_TYPE_PGC_UNION: '番剧影视', DYNAMIC_TYPE_SUBSCRIPTION_NEW: '新订阅'
     };
@@ -38,11 +40,21 @@
     const hasReward = item => isLiveReserve(item) && Boolean(additional(item).reserve.desc3 && additional(item).reserve.desc3.text);
     const abort = () => Object.assign(new Error('查询已取消'), { name: 'AbortError' });
 
-    function addStyles() {
-        if (document.getElementById(IDS.styles)) return;
-        const style = el('style', { attributes: { id: IDS.styles } });
+    function addStyles(content) {
+        const style = el('style');
         style.textContent = '#bds-task,#bds-progress,#bds-results,#bds-rules{box-sizing:border-box;font-family:Arial,"Microsoft YaHei",sans-serif;color:#202124}#bds-task *,#bds-progress *,#bds-results *,#bds-rules *{box-sizing:border-box}#bds-task,#bds-progress,#bds-rules{position:fixed;z-index:2147483647;top:50%;left:50%;width:min(460px,calc(100vw - 32px));padding:20px;transform:translate(-50%,-50%);background:#fff;border:1px solid #c8d0d9;border-radius:8px;box-shadow:0 18px 50px rgba(0,0,0,.28)}#bds-task h2,#bds-progress h2,#bds-rules h2{margin:0 0 8px;font-size:18px}#bds-task p,#bds-progress p,#bds-rules p{margin:0 0 14px;color:#667085;font-size:13px;line-height:1.55}#bds-task label{display:block;margin:12px 0 6px;color:#344054;font-size:13px;font-weight:700}#bds-task input,#bds-rules textarea{width:100%;border:1px solid #b9c0c9;border-radius:4px;outline:none}#bds-task input{height:36px;padding:0 10px}#bds-rules textarea{min-height:260px;padding:10px;resize:vertical;font:12px/1.5 Consolas,monospace}.bds-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}#bds-task button,#bds-progress button,#bds-results button,#bds-rules button{height:34px;padding:0 11px;border:1px solid #aeb7c2;border-radius:4px;background:#fff;color:#25364a;cursor:pointer;font-size:13px}#bds-task button:hover,#bds-progress button:hover,#bds-results button:hover,#bds-rules button:hover{background:#f0f5ff;border-color:#6b96d8}.primary{border-color:#00a1d6!important;background:#00a1d6!important;color:#fff!important}#bds-progress progress{width:100%;height:8px;margin:6px 0 12px;accent-color:#00a1d6}#bds-results{position:fixed;z-index:2147483646;inset:3vh 3vw;display:flex;flex-direction:column;overflow:hidden;background:#f6f8fa;border:1px solid #b9c0c9;border-radius:8px;box-shadow:0 18px 50px rgba(0,0,0,.32)}#bds-results .header{display:flex;align-items:center;min-height:64px;padding:12px 18px;background:#fff;border-bottom:1px solid #d8dee4}#bds-results h2{margin:0;font-size:18px}#bds-results .subtitle{margin:3px 0 0;color:#667085;font-size:12px}.header-actions{display:flex;gap:8px;margin-left:auto}.close{width:34px!important;padding:0!important;color:#57606a!important;font-size:24px!important;line-height:1}.toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:10px 18px;background:#fff;border-bottom:1px solid #e2e6ea}.search,.sort,.range-date{height:34px;padding:0 10px;border:1px solid #b9c0c9;border-radius:4px;background:#fff;color:#25364a;font-size:13px;outline:none}.search{width:min(300px,100%)}.sort{min-width:150px}.range-label,.range-separator{color:#667085;font-size:12px;white-space:nowrap}.range-date{width:145px}.toggle{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 4px;color:#57606a;font-size:13px;white-space:nowrap}.count{margin-left:auto;color:#667085;font-size:12px}.filters{max-height:235px;overflow:auto;padding:10px 18px 12px;background:#fff;border-bottom:1px solid #e2e6ea}.filter-group{display:flex;flex-wrap:wrap;align-items:center;gap:7px 12px;padding:7px 0;border-top:1px solid #eef1f4}.filter-group:first-child{border-top:0}.group-name{width:68px;color:#667085;font-size:12px;font-weight:700}.filter{display:inline-flex;align-items:center;gap:4px;color:#344054;font-size:12px;white-space:nowrap}.list{flex:1;min-height:0;overflow:auto;padding:16px 18px 24px}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;align-content:start}#bds-results .card{position:relative;min-width:0;height:300px;overflow:hidden;border:1px solid #d8dee4;border-radius:6px;background:#252b36;color:#fff}#bds-results .poster{position:absolute!important;inset:0!important;z-index:0;width:100%!important;height:100%!important;max-width:none!important;object-fit:cover}#bds-results .card-body{position:absolute!important;inset:0!important;z-index:1;display:flex!important;flex-direction:column;height:100%!important;padding:12px;background:linear-gradient(180deg,rgba(0,0,0,.14),rgba(0,0,0,.84))}#bds-results.poster-only .card-body{display:none!important}.badges{display:flex;flex-wrap:wrap;gap:5px;min-height:20px}.badge{padding:2px 6px;border-radius:3px;background:rgba(0,0,0,.58);font-size:11px}.reward{background:#ca4b4b}.card-title{margin:8px 0 4px;overflow:hidden;font-size:15px;line-height:1.35;white-space:nowrap;text-overflow:ellipsis}.card-title a,.card-actions a{color:#fff;text-decoration:none}.card-time{color:#e8edf2;font-size:12px}.desc{display:-webkit-box;flex:1;margin:8px 0;overflow:hidden;color:#edf1f5;font-size:13px;line-height:1.48;white-space:pre-wrap;-webkit-box-orient:vertical;-webkit-line-clamp:5}.card-actions{display:flex;gap:8px}.card-actions a{flex:1;height:30px;padding:7px 8px;border:1px solid rgba(255,255,255,.55);border-radius:4px;text-align:center;font-size:12px}.load-more-row{display:flex;justify-content:center;padding:18px 0 2px}.load-more{min-width:140px}.empty{padding:48px 12px;color:#667085;text-align:center}.rule-error{min-height:18px;margin-top:8px;color:#c83d3d;font-size:12px}@media(max-width:680px){#bds-results{inset:0;border:0;border-radius:0}.header,.toolbar,.filters{padding-left:12px!important;padding-right:12px!important}.search{order:1;width:100%}.count{margin-left:0}.list{padding:12px}.filter-group{align-items:flex-start}.group-name{width:100%}}';
-        document.head.appendChild(style);
+        style.textContent += '#bds-task,#bds-progress,#bds-results,#bds-rules{position:static;inset:auto;z-index:auto;transform:none;width:100%;height:100%;border:0;border-radius:0;box-shadow:none}';
+        content.appendChild(style);
+    }
+
+    async function openWindow(key, width, height, ariaLabel, config = {}) {
+        windows[key]?.close();
+        const window = await SchwiDialog.createDialog(width, height, { ariaLabel, showHeader: false, ...config });
+        window.content.style.cssText = 'padding:0;overflow:hidden';
+        addStyles(window.content);
+        windows[key] = window;
+        window.onclose = () => { if (windows[key] === window) windows[key] = null; };
+        return window;
     }
 
     async function request(url, retries = 3) {
@@ -126,24 +138,206 @@
         desc.innerHTML = description;
         const actions = el('div', { className: 'card-actions' }); actions.appendChild(el('a', { text: '查看详情', attributes: { href: 'https://t.bilibili.com/' + item.id_str, target: '_blank', rel: 'noreferrer' } })); const body = el('div', { className: 'card-body' }); body.append(badges, title, el('div', { className: 'card-time', text: formatTime(time(item)) }), desc, actions); node.appendChild(body); return node;
     }
-    function ruleDialog(onSaved) {
-        document.getElementById(IDS.rules)?.remove(); addStyles(); const dialog = el('section', { attributes: { id: IDS.rules, role: 'dialog', 'aria-modal': 'true' } }); const editor = el('textarea', { attributes: { spellcheck: 'false' } }); editor.value = JSON.stringify(customSource(), null, 2); const error = el('div', { className: 'rule-error' }); const cancel = el('button', { text: '取消' }); const save = el('button', { className: 'primary', text: '保存规则' }); cancel.onclick = () => dialog.remove(); save.onclick = () => { try { const rules = JSON.parse(editor.value || '{}'); if (!rules || Array.isArray(rules) || typeof rules !== 'object') throw new Error('规则根节点必须是对象。'); Object.entries(rules).forEach(([name, rule]) => { if (!name.trim() || !rule || !['checkbox', 'text'].includes(rule.type) || typeof rule.filter !== 'string' || typeof new Function('return (' + rule.filter + ');')() !== 'function') throw new Error('规则“' + name + '”格式无效。'); }); GM_setValue('customFilters', rules); dialog.remove(); onSaved(); } catch (exception) { error.textContent = exception.message || '规则格式无效。'; } }; const actions = el('div', { className: 'bds-actions' }); actions.append(cancel, save); dialog.append(el('h2', { text: '自定义筛选规则' }), el('p', { text: '每项包含 type（checkbox 或 text）和 filter（箭头函数字符串）。启用复选框或填写文本后，规则返回 true 的动态才会显示。' }), editor, error, actions); document.body.appendChild(dialog);
+    async function ruleDialog(onSaved) {
+        const window = await openWindow('rules', 520, 500, '自定义筛选规则');
+        const dialog = el('section', { attributes: { id: IDS.rules, role: 'dialog', 'aria-modal': 'true' } });
+        const editor = el('textarea', { attributes: { spellcheck: 'false' } });
+        editor.value = JSON.stringify(customSource(), null, 2);
+        const error = el('div', { className: 'rule-error' });
+        const cancel = el('button', { text: '取消' });
+        const save = el('button', { className: 'primary', text: '保存规则' });
+        cancel.onclick = window.close;
+        save.onclick = () => {
+            try {
+                const rules = JSON.parse(editor.value || '{}');
+                if (!rules || Array.isArray(rules) || typeof rules !== 'object') throw new Error('规则根节点必须是对象。');
+                Object.entries(rules).forEach(([name, rule]) => {
+                    if (!name.trim() || !rule || !['checkbox', 'text'].includes(rule.type) || typeof rule.filter !== 'string' || typeof new Function('return (' + rule.filter + ');')() !== 'function') throw new Error('规则“' + name + '”格式无效。');
+                });
+                GM_setValue('customFilters', rules);
+                window.close();
+                onSaved();
+            } catch (exception) {
+                error.textContent = exception.message || '规则格式无效。';
+            }
+        };
+        const actions = el('div', { className: 'bds-actions' });
+        actions.append(cancel, save);
+        dialog.append(el('h2', { text: '自定义筛选规则' }), el('p', { text: '每项包含 type（checkbox 或 text）和 filter（箭头函数字符串）。启用复选框或填写文本后，规则返回 true 的动态才会显示。' }), editor, error, actions);
+        window.content.appendChild(dialog);
+        window.show();
+        editor.focus();
     }
-    function resultsDialog(note) {
-        document.getElementById(IDS.results)?.remove(); addStyles(); const dialog = el('section', { attributes: { id: IDS.results, role: 'dialog', 'aria-modal': 'true' } }); const title = el('h2', { text: '动态结果' }); const subtitle = el('p', { className: 'subtitle' }); const close = el('button', { className: 'close', text: '×', attributes: { title: '关闭' } }); const rules = el('button', { text: '自定义规则' }); const headerActions = el('div', { className: 'header-actions' }); headerActions.append(rules, close); const headerText = el('div'); headerText.append(title, subtitle); const header = el('header', { className: 'header' }); header.append(headerText, headerActions);
-        const search = el('input', { className: 'search', attributes: { type: 'search', placeholder: '搜索作者、UID、标题或正文' } }); const sort = el('select', { className: 'sort', attributes: { 'aria-label': '时间排序' } }); sort.append(el('option', { text: '时间倒序（新 → 旧）', attributes: { value: 'desc' } }), el('option', { text: '时间正序（旧 → 新）', attributes: { value: 'asc' } })); const rangeLabel = el('span', { className: 'range-label', text: '时间范围' }); const rangeStart = el('input', { className: 'range-date', attributes: { type: 'date', 'aria-label': '筛选开始日期', title: '筛选开始日期' } }); const rangeSeparator = el('span', { className: 'range-separator', text: '至' }); const rangeEnd = el('input', { className: 'range-date', attributes: { type: 'date', 'aria-label': '筛选结束日期', title: '筛选结束日期' } }); const posterBox = el('input', { attributes: { type: 'checkbox' } }); const poster = el('label', { className: 'toggle' }); poster.append(posterBox, '仅显示海报'); const reset = el('button', { text: '重置筛选' }); const toggle = el('button', { text: '收起筛选' }); const count = el('span', { className: 'count' }); const toolbar = el('div', { className: 'toolbar' }); toolbar.append(search, sort, rangeLabel, rangeStart, rangeSeparator, rangeEnd, poster, reset, toggle, count); const panel = el('div', { className: 'filters' }); const grid = el('div', { className: 'grid' }); const moreRow = el('div', { className: 'load-more-row' }); const list = el('main', { className: 'list' }); list.append(grid, moreRow); dialog.append(header, toolbar, panel, list); document.body.appendChild(dialog);
-        const values = new Map(); let visible = []; let rendered = 0;
-        const range = () => { const values = state.dynamics.map(time).filter(Boolean); return values.length ? formatTime(Math.min(...values)) + ' 至 ' + formatTime(Math.max(...values)) : '无有效时间'; };
-        function renderMore() { const fragment = document.createDocumentFragment(); const next = visible.slice(rendered, rendered + PAGE_SIZE); next.forEach(item => fragment.appendChild(dynamicCard(item))); rendered += next.length; grid.appendChild(fragment); moreRow.replaceChildren(); if (!visible.length) grid.appendChild(el('div', { className: 'empty', text: '没有符合当前筛选条件的动态。' })); else if (rendered < visible.length) { const more = el('button', { className: 'load-more', text: '继续加载（剩余 ' + (visible.length - rendered).toLocaleString() + ' 条）' }); more.onclick = renderMore; moreRow.appendChild(more); } }
-        function apply() { const query = search.value.trim().toLocaleUpperCase(); const from = rangeStart.value ? new Date(rangeStart.value + 'T00:00:00').getTime() / 1000 : -Infinity; const to = rangeEnd.value ? new Date(rangeEnd.value + 'T23:59:59').getTime() / 1000 : Infinity; const active = filterGroups().flatMap(row => row[1]).filter(rule => rule.type === 'text' ? Boolean((values.get(rule.id) || '').trim()) : Boolean(values.get(rule.id))); visible = state.dynamics.filter(item => { const value = time(item); return value >= from && value <= to && (!query || dynamicText(item).includes(query)); }).filter(item => active.every(rule => { try { return rule.filter(item, values.get(rule.id)); } catch (error) { console.warn('筛选规则执行失败：' + rule.name, error); return false; } })); visible.sort((a, b) => (sort.value === 'asc' ? time(a) - time(b) : time(b) - time(a))); title.textContent = '动态结果 ' + visible.length.toLocaleString() + ' / ' + state.dynamics.length.toLocaleString(); subtitle.textContent = (note ? note + ' · ' : '') + '时间范围：' + range(); count.textContent = '已匹配 ' + visible.length.toLocaleString() + ' 条'; rendered = 0; grid.replaceChildren(); renderMore(); }
-        function renderFilters() { panel.replaceChildren(); filterGroups().forEach(([groupName, entries]) => { if (!entries.length) return; const group = el('div', { className: 'filter-group' }); group.appendChild(el('span', { className: 'group-name', text: groupName })); entries.forEach(rule => { const label = el('label', { className: 'filter' }); const input = el('input', { attributes: { type: rule.type } }); if (rule.type === 'checkbox') input.checked = Boolean(values.get(rule.id)); else { input.value = values.get(rule.id) || ''; input.placeholder = rule.name; } input.addEventListener(rule.type === 'text' ? 'input' : 'change', () => { values.set(rule.id, rule.type === 'checkbox' ? input.checked : input.value); apply(); }); label.append(input, rule.name); group.appendChild(label); }); panel.appendChild(group); }); }
-        close.onclick = () => dialog.remove(); search.oninput = apply; sort.onchange = apply; rangeStart.onchange = apply; rangeEnd.onchange = apply; posterBox.onchange = () => dialog.classList.toggle('poster-only', posterBox.checked); reset.onclick = () => { values.clear(); search.value = ''; rangeStart.value = ''; rangeEnd.value = ''; sort.value = 'desc'; renderFilters(); apply(); }; toggle.onclick = () => { panel.hidden = !panel.hidden; toggle.textContent = panel.hidden ? '展开筛选' : '收起筛选'; }; rules.onclick = () => ruleDialog(() => { values.clear(); renderFilters(); apply(); }); renderFilters(); apply();
+    async function resultsDialog(note) {
+        const window = await openWindow('results', '94vw', '94vh', '动态结果');
+        const dialog = el('section', { attributes: { id: IDS.results, role: 'dialog', 'aria-modal': 'true' } });
+        const title = el('h2', { text: '动态结果' });
+        const subtitle = el('p', { className: 'subtitle' });
+        const close = el('button', { className: 'close', text: '×', attributes: { title: '关闭' } });
+        const rules = el('button', { text: '自定义规则' });
+        const headerActions = el('div', { className: 'header-actions' });
+        headerActions.append(rules, close);
+        const headerText = el('div');
+        headerText.append(title, subtitle);
+        const header = el('header', { className: 'header' });
+        header.append(headerText, headerActions);
+        const search = el('input', { className: 'search', attributes: { type: 'search', placeholder: '搜索作者、UID、标题或正文' } });
+        const sort = el('select', { className: 'sort', attributes: { 'aria-label': '时间排序' } });
+        sort.append(el('option', { text: '时间倒序（新 → 旧）', attributes: { value: 'desc' } }), el('option', { text: '时间正序（旧 → 新）', attributes: { value: 'asc' } }));
+        const rangeLabel = el('span', { className: 'range-label', text: '时间范围' });
+        const rangeStart = el('input', { className: 'range-date', attributes: { type: 'date', 'aria-label': '筛选开始日期', title: '筛选开始日期' } });
+        const rangeSeparator = el('span', { className: 'range-separator', text: '至' });
+        const rangeEnd = el('input', { className: 'range-date', attributes: { type: 'date', 'aria-label': '筛选结束日期', title: '筛选结束日期' } });
+        const posterBox = el('input', { attributes: { type: 'checkbox' } });
+        const poster = el('label', { className: 'toggle' });
+        poster.append(posterBox, '仅显示海报');
+        const reset = el('button', { text: '重置筛选' });
+        const toggle = el('button', { text: '收起筛选' });
+        const count = el('span', { className: 'count' });
+        const toolbar = el('div', { className: 'toolbar' });
+        toolbar.append(search, sort, rangeLabel, rangeStart, rangeSeparator, rangeEnd, poster, reset, toggle, count);
+        const panel = el('div', { className: 'filters' });
+        const grid = el('div', { className: 'grid' });
+        const moreRow = el('div', { className: 'load-more-row' });
+        const list = el('main', { className: 'list' });
+        list.append(grid, moreRow);
+        dialog.append(header, toolbar, panel, list);
+        window.content.appendChild(dialog);
+
+        const values = new Map();
+        let visible = [];
+        let rendered = 0;
+        const range = () => {
+            const timestamps = state.dynamics.map(time).filter(Boolean);
+            return timestamps.length ? formatTime(Math.min(...timestamps)) + ' 至 ' + formatTime(Math.max(...timestamps)) : '无有效时间';
+        };
+        function renderMore() {
+            const fragment = document.createDocumentFragment();
+            const next = visible.slice(rendered, rendered + PAGE_SIZE);
+            next.forEach(item => fragment.appendChild(dynamicCard(item)));
+            rendered += next.length;
+            grid.appendChild(fragment);
+            moreRow.replaceChildren();
+            if (!visible.length) grid.appendChild(el('div', { className: 'empty', text: '没有符合当前筛选条件的动态。' }));
+            else if (rendered < visible.length) {
+                const more = el('button', { className: 'load-more', text: '继续加载（剩余 ' + (visible.length - rendered).toLocaleString() + ' 条）' });
+                more.onclick = renderMore;
+                moreRow.appendChild(more);
+            }
+        }
+        function apply() {
+            const query = search.value.trim().toLocaleUpperCase();
+            const from = rangeStart.value ? new Date(rangeStart.value + 'T00:00:00').getTime() / 1000 : -Infinity;
+            const to = rangeEnd.value ? new Date(rangeEnd.value + 'T23:59:59').getTime() / 1000 : Infinity;
+            const active = filterGroups().flatMap(row => row[1]).filter(rule => rule.type === 'text' ? Boolean((values.get(rule.id) || '').trim()) : Boolean(values.get(rule.id)));
+            visible = state.dynamics.filter(item => {
+                const value = time(item);
+                return value >= from && value <= to && (!query || dynamicText(item).includes(query));
+            }).filter(item => active.every(rule => {
+                try { return rule.filter(item, values.get(rule.id)); }
+                catch (error) { console.warn('筛选规则执行失败：' + rule.name, error); return false; }
+            }));
+            visible.sort((a, b) => sort.value === 'asc' ? time(a) - time(b) : time(b) - time(a));
+            title.textContent = '动态结果 ' + visible.length.toLocaleString() + ' / ' + state.dynamics.length.toLocaleString();
+            subtitle.textContent = (note ? note + ' · ' : '') + '时间范围：' + range();
+            count.textContent = '已匹配 ' + visible.length.toLocaleString() + ' 条';
+            rendered = 0;
+            grid.replaceChildren();
+            renderMore();
+        }
+        function renderFilters() {
+            panel.replaceChildren();
+            filterGroups().forEach(([groupName, entries]) => {
+                if (!entries.length) return;
+                const group = el('div', { className: 'filter-group' });
+                group.appendChild(el('span', { className: 'group-name', text: groupName }));
+                entries.forEach(rule => {
+                    const label = el('label', { className: 'filter' });
+                    const input = el('input', { attributes: { type: rule.type } });
+                    if (rule.type === 'checkbox') input.checked = Boolean(values.get(rule.id));
+                    else { input.value = values.get(rule.id) || ''; input.placeholder = rule.name; }
+                    input.addEventListener(rule.type === 'text' ? 'input' : 'change', () => {
+                        values.set(rule.id, rule.type === 'checkbox' ? input.checked : input.value);
+                        apply();
+                    });
+                    label.append(input, rule.name);
+                    group.appendChild(label);
+                });
+                panel.appendChild(group);
+            });
+        }
+        close.onclick = window.close;
+        search.oninput = apply;
+        sort.onchange = apply;
+        rangeStart.onchange = apply;
+        rangeEnd.onchange = apply;
+        posterBox.onchange = () => dialog.classList.toggle('poster-only', posterBox.checked);
+        reset.onclick = () => {
+            values.clear();
+            search.value = '';
+            rangeStart.value = '';
+            rangeEnd.value = '';
+            sort.value = 'desc';
+            renderFilters();
+            apply();
+        };
+        toggle.onclick = () => { panel.hidden = !panel.hidden; toggle.textContent = panel.hidden ? '展开筛选' : '收起筛选'; };
+        rules.onclick = () => ruleDialog(() => { values.clear(); renderFilters(); apply(); });
+        renderFilters();
+        apply();
+        window.show();
     }
-    function progressDialog() {
-        document.getElementById(IDS.progress)?.remove(); addStyles(); const dialog = el('section', { attributes: { id: IDS.progress, role: 'status' } }); const detail = el('p', { text: '正在读取动态列表...' }); const progress = el('progress', { attributes: { value: '0', max: '1' } }); const range = el('p'); const cancel = el('button', { text: '取消' }); cancel.onclick = () => { state.cancel = true; cancel.disabled = true; cancel.textContent = '正在取消'; }; const actions = el('div', { className: 'bds-actions' }); actions.appendChild(cancel); dialog.append(el('h2', { text: '正在收集动态' }), detail, progress, range, actions); document.body.appendChild(dialog); return { update(kept, scanned, earliest, latest) { detail.textContent = '已保留 ' + kept.toLocaleString() + ' 条，已扫描 ' + scanned.toLocaleString() + ' 条'; progress.max = Math.max(scanned, 1); progress.value = scanned; range.textContent = earliest && latest ? '已扫描时间范围：' + formatTime(earliest) + ' 至 ' + formatTime(latest) : ''; }, close() { dialog.remove(); } };
+    async function progressDialog() {
+        const window = await openWindow('progress', 460, 250, '正在收集动态', { closeOnBackdropClick: false, closeOnEscape: false });
+        const dialog = el('section', { attributes: { id: IDS.progress, role: 'status' } });
+        const detail = el('p', { text: '正在读取动态列表...' });
+        const progress = el('progress', { attributes: { value: '0', max: '1' } });
+        const range = el('p');
+        const cancel = el('button', { text: '取消' });
+        cancel.onclick = () => { state.cancel = true; cancel.disabled = true; cancel.textContent = '正在取消'; };
+        const actions = el('div', { className: 'bds-actions' });
+        actions.appendChild(cancel);
+        dialog.append(el('h2', { text: '正在收集动态' }), detail, progress, range, actions);
+        window.content.appendChild(dialog);
+        window.show();
+        return {
+            update(kept, scanned, earliest, latest) {
+                detail.textContent = '已保留 ' + kept.toLocaleString() + ' 条，已扫描 ' + scanned.toLocaleString() + ' 条';
+                progress.max = Math.max(scanned, 1);
+                progress.value = scanned;
+                range.textContent = earliest && latest ? '已扫描时间范围：' + formatTime(earliest) + ' 至 ' + formatTime(latest) : '';
+            },
+            close: window.close
+        };
     }
-    function taskDialog(selfOnly) {
-        document.getElementById(IDS.task)?.remove(); addStyles(); const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1); const toDate = value => value.toISOString().slice(0, 10); const dialog = el('section', { attributes: { id: IDS.task, role: 'dialog', 'aria-modal': 'true' } }); const hint = el('p', { text: 'Bilibili 只能从最新动态向前读取。开始日期之前的动态不会纳入结果，查询结束时间自动取当前时刻。' }); const start = el('input', { attributes: { type: 'date', value: toDate(yesterday) } }); const cancel = el('button', { text: '取消' }); const begin = el('button', { className: 'primary', text: '开始收集' }); cancel.onclick = () => dialog.remove(); begin.onclick = () => { const from = new Date(start.value + 'T00:00:00').getTime() / 1000; const to = Math.floor(Date.now() / 1000); if (!start.value || Number.isNaN(from)) { hint.textContent = '请选择有效的开始日期。'; hint.style.color = '#c83d3d'; return; } dialog.remove(); collect(from, to, selfOnly); }; const actions = el('div', { className: 'bds-actions' }); actions.append(cancel, begin); dialog.append(el('h2', { text: selfOnly ? '收集自己的动态' : '收集动态' }), hint, el('label', { text: '开始日期' }), start, actions); document.body.appendChild(dialog);
+    async function taskDialog(selfOnly) {
+        const window = await openWindow('task', 460, 300, selfOnly ? '收集自己的动态' : '收集动态');
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const toDate = value => value.toISOString().slice(0, 10);
+        const dialog = el('section', { attributes: { id: IDS.task, role: 'dialog', 'aria-modal': 'true' } });
+        const hint = el('p', { text: 'Bilibili 只能从最新动态向前读取。开始日期之前的动态不会纳入结果，查询结束时间自动取当前时刻。' });
+        const start = el('input', { attributes: { type: 'date', value: toDate(yesterday) } });
+        const cancel = el('button', { text: '取消' });
+        const begin = el('button', { className: 'primary', text: '开始收集' });
+        cancel.onclick = window.close;
+        begin.onclick = () => {
+            const from = new Date(start.value + 'T00:00:00').getTime() / 1000;
+            const to = Math.floor(Date.now() / 1000);
+            if (!start.value || Number.isNaN(from)) {
+                hint.textContent = '请选择有效的开始日期。';
+                hint.style.color = '#c83d3d';
+                return;
+            }
+            window.close();
+            collect(from, to, selfOnly);
+        };
+        const actions = el('div', { className: 'bds-actions' });
+        actions.append(cancel, begin);
+        dialog.append(el('h2', { text: selfOnly ? '收集自己的动态' : '收集动态' }), hint, el('label', { text: '开始日期' }), start, actions);
+        window.content.appendChild(dialog);
+        window.show();
+        start.focus();
     }
     async function enrich(item) {
         const dynamic = base(item) || {}; item.baseType = dynamic.type || item.type; item.reserve = null; item.reserveInfo = null;
@@ -155,7 +349,7 @@
     async function collect(start, end, selfOnly) {
         if (state.collecting) return;
         state.collecting = true; state.cancel = false; state.dynamics = [];
-        const progress = progressDialog(); const ids = new Set();
+        const progress = await progressDialog(); const ids = new Set();
         let offset = ''; let scanned = 0; let earliest = 0; let latest = 0; let more = true; let partial = false; let shouldInclude = false; let errorCount = 0;
         try {
             const user = await getUser();
@@ -194,7 +388,7 @@
             state.collecting = false; progress.close();
         }
         state.dynamics.sort((a, b) => time(b) - time(a));
-        resultsDialog(partial ? '查询未完整结束，以下为已收集的结果' : '查询完成');
+        await resultsDialog(partial ? '查询未完整结束，以下为已收集的结果' : '查询完成');
     }
     GM_registerMenuCommand('检查动态', () => taskDialog(false));
     GM_registerMenuCommand('只看自己动态', () => taskDialog(true));

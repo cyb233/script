@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         下载你赞助的fanbox
 // @namespace    Schwi
-// @version      4.7.0
+// @version      4.7.1
 // @description  查询并下载你赞助的 fanbox 用户投稿，支持限定查询数量
 // @author       Schwi
 // @match        https://*.fanbox.cc/*
@@ -13,6 +13,7 @@
 // @noframes
 // @connect      api.fanbox.cc
 // @connect      downloads.fanbox.cc
+// @require      https://update.greasyfork.org/scripts/597988/1947281/Shadow%20DOM%20Dialog%20Utility.js
 // @require      https://cdn.jsdelivr.net/npm/@zip.js/zip.js@2.7.57/dist/zip.min.js
 // @require      https://cdn.jsdelivr.net/gh/avoidwork/filesize.js@b480b2992a3ac2acb18a030c7b3ce11fe91fb6e0/dist/filesize.min.js
 // @require      https://cdn.jsdelivr.net/npm/streamsaver@2.0.6/StreamSaver.min.js
@@ -73,9 +74,27 @@
         hasLoadedPosts: false,
         postsCreatorId: null
     };
+    const windows = { download: null, fetch: null, query: null, results: null, message: null };
 
     const sleep = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
     const formatSize = size => filesize.filesize(size, { base: 2 });
+
+    async function openDialog(key, width, height, ariaLabel, config = {}) {
+        windows[key]?.close();
+        const window = await SchwiDialog.createDialog(width, height, { ariaLabel, showHeader: false, ...config });
+        window.content.style.cssText = 'padding:0;overflow:hidden';
+        windows[key] = window;
+        window.onclose = () => { if (windows[key] === window) windows[key] = null; };
+        return window;
+    }
+
+    async function showMessage(title, message) {
+        const window = await openDialog('message', 420, 190, title, { title, showHeader: true });
+        const text = createElement('p', { text: message, styles: { margin: '0', lineHeight: '1.6', whiteSpace: 'pre-wrap' } });
+        const close = createButton('确定', { styles: { float: 'right', marginTop: '16px' }, onClick: window.close });
+        window.content.append(text, close);
+        window.show();
+    }
 
     function normalizeQueryLimit(value) {
         const normalizedValue = String(value ?? '').trim();
@@ -206,7 +225,7 @@
         if (creatorId === 'www') {
             const pathname = top.window.location.pathname;
             if (!pathname.startsWith('/@')) {
-                alert('请访问用户页再执行脚本');
+                await showMessage('无法查询投稿', '请访问用户页再执行脚本');
                 throw new Error('请访问用户页再执行脚本');
             }
             creatorId = pathname.split('/@')[1].split('/')[0];
@@ -595,7 +614,7 @@
 
         console.log(`开始下载 ${totalFiles} 个文件`);
 
-        const progressDialog = createDownloadProgressDialog(totalFiles, startTime, () => {
+        const progressDialog = await createDownloadProgressDialog(totalFiles, startTime, () => {
             isCancelled = true;
         });
         const zipWriter = new zip.ZipWriter(new zip.BlobWriter('application/zip'));
@@ -741,7 +760,7 @@
         const readableStream = blob.stream();
         if (window.WritableStream && readableStream.pipeTo) {
             return readableStream.pipeTo(fileStream)
-                .then(() => alert('下载结束，请查看下载目录'));
+                .then(() => showMessage('下载完成', '下载结束，请查看下载目录'));
         }
 
         const streamWriter = fileStream.getWriter();
@@ -754,23 +773,18 @@
         return pump();
     }
 
-    function createDownloadProgressDialog(totalFiles, startTime, onCancel) {
+    async function createDownloadProgressDialog(totalFiles, startTime, onCancel) {
+        const window = await openDialog('download', '50vw', '50vh', '下载进度', { closeOnBackdropClick: false, closeOnEscape: false });
         const dialog = createElement('div', {
             styles: {
-                position: 'fixed',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
                 backgroundColor: 'white',
                 padding: '20px',
-                boxShadow: '0 0 10px rgba(0, 0, 0, 0.5)',
-                zIndex: '1000',
                 fontFamily: 'Arial, sans-serif',
-                borderRadius: '10px',
-                width: '50%',
-                height: '50%',
                 textAlign: 'center',
-                overflowY: 'auto'
+                overflowY: 'auto',
+                width: '100%',
+                height: '100%',
+                boxSizing: 'border-box'
             }
         });
         const title = createElement('h2', { text: '下载进度', styles: { marginBottom: '20px' } });
@@ -819,7 +833,8 @@
             failedFilesTitle,
             failedFilesTable
         );
-        document.body.appendChild(dialog);
+        window.content.appendChild(dialog);
+        window.show();
 
         let completedFiles = 0;
         const intervalId = setInterval(() => {
@@ -870,7 +885,7 @@
             },
             close() {
                 clearInterval(intervalId);
-                removeElement(dialog);
+                window.close();
             }
         };
     }
@@ -944,20 +959,17 @@
         return `${hours > 0 ? `${hours}小时` : ''}${minutes > 0 || hours > 0 ? `${minutes}分钟` : ''}${seconds}秒`;
     }
 
-    function createPostFetchProgress(queryLimit, onCancel) {
+    async function createPostFetchProgress(queryLimit, onCancel) {
+        const window = await openDialog('fetch', 390, 120, '正在查询投稿', { closeOnBackdropClick: false, closeOnEscape: false });
         const progress = createElement('aside', {
             styles: {
-                position: 'fixed',
-                right: '20px',
-                bottom: '20px',
-                zIndex: '2147483641',
-                width: 'min(360px, calc(100vw - 32px))',
                 padding: '14px 16px',
                 backgroundColor: '#202124',
                 color: '#fff',
-                borderRadius: '6px',
-                boxShadow: '0 10px 28px rgba(0, 0, 0, 0.28)',
-                fontFamily: 'Arial, Microsoft YaHei, sans-serif'
+                fontFamily: 'Arial, Microsoft YaHei, sans-serif',
+                width: '100%',
+                height: '100%',
+                boxSizing: 'border-box'
             }
         });
         const copy = createElement('div', { styles: { flexGrow: '1', minWidth: '0' } });
@@ -976,33 +988,28 @@
         appendChildren(copy, title, detail);
         appendChildren(row, copy, cancel);
         progress.appendChild(row);
-        document.body.appendChild(progress);
+        window.content.appendChild(progress);
+        window.show();
         return {
             update({ requested, accessible, inaccessible }) {
                 detail.innerText = `已查询 ${requested}/${queryLimit ?? '不限'} 篇 · 可见 ${accessible} · 不可见 ${inaccessible}`;
             },
             close() {
-                removeElement(progress);
+                window.close();
             }
         };
     }
 
-    function createQuerySettingsDialog(forceRefresh = false) {
-        document.getElementById('fanbox-query-settings')?.remove();
+    async function createQuerySettingsDialog(forceRefresh = false) {
+        const window = await openDialog('query', 420, 310, '查询投稿');
         const dialog = createElement('form', {
             styles: {
-                position: 'fixed',
-                zIndex: '2147483642',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                width: 'min(420px, calc(100vw - 32px))',
                 padding: '20px',
                 backgroundColor: '#fff',
-                border: '1px solid #d0d7de',
-                borderRadius: '8px',
-                boxShadow: '0 18px 50px rgba(0, 0, 0, 0.28)',
-                fontFamily: 'Arial, Microsoft YaHei, sans-serif'
+                fontFamily: 'Arial, Microsoft YaHei, sans-serif',
+                width: '100%',
+                height: '100%',
+                boxSizing: 'border-box'
             }
         });
         dialog.id = 'fanbox-query-settings';
@@ -1030,7 +1037,7 @@
             color: '#fff',
             hoverColor: '#f2f4f7',
             styles: { color: '#344054', border: '1px solid #aeb7c2' },
-            onClick: () => removeElement(dialog)
+            onClick: window.close
         });
         cancel.type = 'button';
         const submit = createButton(forceRefresh ? '重新获取' : '开始查询', { styles: { padding: '6px 14px' } });
@@ -1047,10 +1054,11 @@
                 return;
             }
             GM_setValue(QUERY_LIMIT_STORAGE_KEY, value);
-            removeElement(dialog);
+            window.close();
             main({ queryLimit, forceRefresh });
         });
-        document.body.appendChild(dialog);
+        window.content.appendChild(dialog);
+        window.show();
         input.focus();
     }
 
@@ -1071,7 +1079,8 @@
         return visible;
     }
 
-    function createResultDialog(posts, planCounts) {
+    async function createResultDialog(posts, planCounts) {
+        const window = await openDialog('results', '94vw', '94vh', '投稿查询结果');
         const totalPosts = planCounts['-2'].count;
         const accessiblePosts = posts.filter(post => post.isAccessible).length;
         const queriedLabel = state.queryLimit === null
@@ -1079,17 +1088,14 @@
             : `已查询 ${totalPosts}/${state.queryLimit} 篇`;
         const dialog = createElement('div', {
             styles: {
-                position: 'fixed',
-                inset: '3vh 3vw',
                 backgroundColor: '#f6f8fa',
-                zIndex: '2147483640',
-                border: '1px solid #b9c0c9',
-                borderRadius: '8px',
-                boxShadow: '0 18px 50px rgba(0, 0, 0, 0.32)',
                 display: 'flex',
                 flexDirection: 'column',
                 overflow: 'hidden',
-                fontFamily: 'Arial, Microsoft YaHei, sans-serif'
+                fontFamily: 'Arial, Microsoft YaHei, sans-serif',
+                width: '100%',
+                height: '100%',
+                boxSizing: 'border-box'
             }
         });
 
@@ -1097,7 +1103,7 @@
             text: `投稿查询结果 0/${accessiblePosts} 可下载 · ${queriedLabel}`,
             styles: { margin: '0', fontSize: '18px' }
         });
-        const header = createResultHeader(dialog, title);
+        const header = createResultHeader(window, title);
         dialog.dataset.searchQuery = '';
         dialog.dataset.showInaccessible = 'false';
         const planSummary = createPlanSummary(dialog, posts, planCounts, updateTitle);
@@ -1116,8 +1122,9 @@
 
         posts.forEach((post, index) => content.appendChild(createPostCard(post, index, updateTitle)));
         appendChildren(dialog, header, planSummary, controls, content);
-        document.body.appendChild(dialog);
+        window.content.appendChild(dialog);
         updatePostVisibility(dialog);
+        window.show();
 
         function updateTitle() {
             const selectedCount = dialog.querySelectorAll('.post-element input[type="checkbox"]:checked').length;
@@ -1125,7 +1132,7 @@
         }
     }
 
-    function createResultHeader(dialog, title) {
+    function createResultHeader(window, title) {
         const header = createElement('div', {
             styles: {
                 display: 'flex',
@@ -1139,14 +1146,14 @@
         const buttonGroup = createElement('div', { styles: { display: 'flex', gap: '10px' } });
         const refreshButton = createButton('重新获取', {
             onClick: async () => {
-                removeElement(dialog);
+                window.close();
                 createQuerySettingsDialog(true);
             }
         });
         const closeButton = createButton('关闭', {
             color: COLORS.danger,
             hoverColor: COLORS.dangerHover,
-            onClick: () => removeElement(dialog)
+            onClick: window.close
         });
         appendChildren(buttonGroup, refreshButton, closeButton);
         return appendChildren(header, title, buttonGroup);
@@ -1255,7 +1262,7 @@
                     checkbox => posts[checkbox.dataset.index]
                 );
                 if (selectedPosts.length === 0) {
-                    alert('请先选择要下载的投稿项');
+                    await showMessage('无法开始下载', '请先选择要下载的投稿项');
                     return;
                 }
                 const pathFormat = dialog.querySelector('input[type="text"]').value || DEFAULT_PATH_FORMAT;
@@ -1421,7 +1428,7 @@
                 || state.queryLimit !== queryLimit;
             if (shouldFetch) {
                 const controller = new AbortController();
-                const progressBar = createPostFetchProgress(queryLimit, () => controller.abort());
+                const progressBar = await createPostFetchProgress(queryLimit, () => controller.abort());
                 try {
                     const result = await fetchAllPosts(progressBar, queryLimit, controller.signal);
                     state.posts = result.posts;
@@ -1433,14 +1440,14 @@
                     progressBar.close();
                 }
             }
-            createResultDialog(state.posts, state.planCounts);
+            await createResultDialog(state.posts, state.planCounts);
         } catch (error) {
             if (error?.name === 'AbortError') {
                 console.info('Post query cancelled');
                 return;
             }
             console.error('An error occurred in the main process:', error);
-            alert(`脚本运行出错: ${getErrorMessage(error)}\n请检查控制台以获取详细信息。`);
+            await showMessage('脚本运行出错', `${getErrorMessage(error)}\n请检查控制台以获取详细信息。`);
         }
     }
 

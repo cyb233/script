@@ -1,12 +1,13 @@
 // ==UserScript==
 // @name         e站收藏统计
 // @namespace    Schwi
-// @version      2.0.0
+// @version      2.0.1
 // @description  统计全部收藏及标签使用次数，支持翻译、分类浏览和导出
 // @author       Schwi
 // @match        *://e-hentai.org/*
 // @match        *://exhentai.org/*
 // @require      https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js
+// @require      https://update.greasyfork.org/scripts/597988/1947281/Shadow%20DOM%20Dialog%20Utility.js
 // @icon         https://e-hentai.org/favicon.ico
 // @grant        GM_registerMenuCommand
 // @noframes
@@ -21,9 +22,13 @@
         favoritesUrl: `${location.origin}/favorites.php?inline_set=dm_e`
     };
     const id = {
-        style: 'eh-favorite-stats-style', progress: 'eh-favorite-stats-progress', dialog: 'eh-favorite-stats-dialog'
+        progress: 'eh-favorite-stats-progress', dialog: 'eh-favorite-stats-dialog'
     };
     let activeController = null;
+    let progressWindow = null;
+    let progressRoot = null;
+    let resultsWindow = null;
+    let messageWindow = null;
 
     function element(tag, { className, text, attributes } = {}) {
         const node = document.createElement(tag);
@@ -33,39 +38,58 @@
         return node;
     }
 
-    function addStyles() {
-        if (document.getElementById(id.style)) return;
-        const style = element('style', { attributes: { id: id.style } });
+    function addStyles(content) {
+        const style = element('style');
         style.textContent = `
             #${id.progress},#${id.dialog}{box-sizing:border-box;font-family:Arial,"Microsoft YaHei",sans-serif;color:#202124}#${id.progress}{position:fixed;z-index:2147483647;right:20px;bottom:20px;width:min(360px,calc(100vw - 32px));padding:14px 16px;background:#202124;color:#fff;border-radius:6px;box-shadow:0 10px 28px #00000047}#${id.progress} .eh-progress-row{display:flex;align-items:center;gap:12px}#${id.progress} .eh-progress-copy{flex:1;min-width:0}#${id.progress} .eh-progress-title{font-size:14px;font-weight:700}#${id.progress} .eh-progress-detail{margin-top:4px;color:#c7cbd1;font-size:12px}#${id.progress} button{padding:6px 9px;background:transparent;color:#fff;border:1px solid #72777d;border-radius:4px;cursor:pointer}
             #${id.dialog}{position:fixed;z-index:2147483646;inset:3vh 3vw;display:flex;flex-direction:column;background:#fff;border:1px solid #b9c0c9;border-radius:8px;box-shadow:0 18px 50px #00000052;overflow:hidden}#${id.dialog} *{box-sizing:border-box}#${id.dialog} .eh-header{position:relative;display:flex;align-items:center;justify-content:center;min-height:62px;padding:12px 56px;background:#f6f8fa;border-bottom:1px solid #d8dee4;text-align:center}#${id.dialog} .eh-title{margin:0;font-size:18px;font-weight:700}#${id.dialog} .eh-subtitle{margin:3px 0 0;color:#667085;font-size:12px}#${id.dialog} .eh-close{position:absolute;right:18px;width:32px;height:32px;padding:0;background:transparent;border:0;border-radius:4px;color:#4b5563;cursor:pointer;font-size:24px;line-height:1}#${id.dialog} .eh-close:hover{background:#e8ecf0;color:#202124}
             #${id.dialog} .eh-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:14px 18px 10px}#${id.dialog} .eh-stat{min-width:0;padding:10px 12px;background:#f6f8fa;border:1px solid #e2e6ea;border-radius:5px}#${id.dialog} .eh-stat-label{color:#667085;font-size:12px}#${id.dialog} .eh-stat-value{margin-top:4px;color:#1f4b99;font-size:20px;font-weight:700}#${id.dialog} .eh-toolbar{display:flex;align-items:center;gap:8px;padding:4px 18px 14px;border-bottom:1px solid #e2e6ea}#${id.dialog} .eh-search,#${id.dialog} .eh-namespace-jump{height:34px;padding:0 10px;background:#fff;border:1px solid #b9c0c9;border-radius:4px;color:#202124;outline:0}#${id.dialog} .eh-search{width:min(340px,100%)}#${id.dialog} .eh-namespace-jump{max-width:220px;cursor:pointer}#${id.dialog} .eh-search:focus,#${id.dialog} .eh-namespace-jump:focus{border-color:#1f6feb;box-shadow:0 0 0 2px #1f6feb2e}#${id.dialog} .eh-match-count{min-width:72px;color:#667085;font-size:12px}#${id.dialog} .eh-actions{display:flex;gap:8px;margin-left:auto}#${id.dialog} .eh-button{height:34px;padding:0 11px;background:#fff;border:1px solid #aeb7c2;border-radius:4px;color:#25364a;cursor:pointer;font-size:13px}#${id.dialog} .eh-button:hover{background:#f0f5ff;border-color:#6b96d8}
             #${id.dialog} .eh-tabs{display:flex;gap:2px;padding:0 18px;background:#f6f8fa;border-bottom:1px solid #d8dee4}#${id.dialog} .eh-tab{min-height:42px;padding:0 12px;background:transparent;border:0;border-bottom:2px solid transparent;color:#57606a;cursor:pointer;font-size:13px}#${id.dialog} .eh-tab:hover{color:#1f4b99}#${id.dialog} .eh-tab[aria-selected="true"]{border-bottom-color:#1f6feb;color:#1f4b99;font-weight:700}#${id.dialog} .eh-content{flex:1;min-height:0;overflow:auto;padding:16px 18px 22px;background:#fff}#${id.dialog} .eh-panel[hidden]{display:none}#${id.dialog} .eh-panel-title{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:0 0 10px}#${id.dialog} .eh-panel-title h2{margin:0;font-size:15px}#${id.dialog} .eh-panel-title span{color:#667085;font-size:12px}
             #${id.dialog} table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed;font-size:13px}#${id.dialog} th,#${id.dialog} td{padding:8px 10px;border-bottom:1px solid #e3e7eb;overflow:hidden;text-align:left;text-overflow:ellipsis;white-space:nowrap}#${id.dialog} th{position:sticky;top:-16px;z-index:1;background:#f6f8fa;border-top:1px solid #d8dee4;color:#455468;font-size:12px;font-weight:700}#${id.dialog} tbody tr:hover{background:#f4f8ff}#${id.dialog} .eh-namespace-group:hover{background:transparent}#${id.dialog} .eh-namespace-group td{padding:13px 10px 7px;background:#eaf2ff;border-bottom:2px solid #b9d3f5;color:#16477d;font-weight:700}#${id.dialog} .eh-namespace-group:first-child td{padding-top:8px}#${id.dialog} .eh-namespace-meta{margin-left:10px;color:#58769a;font-size:12px;font-weight:400}#${id.dialog} .eh-index,#${id.dialog} .eh-count{width:68px;text-align:right;font-variant-numeric:tabular-nums}#${id.dialog} .eh-count{width:84px;color:#1f4b99;font-weight:700}#${id.dialog} .eh-total td{background:#f6f8fa;border-top:1px solid #d8dee4;color:#25364a;font-weight:700}#${id.dialog} .eh-empty{padding:38px 12px;color:#667085;text-align:center}
-            @media(max-width:680px){#${id.dialog}{inset:0;border:0;border-radius:0}#${id.dialog} .eh-header{padding:10px 12px}#${id.dialog} .eh-summary{padding:10px 12px 8px;gap:6px}#${id.dialog} .eh-stat{padding:8px}#${id.dialog} .eh-stat-value{font-size:17px}#${id.dialog} .eh-toolbar{flex-wrap:wrap;padding:4px 12px 10px}#${id.dialog} .eh-search{order:1;width:100%}#${id.dialog} .eh-namespace-jump{max-width:100%}#${id.dialog} .eh-tabs{overflow-x:auto;padding:0 8px}#${id.dialog} .eh-content{padding:12px}#${id.dialog} th,#${id.dialog} td{padding:8px}}
+            @media(max-width:680px){#${id.dialog}{inset:0;border:0;border-radius:0}#${id.dialog} .eh-header{padding:10px 12px}#${id.dialog} .eh-summary{padding:10px 12px 8px;gap:6px}#${id.dialog} .eh-stat{padding:8px}#${id.dialog} .eh-stat-value{font-size:17px}#${id.dialog} .eh-toolbar{flex-wrap:wrap;padding:4px 12px 10px}#${id.dialog} .eh-search{order:1;width:100%}#${id.dialog} .eh-namespace-jump{max-width:100%}#${id.dialog} .eh-tabs{overflow-x:auto;padding:0 8px}#${id.dialog} .eh-content{padding:12px}#${id.dialog} th,#${id.dialog} td{padding:8px}}#${id.progress},#${id.dialog}{position:static;inset:auto;z-index:auto;transform:none;width:100%;height:100%;border:0;border-radius:0;box-shadow:none}
         `;
-        document.head.appendChild(style);
+        content.appendChild(style);
     }
 
-    function showProgress(message, detail = '') {
-        addStyles();
-        let progress = document.getElementById(id.progress);
-        if (!progress) {
-            progress = element('aside', { attributes: { id: id.progress, role: 'status', 'aria-live': 'polite' } });
+    async function showMessage(title, message) {
+        messageWindow?.close();
+        const window = await SchwiDialog.createDialog(420, 190, { title, showCloseButton: true });
+        const text = element('p', { text: message });
+        text.style.cssText = 'margin:0;line-height:1.6;white-space:pre-wrap';
+        const close = element('button', { text: '确定', attributes: { type: 'button' } });
+        close.style.cssText = 'float:right;margin-top:16px';
+        close.addEventListener('click', window.close);
+        window.content.append(text, close);
+        messageWindow = window;
+        window.onclose = () => { if (messageWindow === window) messageWindow = null; };
+        window.show();
+    }
+
+    async function showProgress(message, detail = '') {
+        if (!progressWindow) {
+            progressWindow = await SchwiDialog.createDialog(390, 120, { ariaLabel: '收藏统计进度', showHeader: false, closeOnBackdropClick: false, closeOnEscape: false });
+            progressWindow.content.style.cssText = 'padding:0;overflow:hidden';
+            addStyles(progressWindow.content);
+            progressRoot = element('aside', { attributes: { id: id.progress, role: 'status', 'aria-live': 'polite' } });
             const copy = element('div', { className: 'eh-progress-copy' });
             copy.append(element('div', { className: 'eh-progress-title' }), element('div', { className: 'eh-progress-detail' }));
             const cancel = element('button', { text: '取消', attributes: { type: 'button' } });
             cancel.addEventListener('click', () => activeController?.abort());
             const row = element('div', { className: 'eh-progress-row' });
             row.append(copy, cancel);
-            progress.appendChild(row);
-            document.body.appendChild(progress);
+            progressRoot.appendChild(row);
+            progressWindow.content.appendChild(progressRoot);
+            progressWindow.show();
         }
-        progress.querySelector('.eh-progress-title').textContent = message;
-        progress.querySelector('.eh-progress-detail').textContent = detail;
+        progressRoot.querySelector('.eh-progress-title').textContent = message;
+        progressRoot.querySelector('.eh-progress-detail').textContent = detail;
     }
 
-    const hideProgress = () => document.getElementById(id.progress)?.remove();
+    const hideProgress = () => {
+        progressWindow?.close();
+        progressWindow = null;
+        progressRoot = null;
+    };
 
     async function fetchText(url, signal) {
         const response = await fetch(url, { signal, credentials: 'include' });
@@ -91,7 +115,7 @@
         while (nextUrl && !visited.has(nextUrl)) {
             visited.add(nextUrl);
             page++;
-            showProgress('正在读取收藏', `已获取第 ${page} 页，发现 ${favorites.length} 条记录`);
+            await showProgress('正在读取收藏', `已获取第 ${page} 页，发现 ${favorites.length} 条记录`);
             const doc = new DOMParser().parseFromString(await fetchText(nextUrl, signal), 'text/html');
             favorites.push(...doc.querySelectorAll('.itg.glte > tbody > tr'));
             nextUrl = findNextUrl(doc, nextUrl, queryUrl.pathname);
@@ -110,7 +134,7 @@
     }
 
     async function getTranslate(url, signal) {
-        showProgress('正在获取标签翻译', '统计完成，正在下载翻译数据');
+        await showProgress('正在获取标签翻译', '统计完成，正在下载翻译数据');
         const response = await fetch(url, { signal });
         if (!response.ok) throw new Error(`翻译请求失败（HTTP ${response.status}）`);
         return response.json();
@@ -252,12 +276,16 @@
         return `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>e站收藏统计</title><style>body{max-width:1200px;margin:32px auto;padding:0 16px;font-family:Arial,"Microsoft YaHei",sans-serif;color:#202124}table{width:100%;border-collapse:collapse;margin-bottom:28px}th,td{padding:8px 10px;border-bottom:1px solid #ddd;text-align:left}th,.total{background:#f4f6f8}.total{font-weight:bold}</style><h1>e站收藏统计</h1><p>收藏 ${result.myFavList.length} 项，标签 ${result.tagList.length} 项，命名空间 ${result.groupedTagList.length} 个</p>${table('分类', ['序号', '分类', '翻译', '数量'], makeRows(result.reclassList, (item, index) => [index + 1, item.reclass, item.translate, item.count]), result.myFavList.length)}${table('标签', ['序号', '标签', '翻译', '数量'], makeRows(result.tagList, (item, index) => [index + 1, item.tag, item.translate, item.count]))}${table('按命名空间', ['命名空间', '翻译', '序号', '标签', '翻译', '数量'], makeRows(groups, item => item))}</html>`;
     }
 
-    function showResults(result) {
-        document.getElementById(id.dialog)?.remove();
-        addStyles();
+    async function showResults(result) {
+        resultsWindow?.close();
+        const window = await SchwiDialog.createDialog('94vw', '94vh', { ariaLabel: '收藏统计结果', showHeader: false });
+        window.content.style.cssText = 'padding:0;overflow:hidden';
+        addStyles(window.content);
+        resultsWindow = window;
+        window.onclose = () => { if (resultsWindow === window) resultsWindow = null; };
         const dialog = element('div', { attributes: { id: id.dialog, role: 'dialog', 'aria-modal': 'true', 'aria-label': '收藏统计结果', tabindex: '-1' } });
         dialog.translate = false;
-        const closeDialog = () => dialog.remove();
+        const closeDialog = window.close;
         const header = element('header', { className: 'eh-header' });
         const title = document.createElement('div');
         title.append(element('h1', { className: 'eh-title', text: '收藏统计' }), element('p', { className: 'eh-subtitle', text: '按使用次数降序排列，悬停标签可查看说明' }));
@@ -334,11 +362,10 @@
             const target = [...panels[2].querySelectorAll('.eh-namespace-group')].find(row => row.dataset.namespace === namespaceJump.value);
             target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
-        dialog.addEventListener('keydown', event => { if (event.key === 'Escape') closeDialog(); });
         dialog.append(header, summary, toolbar, tabs, content);
-        document.body.appendChild(dialog);
+        window.content.appendChild(dialog);
         selectPanel(0);
-        dialog.focus();
+        window.show();
     }
 
     function download(filename, data, type = 'text/plain') {
@@ -357,15 +384,15 @@
             } catch (error) {
                 if (error.name === 'AbortError') throw error;
                 console.warn('Unable to load translations:', error);
-                showProgress('翻译加载失败', '将显示原始统计结果');
+                await showProgress('翻译加载失败', '将显示原始统计结果');
             }
-            showProgress('正在整理统计结果', `共 ${favorites.length.toLocaleString()} 条收藏`);
-            showResults(translateResult(favorites, translation));
+            await showProgress('正在整理统计结果', `共 ${favorites.length.toLocaleString()} 条收藏`);
+            await showResults(translateResult(favorites, translation));
         } catch (error) {
             if (error.name === 'AbortError') console.info('Favorite collection cancelled');
             else {
                 console.error('Favorite collection failed:', error);
-                alert(`收藏统计失败：${error.message || '请检查登录状态和网络连接。'}`);
+                await showMessage('收藏统计失败', error.message || '请检查登录状态和网络连接。');
             }
         } finally {
             activeController = null;

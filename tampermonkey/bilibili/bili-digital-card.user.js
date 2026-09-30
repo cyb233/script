@@ -1,10 +1,11 @@
 // ==UserScript==
 // @name         Bilibili 收藏集奖励筛查脚本
 // @namespace    Schwi
-// @version      2.0.0
+// @version      2.0.1
 // @description  查询 Bilibili 收藏集卡池，并筛选可领取奖励
 // @author       Schwi
 // @match        *://*.bilibili.com/*
+// @require      https://update.greasyfork.org/scripts/597988/1947281/Shadow%20DOM%20Dialog%20Utility.js
 // @connect      api.bilibili.com
 // @grant        GM_xmlhttpRequest
 // @grant        GM_registerMenuCommand
@@ -34,10 +35,10 @@
         CollectorMedal: 1001
     });
     const IDS = {
-        styles: 'bdc-styles',
         results: 'bdc-results-dialog',
         progress: 'bdc-progress-dialog'
     };
+    const windows = { progress: null, results: null, message: null };
     const COLLECTION_CONCURRENCY = 3;
     const LOTTERY_CONCURRENCY = 4;
     const state = {
@@ -57,15 +58,26 @@
         return node;
     }
 
-    function addStyles() {
-        if (document.getElementById(IDS.styles)) return;
-        const style = createElement('style', { attributes: { id: IDS.styles } });
+    function addStyles(content) {
+        const style = createElement('style');
         style.textContent = `
             #${IDS.results},#${IDS.progress}{box-sizing:border-box;font-family:Arial,"Microsoft YaHei",sans-serif;color:#202124}#${IDS.results}{position:fixed;z-index:2147483646;inset:3vh 3vw;display:flex;flex-direction:column;overflow:hidden;background:#f6f8fa;border:1px solid #b9c0c9;border-radius:8px;box-shadow:0 18px 50px rgba(0,0,0,.32)}#${IDS.results} *{box-sizing:border-box}#${IDS.results} .bdc-header{display:flex;align-items:center;min-height:62px;padding:12px 18px;background:#fff;border-bottom:1px solid #d8dee4}#${IDS.results} .bdc-title{margin:0;font-size:18px;font-weight:700}#${IDS.results} .bdc-subtitle{margin:3px 0 0;color:#667085;font-size:12px}#${IDS.results} .bdc-header-actions{display:flex;gap:8px;margin-left:auto}#${IDS.results} button,#${IDS.progress} button{height:34px;padding:0 11px;border:1px solid #aeb7c2;border-radius:4px;background:#fff;color:#25364a;cursor:pointer;font-size:13px}#${IDS.results} button:hover,#${IDS.progress} button:hover{background:#f0f5ff;border-color:#6b96d8}#${IDS.results} .bdc-close{width:34px;padding:0;color:#57606a;font-size:24px;line-height:1}
             #${IDS.results} .bdc-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:14px 18px 10px;background:#fff}#${IDS.results} .bdc-stat{padding:9px 12px;background:#f6f8fa;border:1px solid #e2e6ea;border-radius:5px}#${IDS.results} .bdc-stat-label{color:#667085;font-size:12px}#${IDS.results} .bdc-stat-value{margin-top:3px;color:#1769aa;font-size:19px;font-weight:700}#${IDS.results} .bdc-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:4px 18px 12px;background:#fff;border-bottom:1px solid #e2e6ea}#${IDS.results} .bdc-search,#${IDS.results} .bdc-select{height:34px;padding:0 10px;border:1px solid #b9c0c9;border-radius:4px;background:#fff;color:#25364a;font-size:13px;outline:0}#${IDS.results} .bdc-search{width:min(270px,100%)}#${IDS.results} .bdc-search:focus,#${IDS.results} .bdc-select:focus{border-color:#00a1d6;box-shadow:0 0 0 2px rgba(0,161,214,.18)}#${IDS.results} .bdc-count{margin-left:auto;color:#667085;font-size:12px;white-space:nowrap}#${IDS.results} .bdc-list{flex:1;min-height:0;overflow:auto;padding:16px 18px 24px}#${IDS.results} .bdc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(245px,1fr));gap:12px;align-content:start}#${IDS.results} .bdc-card{position:relative;display:flex;flex-direction:column;min-width:0;height:230px;overflow:hidden;border:1px solid #d8dee4;border-radius:6px;background:#252b36;color:#fff;box-shadow:0 1px 2px rgba(0,0,0,.08)}#${IDS.results} .bdc-card:hover{border-color:#50b7e2;box-shadow:0 6px 18px rgba(0,54,93,.2)}#${IDS.results} .bdc-cover{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}#${IDS.results} .bdc-card-body{position:relative;display:flex;flex:1;flex-direction:column;padding:12px;background:linear-gradient(180deg,rgba(0,0,0,.12),rgba(0,0,0,.86))}#${IDS.results} .bdc-badges{display:flex;flex-wrap:wrap;gap:5px;min-height:20px}#${IDS.results} .bdc-badge{padding:2px 6px;border-radius:3px;background:rgba(0,0,0,.58);font-size:11px}#${IDS.results} .bdc-badge-reward{background:#d56b16}#${IDS.results} .bdc-card-title{display:-webkit-box;margin:8px 0 4px;overflow:hidden;font-size:16px;line-height:1.35;-webkit-box-orient:vertical;-webkit-line-clamp:2}#${IDS.results} .bdc-card-meta{color:#e6ebf0;font-size:12px}#${IDS.results} .bdc-card-actions{display:flex;gap:8px;margin-top:auto}#${IDS.results} .bdc-card-actions a{flex:1;height:30px;padding:7px 8px;border:1px solid rgba(255,255,255,.55);border-radius:4px;color:#fff;text-align:center;text-decoration:none;font-size:12px}#${IDS.results} .bdc-card-actions a:hover{background:rgba(255,255,255,.18)}#${IDS.results} .bdc-load-more{display:block;min-width:140px;margin:18px auto 0}#${IDS.results} .bdc-empty{padding:48px 12px;color:#667085;text-align:center}
-            #${IDS.progress}{position:fixed;z-index:2147483647;top:50%;left:50%;width:min(400px,calc(100vw - 32px));padding:20px;transform:translate(-50%,-50%);background:#fff;border:1px solid #d0d7de;border-radius:8px;box-shadow:0 18px 50px rgba(0,0,0,.28)}#${IDS.progress} h2{margin:0 0 8px;font-size:18px}#${IDS.progress} p{margin:0 0 12px;color:#57606a;font-size:13px;line-height:1.5}#${IDS.progress} progress{width:100%;height:8px;margin-bottom:12px;accent-color:#00a1d6}#${IDS.progress} .bdc-progress-actions{display:flex;justify-content:flex-end}@media(max-width:680px){#${IDS.results}{inset:0;border:0;border-radius:0}#${IDS.results} .bdc-header,#${IDS.results} .bdc-summary,#${IDS.results} .bdc-toolbar{padding-left:12px;padding-right:12px}#${IDS.results} .bdc-search{order:1;width:100%}#${IDS.results} .bdc-count{margin-left:0}#${IDS.results} .bdc-list{padding:12px}}
+            #${IDS.progress}{position:fixed;z-index:2147483647;top:50%;left:50%;width:min(400px,calc(100vw - 32px));padding:20px;transform:translate(-50%,-50%);background:#fff;border:1px solid #d0d7de;border-radius:8px;box-shadow:0 18px 50px rgba(0,0,0,.28)}#${IDS.progress} h2{margin:0 0 8px;font-size:18px}#${IDS.progress} p{margin:0 0 12px;color:#57606a;font-size:13px;line-height:1.5}#${IDS.progress} progress{width:100%;height:8px;margin-bottom:12px;accent-color:#00a1d6}#${IDS.progress} .bdc-progress-actions{display:flex;justify-content:flex-end}@media(max-width:680px){#${IDS.results}{inset:0;border:0;border-radius:0}#${IDS.results} .bdc-header,#${IDS.results} .bdc-summary,#${IDS.results} .bdc-toolbar{padding-left:12px;padding-right:12px}#${IDS.results} .bdc-search{order:1;width:100%}#${IDS.results} .bdc-count{margin-left:0}#${IDS.results} .bdc-list{padding:12px}}#${IDS.results},#${IDS.progress}{position:static;inset:auto;z-index:auto;transform:none;width:100%;height:100%;border:0;border-radius:0;box-shadow:none}
         `;
-        document.head.appendChild(style);
+        content.appendChild(style);
+    }
+
+    async function showMessage(title, message) {
+        windows.message?.close();
+        const window = await SchwiDialog.createDialog(420, 190, { title, showCloseButton: true });
+        const text = createElement('p', { text: message, styles: { margin: '0', lineHeight: '1.6', whiteSpace: 'pre-wrap' } });
+        const close = createElement('button', { text: '确定', attributes: { type: 'button' }, styles: { float: 'right', marginTop: '16px' } });
+        close.addEventListener('click', window.close);
+        window.content.append(text, close);
+        windows.message = window;
+        window.onclose = () => { if (windows.message === window) windows.message = null; };
+        window.show();
     }
 
     const sleep = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
@@ -139,9 +151,11 @@
         return result;
     }
 
-    function createProgressDialog(total) {
-        document.getElementById(IDS.progress)?.remove();
-        addStyles();
+    async function createProgressDialog(total) {
+        windows.progress?.close();
+        const window = await SchwiDialog.createDialog(420, 240, { ariaLabel: '正在检查收藏集', showHeader: false, closeOnBackdropClick: false, closeOnEscape: false });
+        window.content.style.cssText = 'padding:0;overflow:hidden';
+        addStyles(window.content);
         const dialog = createElement('section', { attributes: { id: IDS.progress, role: 'status', 'aria-live': 'polite' } });
         const title = createElement('h2', { text: '正在检查收藏集' });
         const detail = createElement('p', { text: `已完成 0 / ${total} 个收藏集` });
@@ -152,14 +166,19 @@
         const actions = createElement('div', { className: 'bdc-progress-actions' });
         actions.appendChild(cancel);
         dialog.append(title, detail, progress, found, actions);
-        document.body.appendChild(dialog);
+        window.content.appendChild(dialog);
+        window.show();
+        windows.progress = window;
         return {
             update(completed, discovered) {
                 progress.value = completed;
                 detail.textContent = `已完成 ${completed} / ${total} 个收藏集`;
                 found.textContent = `已发现 ${discovered} 个拥有卡片的卡池`;
             },
-            close() { dialog.remove(); }
+            close() {
+                window.close();
+                if (windows.progress === window) windows.progress = null;
+            }
         };
     }
 
@@ -187,18 +206,20 @@
         return card;
     }
 
-    function showResultsDialog() {
-        document.getElementById(IDS.results)?.remove();
-        addStyles();
+    async function showResultsDialog() {
+        windows.results?.close();
+        const window = await SchwiDialog.createDialog('94vw', '94vh', { ariaLabel: '收藏集奖励筛查结果', showHeader: false });
+        window.content.style.cssText = 'padding:0;overflow:hidden';
+        addStyles(window.content);
         const dialog = createElement('section', { attributes: { id: IDS.results, role: 'dialog', 'aria-modal': 'true', 'aria-label': '收藏集奖励筛查结果', tabindex: '-1' } });
         const header = createElement('header', { className: 'bdc-header' });
         const heading = document.createElement('div');
         heading.append(createElement('h1', { className: 'bdc-title', text: '收藏集奖励筛查' }), createElement('p', { className: 'bdc-subtitle', text: `已检查 ${state.collectionCount} 个收藏集` }));
         const headerActions = createElement('div', { className: 'bdc-header-actions' });
         const refresh = createElement('button', { text: '重新检查', attributes: { type: 'button' } });
-        refresh.addEventListener('click', () => { dialog.remove(); collectDigitalCards(); });
+        refresh.addEventListener('click', () => { window.close(); collectDigitalCards(); });
         const close = createElement('button', { className: 'bdc-close', text: '×', attributes: { type: 'button', title: '关闭（Esc）', 'aria-label': '关闭' } });
-        close.addEventListener('click', () => dialog.remove());
+        close.addEventListener('click', window.close);
         headerActions.append(refresh, close);
         header.append(heading, headerActions);
         const summary = createElement('div', { className: 'bdc-summary' });
@@ -222,7 +243,8 @@
         const loadMore = createElement('button', { className: 'bdc-load-more', text: '加载更多', attributes: { type: 'button' } });
         list.append(grid, empty, loadMore);
         dialog.append(header, summary, toolbar, list);
-        document.body.appendChild(dialog);
+        window.content.appendChild(dialog);
+        windows.results = window;
 
         let filtered = [];
         let rendered = 0;
@@ -276,9 +298,8 @@
             applyFilters();
         });
         loadMore.addEventListener('click', renderNext);
-        dialog.addEventListener('keydown', event => { if (event.key === 'Escape') dialog.remove(); });
         applyFilters();
-        dialog.focus();
+        window.show();
     }
 
     async function getCollectionItems(collection) {
@@ -322,12 +343,12 @@
             const response = await apiRequest('https://api.bilibili.com/x/vas/smelt/my_decompose/info?scene=1');
             const collections = response.data?.list || [];
             if (collections.length === 0) {
-                alert('未找到拥有卡片的收藏集。');
+                await showMessage('收藏集奖励筛查', '未找到拥有卡片的收藏集。');
                 return;
             }
             state.collectionCount = collections.length;
             state.totalCardNum = collections.reduce((total, item) => total + (item.card_num || 0), 0);
-            const progress = createProgressDialog(collections.length);
+            const progress = await createProgressDialog(collections.length);
             let completed = 0;
             let discovered = 0;
             try {
@@ -347,14 +368,14 @@
                 progress.close();
             }
             if (state.items.length === 0) {
-                alert('未找到拥有卡片的卡池，或详情接口暂不可用。');
+                await showMessage('收藏集奖励筛查', '未找到拥有卡片的卡池，或详情接口暂不可用。');
                 return;
             }
-            showResultsDialog();
+            await showResultsDialog();
         } catch (error) {
             if (error.name !== 'AbortError') {
                 console.error('收藏集检查失败：', error);
-                alert(`收藏集检查失败：${error.message || '请检查网络后重试。'}`);
+                await showMessage('收藏集检查失败', error.message || '请检查网络后重试。');
             }
         } finally {
             state.collecting = false;
