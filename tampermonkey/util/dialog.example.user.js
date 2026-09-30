@@ -1,10 +1,10 @@
 // ==UserScript==
 // @name         Shadow DOM Dialog Utility Example
 // @namespace    Schwi
-// @version      1.0.2
+// @version      1.0.3
 // @description  Example usage of Shadow DOM Dialog Utility.
 // @match        https://example.com/*
-// @require      https://update.greasyfork.org/scripts/597988/1946795/Shadow%20DOM%20Dialog%20Utility.js
+// @require      https://update.greasyfork.org/scripts/597988/1947281/Shadow%20DOM%20Dialog%20Utility.js
 // @grant        GM_registerMenuCommand
 // ==/UserScript==
 
