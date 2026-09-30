@@ -10,6 +10,12 @@
 
 - [`password-visibility-toggle.user.js`](./password-visibility-toggle.user.js)：双击切换任意网站密码框的可见性
 
+- [**util/**](./util/)
+  可供其他用户脚本复用的工具
+  - [`dialog.user.js`](./util/dialog.user.js)：提供 Shadow DOM 弹窗及 `SchwiDialog.createDialog()`
+    [README](./util/dialog)
+  - [`dialog.example.user.js`](./util/dialog.example.user.js)：Shadow DOM 弹窗使用示例
+
 - [**ani/**](./ani/)  
   动画疯相关脚本
   - [`ani-skip-ad-and-agreement.user.js`](./ani/ani-skip-ad-and-agreement.user.js)：动画疯跳过广告和年龄确认  

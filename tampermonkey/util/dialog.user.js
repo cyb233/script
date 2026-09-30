@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Shadow DOM Dialog Utility
 // @namespace    Schwi
-// @version      1.1.1
+// @version      1.2.0
 // @description  Reusable Shadow DOM dialog utility for Tampermonkey scripts.
 // @grant        none
 // ==/UserScript==
@@ -13,6 +13,8 @@
  * @property {() => void} show Show the dialog.
  * @property {() => void} close Close the dialog.
  * @property {(title: string) => void} setTitle Set the dialog title.
+ * @property {((dialog: DialogWindow) => void)|null} onshow Called after the dialog is shown.
+ * @property {((dialog: DialogWindow) => void)|null} onclose Called after the dialog is closed.
  */
 
 /**
@@ -22,6 +24,8 @@
  * @property {boolean} [closeOnEscape=true] Close when Escape is pressed.
  * @property {boolean} [showCloseButton=true] Show the built-in close button.
  * @property {string} [ariaLabel] Accessible label used when no title is set.
+ * @property {(dialog: DialogWindow) => void} [onshow] Called after the dialog is shown.
+ * @property {(dialog: DialogWindow) => void} [onclose] Called after the dialog is closed.
  */
 
 /**
@@ -77,13 +81,19 @@ async function createDialog(width, height, config = {}) {
     ...config
   };
 
+  let dialogWindow;
   const show = () => {
     if (!host.isConnected) {
       document.body.append(host);
       dialog.focus();
+      dialogWindow.onshow?.(dialogWindow);
     }
   };
-  const close = () => host.remove();
+  const close = () => {
+    if (!host.isConnected) return;
+    host.remove();
+    dialogWindow.onclose?.(dialogWindow);
+  };
   const setTitle = value => {
     title.textContent = value;
     dialog.setAttribute('aria-label', value);
@@ -106,7 +116,16 @@ async function createDialog(width, height, config = {}) {
   overlay.append(dialog);
   shadow.append(style, overlay);
 
-  return { content, element: dialog, show, close, setTitle };
+  dialogWindow = {
+    content,
+    element: dialog,
+    show,
+    close,
+    setTitle,
+    onshow: typeof options.onshow === 'function' ? options.onshow : null,
+    onclose: typeof options.onclose === 'function' ? options.onclose : null
+  };
+  return dialogWindow;
 }
 
 // Export one namespaced API so multiple utility scripts do not compete for a
