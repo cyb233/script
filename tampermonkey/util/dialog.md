@@ -7,8 +7,9 @@
 在用户脚本头部加入已发布的 `@require`：
 
 ```js
-// @require      https://update.greasyfork.org/scripts/597988/1946387/Shadow%20DOM%20Dialog%20Utility.js
+// @require      https://update.greasyfork.org/scripts/597988/<version>/Shadow%20DOM%20Dialog%20Utility.js
 ```
+version应在 [https://greasyfork.org/zh-CN/scripts/597988-shadow-dom-dialog-utility](https://greasyfork.org/zh-CN/scripts/597988-shadow-dom-dialog-utility) 查看
 
 工具加载后通过 `SchwiDialog.createDialog` 使用。使用命名空间可以避免与其他脚本的通用全局变量重名。
 
