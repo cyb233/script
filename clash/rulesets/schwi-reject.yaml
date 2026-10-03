@@ -1,2 +1,9 @@
 payload:
   - DOMAIN-KEYWORD,js96110
+  - DOMAIN,viav-cse.avlyun.com # 安天 AVL 云查杀
+  - DOMAIN,msch.f.360.cn # 360 移动安全查杀
+  - DOMAIN,isecure.vivo.com.cn # vivo 安全服务
+  - DOMAIN,az.appstore.vivo.com.cn # vivo 应用商店信息比对
+  - DOMAIN,stinmmtn.vivo.com.cn # 安装策略与管控
+  - DOMAIN,prt-stsdk.vivo.com.cn # 安装统计与埋点
+  - DOMAIN,ort-stsdk.vivo.com.cn # 安装统计与埋点
