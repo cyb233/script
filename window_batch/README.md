@@ -24,10 +24,13 @@
 - [`fid_kernel.bat`](./fid_kernel.bat)：fid_kernel 删除工具
 - [`port.bat`](./port.bat)：端口监控批处理入口
 - [`port.ps1`](./port.ps1)：监控本地端口占用并显示占用进程信息
+- [`Auto_PPPoE.ps1`](./Auto_PPPoE.ps1)：按脚本顶部配置直接拨号基础宽带（PPPoE）连接，也可用 `-InstallTask` 添加任务计划
 - [`uninstall-image-viewer.ps1`](./uninstall-image-viewer.ps1)：百度网盘“智能看图”功能卸载脚本
 - [`WinSW Nginx 服务管理脚本.bat`](./WinSW%20Nginx%20%E6%9C%8D%E5%8A%A1%E7%AE%A1%E7%90%86%E8%84%9A%E6%9C%AC.bat)：WinSW Nginx 服务管理脚本
 - [`WinSW Java 服务管理脚本.bat`](./WinSW%20Java%20%E6%9C%8D%E5%8A%A1%E7%AE%A1%E7%90%86%E8%84%9A%E6%9C%AC.bat)：WinSW Java 服务安装与管理脚本
 - [`nginx-service.xml`](./nginx-service.xml)：WinSW Nginx 服务示例配置
+
+`Auto_PPPoE.ps1 -InstallTask` 会添加或更新“自动宽带连接”任务计划；非管理员会先请求 UAC 提升权限，然后提示输入当前 Windows 用户密码。
 
 ## 相关链接
 
