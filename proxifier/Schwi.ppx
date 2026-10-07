@@ -180,6 +180,11 @@
 			<Name>jsDelivr</Name>
 		</Rule>
 		<Rule enabled="true">
+			<Action type="Direct" />
+			<Applications>"Cloudflare WARP.exe";warp*.exe</Applications>
+			<Name>Cloudflare One</Name>
+		</Rule>
+		<Rule enabled="true">
 			<Action type="Chain">200</Action>
 			<Targets>google.com;*.google.com;*.googleapis.com;*.gstatic.com;*.googleusercontent.com;youtube.com;*.youtube.com;*.googlevideo.com;*.ytimg.com</Targets>
 			<Name>Google / YouTube</Name>
@@ -264,11 +269,6 @@
 			<Action type="Chain">202</Action>
 			<Applications>EADesktop.exe;EALaunchHelper.exe;EABackgroundService.exe;EALocalHostSvc.exe;EACefSubProcess.exe</Applications>
 			<Name>EA</Name>
-		</Rule>
-		<Rule enabled="false">
-			<Action type="Chain">200</Action>
-			<Applications>"Cloudflare WARP.exe";warp*.exe</Applications>
-			<Name>Cloudflare WARP</Name>
 		</Rule>
 		<!-- Desktop apps, games, media, and special cases -->
 		<Rule enabled="true">
