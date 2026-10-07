@@ -50,9 +50,4 @@
 		<Applications>EADesktop.exe;EALaunchHelper.exe;EABackgroundService.exe;EALocalHostSvc.exe;EACefSubProcess.exe</Applications>
 		<Name>EA</Name>
 	</Rule>
-	<Rule enabled="false">
-		<Action type="Chain">200</Action>
-		<Applications>"Cloudflare WARP.exe";warp*.exe</Applications>
-		<Name>Cloudflare WARP</Name>
-	</Rule>
 </RuleList>

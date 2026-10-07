@@ -11,6 +11,11 @@
 		<Name>jsDelivr</Name>
 	</Rule>
 	<Rule enabled="true">
+		<Action type="Direct" />
+		<Applications>"Cloudflare WARP.exe";warp*.exe</Applications>
+		<Name>Cloudflare One</Name>
+	</Rule>
+	<Rule enabled="true">
 		<Action type="Chain">200</Action>
 		<Targets>google.com;*.google.com;*.googleapis.com;*.gstatic.com;*.googleusercontent.com;youtube.com;*.youtube.com;*.googlevideo.com;*.ytimg.com</Targets>
 		<Name>Google / YouTube</Name>
