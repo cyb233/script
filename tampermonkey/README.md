@@ -16,7 +16,7 @@
     [README](./util/dialog)
   - [`dialog.example.user.js`](./util/dialog.example.user.js)：Shadow DOM 弹窗使用示例
   - [`script-search.user.js`](./util/script-search.user.js)：在当前网站搜索可用的用户脚本
-    [中文说明](./util/script-search.zh-CN.md) [English](./util/script-search.en.md) [日本語](./util/script-search.ja.md)
+    [简体中文](./util/script-search.zh-CN.md) [繁體中文](./util/script-search.zh-TW.md) [English](./util/script-search.en.md) [日本語](./util/script-search.ja.md)
 
 - [**ani/**](./ani/)  
   动画疯相关脚本
