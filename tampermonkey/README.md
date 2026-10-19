@@ -15,6 +15,7 @@
   - [`dialog.user.js`](./util/dialog.user.js)：提供 Shadow DOM 弹窗及 `SchwiDialog.createDialog()`
     [README](./util/dialog)
   - [`dialog.example.user.js`](./util/dialog.example.user.js)：Shadow DOM 弹窗使用示例
+  - [`script-search.user.js`](./util/script-search.user.js)：在当前网站搜索可用的用户脚本
 
 - [**ani/**](./ani/)  
   动画疯相关脚本
