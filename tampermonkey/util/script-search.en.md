@@ -4,7 +4,7 @@ Find userscripts for the current website from any page.
 
 ## Preview
 
-![Preview](./image.png)
+![Preview](./img/script-search.en.png)
 
 ## Features
 

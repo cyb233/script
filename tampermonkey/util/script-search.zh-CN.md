@@ -4,7 +4,7 @@
 
 ## 预览图
 
-![预览图](./image.png)
+![预览图](./img/script-search.zh-CN.png)
 
 ## 功能
 

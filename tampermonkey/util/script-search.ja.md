@@ -4,7 +4,7 @@
 
 ## プレビュー
 
-![プレビュー](./image.png)
+![プレビュー](./img/script-search.ja.png)
 
 ## 機能
 
