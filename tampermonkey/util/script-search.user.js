@@ -2,12 +2,14 @@
 // @name         Userscript Search
 // @name:en      Userscript Search
 // @name:zh-CN   用户脚本搜索
+// @name:zh-TW   使用者腳本搜尋
 // @name:ja      ユーザースクリプト検索
 // @namespace    Schwi
-// @version      1.0.0
+// @version      1.0.1
 // @description  Search userscripts for the current site from a floating action button.
 // @description:en      Search userscripts for the current site from a floating action button.
 // @description:zh-CN  从浮动按钮搜索当前网站可用的用户脚本。
+// @description:zh-TW  從浮動按鈕搜尋目前網站可用的使用者腳本。
 // @description:ja     フローティングボタンから現在のサイトで利用できるユーザースクリプトを検索します。
 // @match        *://*/*
 // @require      https://update.greasyfork.org/scripts/597988/1947281/Shadow%20DOM%20Dialog%20Utility.js
@@ -68,12 +70,12 @@
   const SITE_PROVIDERS = [
     {
       name: 'Greasy Fork',
-      search: 'https://api.greasyfork.org/{lang}/scripts/by-site/{q}.json?sort={sort}&page={page}',
+      search: 'https://api.greasyfork.org/{lang}/scripts/by-site/{host}.json?sort={sort}&page={page}&q={q}',
       ...SHARED_PROVIDER_CONFIG
     },
     {
       name: 'Sleazy Fork',
-      search: 'https://api.sleazyfork.org/{lang}/scripts/by-site/{q}.json?sort={sort}&page={page}',
+      search: 'https://api.sleazyfork.org/{lang}/scripts/by-site/{host}.json?sort={sort}&page={page}&q={q}',
       ...SHARED_PROVIDER_CONFIG
     }
   ];
@@ -90,12 +92,13 @@
   const LANGUAGE_STORAGE_KEY = 'script-search-language';
   const LANGUAGES = [
     { key: 'zh-CN', labelKey: 'languageChinese' },
+    { key: 'zh-TW', labelKey: 'languageTraditional' },
     { key: 'en', labelKey: 'languageEnglish' },
     { key: 'ja', labelKey: 'languageJapanese' }
   ];
   const I18N = {
     en: {
-      languageChinese: 'Simplified Chinese', languageEnglish: 'English', languageJapanese: 'Japanese',
+      languageChinese: 'Simplified Chinese', languageTraditional: 'Traditional Chinese', languageEnglish: 'English', languageJapanese: 'Japanese',
       topLeft: 'Top left', topRight: 'Top right', bottomLeft: 'Bottom left', bottomRight: 'Bottom right',
       position: 'Button position', searchDomain: 'Search domain', xOffset: 'X offset', yOffset: 'Y offset',
       tempHideFab: 'Temporarily hide FAB (shown)', tempShowFab: 'Temporarily show FAB (hidden)',
@@ -116,7 +119,7 @@
       unnamedScript: 'Unnamed script', unknownAuthor: 'Unknown author', openDialog: 'Open userscript search'
     },
     'zh-CN': {
-      languageChinese: '简体中文', languageEnglish: 'English', languageJapanese: '日本語',
+      languageChinese: '简体中文', languageTraditional: '繁體中文', languageEnglish: 'English', languageJapanese: '日本語',
       topLeft: '左上角', topRight: '右上角', bottomLeft: '左下角', bottomRight: '右下角',
       position: '按钮位置', searchDomain: '搜索域名', xOffset: 'X 偏移量', yOffset: 'Y 偏移量',
       tempHideFab: '临时隐藏 FAB（当前：显示）', tempShowFab: '临时显示 FAB（当前：隐藏）',
@@ -137,7 +140,7 @@
       unnamedScript: '未命名脚本', unknownAuthor: '未知作者', openDialog: '打开脚本搜索弹窗'
     },
     ja: {
-      languageChinese: '簡体字中国語', languageEnglish: 'English', languageJapanese: '日本語',
+      languageChinese: '簡体字中国語', languageTraditional: '繁体字中国語', languageEnglish: 'English', languageJapanese: '日本語',
       topLeft: '左上', topRight: '右上', bottomLeft: '左下', bottomRight: '右下',
       position: 'ボタンの位置', searchDomain: '検索ドメイン', xOffset: 'X オフセット', yOffset: 'Y オフセット',
       tempHideFab: '一時的に FAB を非表示（現在：表示）', tempShowFab: '一時的に FAB を表示（現在：非表示）',
@@ -156,6 +159,26 @@
       networkError: 'ネットワークエラー', timeout: 'リクエストがタイムアウトしました', invalidPayload: 'API のデータ形式が正しくありません',
       loadFailed: '読み込みに失敗しました', siteNote: 'サイト：{{host}} · 言語：{{language}} · データソース：{{provider}} · 結果数：{{count}}',
       unnamedScript: '無題のスクリプト', unknownAuthor: '不明な作者', openDialog: 'ユーザースクリプト検索を開く'
+    },
+    'zh-TW': {
+      languageChinese: '簡體中文', languageTraditional: '繁體中文', languageEnglish: 'English', languageJapanese: '日本語',
+      topLeft: '左上角', topRight: '右上角', bottomLeft: '左下角', bottomRight: '右下角',
+      position: '按鈕位置', searchDomain: '搜尋網域', xOffset: 'X 偏移量', yOffset: 'Y 偏移量',
+      tempHideFab: '暫時隱藏 FAB（目前：顯示）', tempShowFab: '暫時顯示 FAB（目前：隱藏）',
+      tempTitle: '僅影響目前頁面，不會儲存此顯示狀態',
+      disableFab: '關閉 FAB 顯示（目前：開啟）', enableFab: '開啟 FAB 顯示（目前：關閉）',
+      persistentTitle: '儲存 FAB 是否顯示的設定', searchCurrentSite: '搜尋目前網站的使用者腳本',
+      dialogTitle: '使用者腳本搜尋：{{host}}', currentSite: '目前網站', searchAria: '使用者腳本搜尋', apiLanguage: '介面語言',
+      searchPlaceholder: '搜尋名稱、作者或簡介', sort: '排序方式', author: '作者', authorPrefix: '作者：', unknown: '未知',
+      noDescription: '暫無簡介', score: '評分', dailyInstalls: '每日安裝量', totalInstalls: '總安裝量',
+      created: '建立', updated: '更新', name: '名稱', rating: '評分',
+      notAvailable: '—', authorSeparator: '、',
+      noMatches: '沒有符合的腳本', noScripts: '此網站沒有可用腳本', loading: '正在載入腳本清單…',
+      loadingMore: '正在載入更多…', loadMore: '載入更多', noMore: '沒有更多結果', backTop: '回到頂部', refresh: '重新整理', pageError: '載入更多失敗：{{message}}',
+      httpError: '請求失敗（HTTP {{status}}）', invalidJson: '伺服器回傳的內容不是有效 JSON',
+      networkError: '網路請求失敗', timeout: '請求逾時', invalidPayload: '介面回傳的資料格式不正確',
+      loadFailed: '載入失敗', siteNote: '網站：{{host}} · 語言：{{language}} · 資料來源：{{provider}} · 結果數：{{count}}',
+      unnamedScript: '未命名腳本', unknownAuthor: '未知作者', openDialog: '開啟使用者腳本搜尋'
     }
   };
 
@@ -168,6 +191,7 @@
     if (LANGUAGES.some(language => language.key === value)) return value;
     const candidates = Array.isArray(navigator.languages) ? navigator.languages : [navigator.language];
     for (const candidate of candidates) {
+      if (/^zh(?:-TW|-HK|-MO|-Hant)(?:-|$)/i.test(candidate)) return 'zh-TW';
       if (/^zh(?:-|$)/i.test(candidate)) return 'zh-CN';
       if (/^ja(?:-|$)/i.test(candidate)) return 'ja';
       if (/^en(?:-|$)/i.test(candidate)) return 'en';
@@ -204,11 +228,12 @@
   function buildSearchUrl(provider, sortKey, page) {
     const values = {
       lang: selectedLanguage,
-      q: selectedHost,
+      host: selectedHost,
+      q: searchInput.value.trim(),
       sort: sortKey || '',
       page
     };
-    return provider.search.replace(/\{(lang|q|sort|page)\}/g, (_, key) => encodeURIComponent(values[key]));
+    return provider.search.replace(/\{(lang|host|q|sort|page)\}/g, (_, key) => encodeURIComponent(values[key]));
   }
 
   function safeUrl(value) {
@@ -520,6 +545,7 @@
   let pageError = '';
   let requestId = 0;
   const cache = new Map();
+  let searchTimer;
 
   let persistentMenuId;
   let openMenuId;
@@ -706,7 +732,7 @@
   async function loadPage(reset) {
     if (!reset && (isLoading || !hasMore)) return;
     const currentRequest = ++requestId;
-    const cacheKey = `${selectedLanguage}:${selectedHost}:${activeProvider.name}:${activeSortKey}`;
+    const cacheKey = getCacheKey();
     if (reset) {
       activePage = 0;
       hasMore = true;
@@ -759,13 +785,21 @@
     }
   }
 
-  searchInput.addEventListener('input', renderItems);
+  function getCacheKey() {
+    return `${selectedLanguage}:${selectedHost}:${activeProvider.name}:${activeSortKey}:${searchInput.value.trim()}`;
+  }
+
+  searchInput.addEventListener('input', () => {
+    renderItems();
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => loadResults(), 300);
+  });
   sortSelect.addEventListener('change', () => {
     activeSortKey = sortSelect.value;
     loadResults();
   });
   refreshButton.addEventListener('click', () => {
-    cache.delete(`${selectedLanguage}:${selectedHost}:${activeProvider.name}:${activeSortKey}`);
+    cache.delete(getCacheKey());
     loadResults();
   });
   function openDialog() {
