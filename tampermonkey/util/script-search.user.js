@@ -5,7 +5,7 @@
 // @name:zh-TW   使用者腳本搜尋
 // @name:ja      ユーザースクリプト検索
 // @namespace    Schwi
-// @version      1.0.3
+// @version      1.1.0
 // @description        Search userscripts for the current site from a floating action button.
 // @description:en     Search userscripts for the current site from a floating action button.
 // @description:zh-CN  从浮动按钮搜索当前网站可用的用户脚本。
