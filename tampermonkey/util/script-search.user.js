@@ -5,7 +5,7 @@
 // @name:zh-TW   使用者腳本搜尋
 // @name:ja      ユーザースクリプト検索
 // @namespace    Schwi
-// @version      1.1.1
+// @version      1.2.0
 // @description        Search userscripts for the current site from a floating action button.
 // @description:en     Search userscripts for the current site from a floating action button.
 // @description:zh-CN  从浮动按钮搜索当前网站可用的用户脚本。
@@ -22,6 +22,7 @@
 // @match        *://*.aliyun.com/*
 // @match        *://*.amazon.co.jp/*
 // @match        *://*.amazon.com/*
+// @match        *://*.amd.com/*
 // @match        *://*.anidb.net/*
 // @match        *://*.anilist.co/*
 // @match        *://*.anime-planet.com/*
@@ -30,6 +31,7 @@
 // @match        *://*.archive.org/*
 // @match        *://*.artstation.com/*
 // @match        *://*.askubuntu.com/*
+// @match        *://*.atlassian.com/*
 // @match        *://*.audible.com/*
 // @match        *://*.autodesk.com/*
 // @match        *://*.baidu.com/*
@@ -74,7 +76,6 @@
 // @match        *://*.discord.com/*
 // @match        *://*.disneyplus.com/*
 // @match        *://*.docker.com/*
-// @match        *://*.donmai.us/*
 // @match        *://*.douban.com/*
 // @match        *://*.douyin.com/*
 // @match        *://*.dribbble.com/*
@@ -82,8 +83,6 @@
 // @match        *://*.duckduckgo.com/*
 // @match        *://*.duolingo.com/*
 // @match        *://*.dw.com/*
-// @match        *://*.e-hentai.org/*
-// @match        *://*.e621.net/*
 // @match        *://*.ebay.com/*
 // @match        *://*.economist.com/*
 // @match        *://*.edx.org/*
@@ -92,7 +91,6 @@
 // @match        *://*.espn.com/*
 // @match        *://*.etsy.com/*
 // @match        *://*.eventbrite.com/*
-// @match        *://*.exhentai.org/*
 // @match        *://*.facebook.com/*
 // @match        *://*.fanbox.cc/*
 // @match        *://*.fandom.com/*
@@ -107,7 +105,6 @@
 // @match        *://*.freecodecamp.org/*
 // @match        *://*.furaffinity.net/*
 // @match        *://*.gamer.com.tw/*
-// @match        *://*.gelbooru.com/*
 // @match        *://*.gitee.com/*
 // @match        *://*.github.com/*
 // @match        *://*.gitlab.com/*
@@ -121,8 +118,8 @@
 // @match        *://*.hackerone.com/*
 // @match        *://*.hbo.com/*
 // @match        *://*.heise.de/*
+// @match        *://*.heroku.com/*
 // @match        *://*.hexo.io/*
-// @match        *://*.hitomi.la/*
 // @match        *://*.huggingface.co/*
 // @match        *://*.hulu.com/*
 // @match        *://*.humblebundle.com/*
@@ -131,6 +128,7 @@
 // @match        *://*.ikea.com/*
 // @match        *://*.imdb.com/*
 // @match        *://*.imgur.com/*
+// @match        *://*.indeed.com/*
 // @match        *://*.inoreader.com/*
 // @match        *://*.instagram.com/*
 // @match        *://*.instructables.com/*
@@ -187,7 +185,6 @@
 // @match        *://*.naver.com/*
 // @match        *://*.netflix.com/*
 // @match        *://*.newegg.com/*
-// @match        *://*.nhentai.net/*
 // @match        *://*.nicovideo.jp/*
 // @match        *://*.nintendo.com/*
 // @match        *://*.notion.so/*
@@ -227,10 +224,9 @@
 // @match        *://*.roblox.com/*
 // @match        *://*.rockpapershotgun.com/*
 // @match        *://*.rottentomatoes.com/*
-// @match        *://*.rule34.xxx/*
 // @match        *://*.rutracker.org/*
 // @match        *://*.salesforce.com/*
-// @match        *://*.sankakucomplex.com/*
+// @match        *://*.samsung.com/*
 // @match        *://*.scribd.com/*
 // @match        *://*.sega.com/*
 // @match        *://*.sephora.com/*
@@ -238,10 +234,12 @@
 // @match        *://*.shutterstock.com/*
 // @match        *://*.signal.org/*
 // @match        *://*.similarweb.com/*
+// @match        *://*.sina.com.cn/*
 // @match        *://*.sketchfab.com/*
 // @match        *://*.slack.com/*
 // @match        *://*.sleazyfork.org/*
 // @match        *://*.snapchat.com/*
+// @match        *://*.sohu.com/*
 // @match        *://*.soundcloud.com/*
 // @match        *://*.sourceforge.net/*
 // @match        *://*.speedtest.net/*
@@ -253,6 +251,7 @@
 // @match        *://*.steampowered.com/*
 // @match        *://*.stripe.com/*
 // @match        *://*.taobao.com/*
+// @match        *://*.target.com/*
 // @match        *://*.ted.com/*
 // @match        *://*.telegram.org/*
 // @match        *://*.tencent.com/*
@@ -280,6 +279,7 @@
 // @match        *://*.vinted.com/*
 // @match        *://*.vk.com/*
 // @match        *://*.w3schools.com/*
+// @match        *://*.walmart.com/*
 // @match        *://*.wattpad.com/*
 // @match        *://*.weather.com/*
 // @match        *://*.weebly.com/*
