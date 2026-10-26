@@ -5,7 +5,7 @@
 // @name:zh-TW   使用者腳本搜尋
 // @name:ja      ユーザースクリプト検索
 // @namespace    Schwi
-// @version      1.0.2
+// @version      1.0.3
 // @description  Search userscripts for the current site from a floating action button.
 // @description:en      Search userscripts for the current site from a floating action button.
 // @description:zh-CN  从浮动按钮搜索当前网站可用的用户脚本。
@@ -32,6 +32,16 @@
   // Add providers here. `result` converts each provider's API item to the
   // fields used by the common result list below.
   const SHARED_PROVIDER_CONFIG = {
+    pathParams: {
+      lang: '{lang}',
+      host: '{host}'
+    },
+    queryParams: {
+      sort: '{sort}',
+      page: '{page}',
+      q: '{q}'
+    },
+    apiPath: '/{lang}/scripts/by-site/{host}.json',
     sort: [
       { labelKey: 'dailyInstalls', key: '' },
       { labelKey: 'totalInstalls', key: 'total_installs' },
@@ -70,12 +80,12 @@
   const SITE_PROVIDERS = [
     {
       name: 'Greasy Fork',
-      search: 'https://api.greasyfork.org/{lang}/scripts/by-site/{host}.json?sort={sort}&page={page}&q={q}',
+      apiHost: 'https://api.greasyfork.org',
       ...SHARED_PROVIDER_CONFIG
     },
     {
       name: 'Sleazy Fork',
-      search: 'https://api.sleazyfork.org/{lang}/scripts/by-site/{host}.json?sort={sort}&page={page}&q={q}',
+      apiHost: 'https://api.sleazyfork.org',
       ...SHARED_PROVIDER_CONFIG
     }
   ];
@@ -223,8 +233,7 @@
         .reverse();
   }
 
-  // Provider templates use named placeholders so each source can define its
-  // own URL layout without relying on placeholder order.
+  // Provider parameters can reference the current search values by name.
   function buildSearchUrl(provider, sortKey, page) {
     const values = {
       lang: selectedLanguage,
@@ -233,7 +242,14 @@
       sort: sortKey || '',
       page
     };
-    return provider.search.replace(/\{(lang|host|q|sort|page)\}/g, (_, key) => encodeURIComponent(values[key]));
+    const resolveParam = value => String(value ?? '').replace(/\{(lang|host|q|sort|page)\}/g, (_, key) => String(values[key] ?? ''));
+    const path = provider.apiPath.replace(/\{(\w+)\}/g, (_, key) => encodeURIComponent(resolveParam(provider.pathParams[key])));
+    const url = new URL(path, provider.apiHost);
+    Object.entries(provider.queryParams).forEach(([key, value]) => {
+      const resolved = resolveParam(value);
+      if (resolved) url.searchParams.set(key, resolved);
+    });
+    return url.href;
   }
 
   function safeUrl(value) {
