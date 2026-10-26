@@ -48,6 +48,13 @@ $GitHubAuthorization = ""
 # 示例:
 # $HttpProxy = "http://127.0.0.1:7890"
 $HttpProxy = ""
+if ($env:TDM_UPDATE_NETWORK_MODE -eq "proxy") {
+    $HttpProxy = $env:HTTPS_PROXY
+    if ([string]::IsNullOrWhiteSpace($HttpProxy)) {
+        throw "Dagu selected proxy mode but HTTPS_PROXY is not configured"
+    }
+}
+$UseDirectConnection = $env:TDM_UPDATE_NETWORK_MODE -eq "direct"
 
 # ----------------------------
 # 辅助函数
@@ -115,7 +122,8 @@ function Get-DevBuildReleaseInfo {
         [string]$AssetName,
         [string]$Agent,
         [string]$Authorization,
-        [string]$Proxy
+        [string]$Proxy,
+        [bool]$NoProxy
     )
 
     $headers = Get-GitHubApiHeaders -Agent $Agent -Authorization $Authorization
@@ -128,6 +136,8 @@ function Get-DevBuildReleaseInfo {
 
     if (-not [string]::IsNullOrWhiteSpace($Proxy)) {
         $requestParams["Proxy"] = $Proxy
+    } elseif ($NoProxy) {
+        $requestParams["NoProxy"] = $true
     }
 
     $release = Invoke-RestMethod @requestParams
@@ -269,7 +279,7 @@ try {
     }
 
     Write-Host "步骤 1: 获取远程 dev-build release 信息"
-    $remoteRelease = Get-DevBuildReleaseInfo -Url $ReleaseApiUrl -AssetName $WindowsAssetName -Agent $UserAgent -Authorization $GitHubAuthorization -Proxy $HttpProxy
+    $remoteRelease = Get-DevBuildReleaseInfo -Url $ReleaseApiUrl -AssetName $WindowsAssetName -Agent $UserAgent -Authorization $GitHubAuthorization -Proxy $HttpProxy -NoProxy $UseDirectConnection
     Write-Host "远程 Reference commit: $($remoteRelease.ReferenceCommit)"
     Write-Host "远程发布时间: $($remoteRelease.ReleasePublishedAt)"
     Write-Host "远程资产: $($remoteRelease.AssetName)"
@@ -318,6 +328,8 @@ try {
 
     if (-not [string]::IsNullOrWhiteSpace($HttpProxy)) {
         $downloadParams["Proxy"] = $HttpProxy
+    } elseif ($UseDirectConnection) {
+        $downloadParams["NoProxy"] = $true
     }
 
     Invoke-WebRequest @downloadParams
