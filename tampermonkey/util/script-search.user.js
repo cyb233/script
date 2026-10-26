@@ -5,7 +5,7 @@
 // @name:zh-TW   使用者腳本搜尋
 // @name:ja      ユーザースクリプト検索
 // @namespace    Schwi
-// @version      1.0.1
+// @version      1.0.2
 // @description  Search userscripts for the current site from a floating action button.
 // @description:en      Search userscripts for the current site from a floating action button.
 // @description:zh-CN  从浮动按钮搜索当前网站可用的用户脚本。
@@ -245,6 +245,12 @@
     }
   }
 
+  function createRequestError(message, details = {}) {
+    const error = new Error(message);
+    Object.assign(error, details);
+    return error;
+  }
+
   function requestJson(url) {
     return new Promise((resolve, reject) => {
       GM_xmlhttpRequest({
@@ -252,18 +258,26 @@
         url,
         responseType: 'text',
         onload: response => {
+          const responseDetails = {
+            requestUrl: url,
+            status: response.status,
+            statusText: response.statusText,
+            responseHeaders: response.responseHeaders,
+            responseText: response.responseText,
+            finalUrl: response.finalUrl
+          };
           if (response.status < 200 || response.status >= 300) {
-            reject(new Error(t('httpError', { status: response.status })));
+            reject(createRequestError(t('httpError', { status: response.status }), responseDetails));
             return;
           }
           try {
             resolve(JSON.parse(response.responseText));
-          } catch {
-            reject(new Error(t('invalidJson')));
+          } catch (parseError) {
+            reject(createRequestError(t('invalidJson'), { ...responseDetails, cause: parseError }));
           }
         },
-        onerror: () => reject(new Error(t('networkError'))),
-        ontimeout: () => reject(new Error(t('timeout')))
+        onerror: response => reject(createRequestError(t('networkError'), { requestUrl: url, response })),
+        ontimeout: response => reject(createRequestError(t('timeout'), { requestUrl: url, response }))
       });
     });
   }
@@ -757,8 +771,10 @@
     isLoading = true;
     refreshButton.disabled = true;
     const page = activePage + 1;
+    const providerName = activeProvider.name;
+    const requestUrl = buildSearchUrl(activeProvider, activeSortKey, page);
     try {
-      const payload = await requestJson(buildSearchUrl(activeProvider, activeSortKey, page));
+      const payload = await requestJson(requestUrl);
       if (currentRequest !== requestId) return;
       if (!Array.isArray(payload)) throw new Error(t('invalidPayload'));
       const pageItems = payload.map(activeProvider.result).filter(Boolean);
@@ -771,6 +787,12 @@
       refreshButton.disabled = false;
       renderItems();
     } catch (error) {
+      console.error('[Userscript Search] request failed', error, {
+        provider: providerName,
+        page,
+        reset,
+        url: requestUrl
+      });
       if (currentRequest !== requestId) return;
       isLoading = false;
       refreshButton.disabled = false;
