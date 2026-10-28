@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Shadow DOM Dialog Utility
 // @namespace    Schwi
-// @version      1.3.0
+// @version      1.4.0
 // @description  Reusable Shadow DOM dialog utility for Tampermonkey scripts.
 // @grant        none
 // ==/UserScript==
@@ -15,6 +15,7 @@
  * @property {(title: string) => void} setTitle Set the dialog title.
  * @property {((dialog: DialogWindow) => void)|null} onshow Called after the dialog is shown.
  * @property {((dialog: DialogWindow) => void)|null} onclose Called after the dialog is closed.
+ * @property {{inline: boolean, styleElement: boolean, adoptedStyleSheets: boolean}} styleSupport Detected page style capabilities.
  */
 
 /**
@@ -50,9 +51,8 @@ async function createDialog(width, height, config = {}) {
   const title = document.createElement('span');
   const closeButton = document.createElement('button');
   const content = document.createElement('div');
-  const style = document.createElement('style');
-
-  style.textContent = `
+  const styleSupport = getStyleSupport();
+  const styleText = `
     :host { all: initial; }
     *, *::before, *::after { box-sizing: border-box; }
     .overlay { position: fixed; z-index: 2147483647; inset: 0; display: grid; place-items: center; padding: 16px; background: rgb(0 0 0 / 45%); font-family: Arial, "Microsoft YaHei", sans-serif; }
@@ -119,7 +119,8 @@ async function createDialog(width, height, config = {}) {
   }
   dialog.append(content);
   overlay.append(dialog);
-  shadow.append(style, overlay);
+  shadow.append(overlay);
+  installStyles(shadow, styleText, styleSupport);
 
   dialogWindow = {
     content,
@@ -128,11 +129,97 @@ async function createDialog(width, height, config = {}) {
     close,
     setTitle,
     onshow: typeof options.onshow === 'function' ? options.onshow : null,
-    onclose: typeof options.onclose === 'function' ? options.onclose : null
+    onclose: typeof options.onclose === 'function' ? options.onclose : null,
+    styleSupport
   };
   return dialogWindow;
 }
 
+let cachedStyleSupport;
+
+function detectStyleSupport() {
+  const fallback = { inline: true, styleElement: true, adoptedStyleSheets: false };
+  if (!document.body) return fallback;
+
+  const host = document.createElement('div');
+  const shadow = host.attachShadow({ mode: 'closed' });
+  const style = document.createElement('style');
+  const styleProbe = document.createElement('span');
+  styleProbe.className = 'schwi-style-probe';
+  style.textContent = '.schwi-style-probe { --schwi-style-probe: 1; }';
+  shadow.append(style, styleProbe);
+
+  const inlineProbe = document.createElement('span');
+  inlineProbe.style.setProperty('--schwi-inline-probe', '1');
+  host.append(inlineProbe);
+  document.body.append(host);
+
+  const computedInlineProbe = getComputedStyle(inlineProbe);
+  const computedStyleProbe = getComputedStyle(styleProbe);
+  const result = {
+    inline: computedInlineProbe.getPropertyValue('--schwi-inline-probe').trim() === '1',
+    styleElement: computedStyleProbe.getPropertyValue('--schwi-style-probe').trim() === '1',
+    adoptedStyleSheets: false
+  };
+
+  if ('adoptedStyleSheets' in shadow && typeof CSSStyleSheet === 'function') {
+    try {
+      const sheet = new CSSStyleSheet();
+      sheet.replaceSync('.schwi-adopted-probe { --schwi-adopted-probe: 1; }');
+      shadow.adoptedStyleSheets = [...shadow.adoptedStyleSheets, sheet];
+      const adoptedProbe = document.createElement('span');
+      adoptedProbe.className = 'schwi-adopted-probe';
+      shadow.append(adoptedProbe);
+      result.adoptedStyleSheets = getComputedStyle(adoptedProbe).getPropertyValue('--schwi-adopted-probe').trim() === '1';
+    } catch {
+      result.adoptedStyleSheets = false;
+    }
+  }
+  host.remove();
+  return result;
+}
+
+function getStyleSupport() {
+  if (!cachedStyleSupport) cachedStyleSupport = detectStyleSupport();
+  return { ...cachedStyleSupport };
+}
+
+function installStyles(target, cssText, styleSupport = getStyleSupport()) {
+  const isShadowRoot = typeof ShadowRoot !== 'undefined' && target instanceof ShadowRoot;
+  const root = isShadowRoot ? target : target.getRootNode?.();
+  if (styleSupport.adoptedStyleSheets && root && 'adoptedStyleSheets' in root && typeof CSSStyleSheet === 'function') {
+    try {
+      const sheet = new CSSStyleSheet();
+      sheet.replaceSync(cssText);
+      root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet];
+      return { method: 'adoptedStyleSheets', sheet };
+    } catch {
+      // Fall through to a style element for older or partially implemented browsers.
+    }
+  }
+  const style = document.createElement('style');
+  style.textContent = cssText;
+  target.append(style);
+  return { method: 'styleElement', style };
+}
+
+function installCspDiagnostics() {
+  if (globalThis.__schwiCspDiagnosticsInstalled || typeof document === 'undefined' || typeof document.addEventListener !== 'function') return;
+  globalThis.__schwiCspDiagnosticsInstalled = true;
+  document.addEventListener('securitypolicyviolation', event => {
+    console.warn('[Schwi UI] Content Security Policy 阻止了页面操作。', {
+      directive: event.effectiveDirective,
+      blockedUri: event.blockedURI,
+      sourceFile: event.sourceFile,
+      lineNumber: event.lineNumber,
+      columnNumber: event.columnNumber,
+      documentUri: event.documentURI
+    });
+  }, true);
+}
+
+installCspDiagnostics();
+
 // Export one namespaced API so multiple utility scripts do not compete for a
 // generic global such as `createDialog`.
-globalThis.SchwiDialog = Object.freeze({ createDialog });
+globalThis.SchwiDialog = Object.freeze({ createDialog, getStyleSupport, installStyles });

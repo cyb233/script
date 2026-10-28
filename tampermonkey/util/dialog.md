@@ -57,6 +57,7 @@ dialog.show();
 | `setTitle(title)` | 设置标题及无障碍标签 |
 | `onshow` | 显示后的回调，可直接赋值 |
 | `onclose` | 关闭后的回调，可直接赋值 |
+| `styleSupport` | 当前页面的样式能力检测结果：`inline`、`styleElement`、`adoptedStyleSheets` |
 
 回调会收到当前 `DialogWindow` 实例：
 
@@ -93,4 +94,7 @@ dialog.onclose = current => console.log('已关闭', current);
 ## 注意事项
 
 - `content` 中添加的元素属于 Shadow DOM，页面原有 CSS 不会直接影响弹窗内部样式。
+- 工具会检测当前页面是否阻止内联样式；支持时优先使用 `adoptedStyleSheets`，以降低严格 CSP 导致弹窗无样式或不可见的概率。
+- `SchwiDialog.getStyleSupport()` 可读取缓存的检测结果；`SchwiDialog.installStyles(target, cssText)` 会优先把样式安装到对应的 Shadow DOM 样式表。
+- 工具会监听 `securitypolicyviolation` 事件，并在控制台记录被拦截的 directive、资源地址和源码位置。
 - `@require` 只负责加载工具，不会自动显示弹窗；请在需要时调用 `show()`。
