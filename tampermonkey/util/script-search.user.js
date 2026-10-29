@@ -5,14 +5,14 @@
 // @name:zh-TW   使用者腳本搜尋
 // @name:ja      ユーザースクリプト検索
 // @namespace    Schwi
-// @version      1.2.1
+// @version      1.2.2
 // @description        Search userscripts for the current site from a floating action button.
 // @description:en     Search userscripts for the current site from a floating action button.
 // @description:zh-CN  从浮动按钮搜索当前网站可用的用户脚本。
 // @description:zh-TW  從浮動按鈕搜尋目前網站可用的使用者腳本。
 // @description:ja     フローティングボタンから現在のサイトで利用できるユーザースクリプトを検索します。
 // @match        *://*/*
-// @require      https://update.greasyfork.org/scripts/597988/1947281/Shadow%20DOM%20Dialog%20Utility.js
+// @require      https://update.greasyfork.org/scripts/597988/1978784/Shadow%20DOM%20Dialog%20Utility.js
 // @connect      api.greasyfork.org
 // @connect      api.sleazyfork.org
 // @grant        GM_getValue
@@ -197,6 +197,8 @@
     return text.replace(/\{\{(\w+)\}\}/g, (_, name) => String(values[name] ?? ''));
   }
 
+  const styleSupport = SchwiDialog.getStyleSupport();
+
   function resolveLanguage(value) {
     if (LANGUAGES.some(language => language.key === value)) return value;
     const candidates = Array.isArray(navigator.languages) ? navigator.languages : [navigator.language];
@@ -333,14 +335,14 @@
   }
 
   function createStyle() {
-    const style = document.createElement('style');
-    style.textContent = `
+    return `
       :host { all: initial; }
       *, *::before, *::after { box-sizing: border-box; }
       .search-app { color: #202124; font: 14px/1.5 Arial, "Microsoft YaHei", sans-serif; }
       .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
       .toolbar input { flex: 1 1 220px; min-width: 160px; height: 36px; padding: 0 10px; border: 1px solid #c7cbd1; border-radius: 4px; color: inherit; font: inherit; }
       .toolbar select, .toolbar button { height: 36px; padding: 0 10px; border: 1px solid #c7cbd1; border-radius: 4px; background: #fff; color: inherit; font: inherit; }
+      .language-select { height: 30px; max-width: 130px; margin-left: 10px; padding: 0 6px; border: 1px solid #c7cbd1; border-radius: 4px; background: #fff; color: #202124; font: 13px Arial, "Microsoft YaHei", sans-serif; }
       .toolbar button { width: 36px; padding: 0; cursor: pointer; font-size: 20px; line-height: 1; }
       .toolbar button:hover { background: #f1f3f4; }
       .corner-settings, .domain-settings { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; margin: 0 0 10px; padding: 0; border: 0; }
@@ -374,7 +376,6 @@
       .note { margin: 0 0 10px; color: #5f6368; font-size: 12px; }
       @media (max-width: 560px) { .result { padding: 10px; } .toolbar input { flex-basis: 100%; } }
     `;
-    return style;
   }
 
   function applyCorner(host, corner) {
@@ -384,15 +385,16 @@
   }
 
   function applyFabOffset(host) {
+    if (!styleSupport.inline) return;
     host.style.setProperty('--fab-offset-x', `${fabOffset.x}px`);
     host.style.setProperty('--fab-offset-y', `${fabOffset.y}px`);
   }
 
   const host = document.createElement('div');
   const fabShadow = host.attachShadow({ mode: 'closed' });
-  const fabStyle = document.createElement('style');
-  fabStyle.textContent = `
+  const fabStyleText = `
     :host { all: initial; position: fixed; z-index: 2147483646; transform: translate(var(--fab-offset-x, 0px), var(--fab-offset-y, 0px)); }
+    :host([hidden]) { display: none; }
     :host([data-corner="top-left"]) { top: 16px; left: 16px; }
     :host([data-corner="top-right"]) { top: 16px; right: 16px; }
     :host([data-corner="bottom-left"]) { bottom: 16px; left: 16px; }
@@ -406,11 +408,12 @@
   fabButton.textContent = 'JS';
   fabButton.title = t('searchCurrentSite');
   fabButton.setAttribute('aria-label', t('searchCurrentSite'));
-  fabShadow.append(fabStyle, fabButton);
+  SchwiDialog.installStyles(fabShadow, fabStyleText, styleSupport);
+  fabShadow.append(fabButton);
   const savedCorner = GM_getValue(STORAGE_KEY, 'bottom-left');
   applyCorner(host, savedCorner);
   applyFabOffset(host);
-  host.style.display = fabVisible ? '' : 'none';
+  host.hidden = !fabVisible;
   document.body.append(host);
 
   if (!enabledProviders.length) {
@@ -426,9 +429,9 @@
     showCloseButton: true
   });
   const languageSelect = document.createElement('select');
+  languageSelect.className = 'language-select';
   languageSelect.setAttribute('aria-label', t('apiLanguage'));
   languageSelect.title = t('apiLanguage');
-  languageSelect.style.cssText = 'height: 30px; max-width: 130px; margin-left: 10px; padding: 0 6px; border: 1px solid #c7cbd1; border-radius: 4px; background: #fff; color: #202124; font: 13px Arial, "Microsoft YaHei", sans-serif;';
   LANGUAGES.forEach(language => {
     const option = document.createElement('option');
     option.value = language.key;
@@ -447,8 +450,8 @@
   if (dialogHeader) dialogHeader.insertBefore(languageSelect, closeButton || null);
   const app = document.createElement('div');
   app.className = 'search-app';
-  app.append(createStyle());
   dialog.content.append(app);
+  SchwiDialog.installStyles(app, createStyle(), styleSupport);
 
   const cornerSettings = document.createElement('fieldset');
   cornerSettings.className = 'corner-settings';
@@ -606,7 +609,7 @@
   }
 
   function updateFabState() {
-    host.style.display = fabVisible ? '' : 'none';
+    host.hidden = !fabVisible;
     temporaryButton.textContent = fabVisible ? t('tempHideFab') : t('tempShowFab');
     temporaryButton.title = t('tempTitle');
     persistentButton.textContent = persistentEnabled ? t('disableFab') : t('enableFab');
