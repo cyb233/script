@@ -57,10 +57,12 @@ exit /b
 :show_menu
 if /i "!SERVICE_STATE!"=="RUNNING" (
     echo [1] 停止 %SERVICE_NAME%
+    echo [2] 重启 %SERVICE_NAME%
     echo [Q] 退出
     echo ==============================
-    choice /c 1Q /n /m "请选择操作: "
-    if errorlevel 2 goto exit
+    choice /c 12Q /n /m "请选择操作: "
+    if errorlevel 3 goto exit
+    if errorlevel 2 goto restart
     if errorlevel 1 goto stop
 )
 
@@ -100,6 +102,10 @@ goto end
 echo.
 echo 正在启动 %SERVICE_NAME% 服务...
 sc start "%SERVICE_NAME%"
+if errorlevel 1 (
+    echo 启动 %SERVICE_NAME% 失败，已取消启动 Proxifier.exe。
+    goto end
+)
 echo.
 echo 正在启动 Proxifier.exe...
 start "" "%PROXIFIER_EXE%"
@@ -116,6 +122,32 @@ echo.
 echo 正在停止 %SERVICE_NAME% 服务...
 sc stop "%SERVICE_NAME%"
 goto end
+
+:restart
+echo.
+echo 正在停止 Proxifier.exe...
+taskkill /f /im Proxifier.exe >nul 2>&1
+echo.
+echo 正在停止 %SERVICE_NAME% 服务...
+sc stop "%SERVICE_NAME%"
+if errorlevel 1 (
+    echo 停止 %SERVICE_NAME% 失败，已取消重启。
+    goto end
+)
+set "RESTART_WAIT=0"
+:wait_for_stop
+set "SERVICE_STATE="
+for /f "tokens=3 delims=: " %%I in ('sc query "%SERVICE_NAME%" ^| findstr /R /C:"STATE *:"') do (
+    set "SERVICE_STATE=%%I"
+)
+if /i "!SERVICE_STATE!"=="STOPPED" goto start
+if !RESTART_WAIT! geq 30 (
+    echo 等待 %SERVICE_NAME% 停止超时，已取消重启。
+    goto end
+)
+timeout /t 1 >nul
+set /a RESTART_WAIT+=1
+goto wait_for_stop
 
 :exit
 echo.
