@@ -8,10 +8,9 @@ Find userscripts for the current website from any page.
 
 ## Features
 
-- Search Greasy Fork and Sleazy Fork.
+- Search Greasy Fork, Sleazy Fork, and GitHub Gists for userscripts matching the current site.
 - Detect the current website automatically, with parent-domain selection when needed.
-- Search by name, author, or description and sort by several metrics.
-- View ratings, install counts, creation time, update time, and descriptions.
+- Search by name, author, or description, with sorting options.
 - Load more results, refresh the list, and return to the top.
 - Open a script or author page by clicking its name.
 - Supports Simplified Chinese, Traditional Chinese, English, and Japanese.

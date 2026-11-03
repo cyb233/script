@@ -5,7 +5,7 @@
 // @name:zh-TW   使用者腳本搜尋
 // @name:ja      ユーザースクリプト検索
 // @namespace    Schwi
-// @version      1.2.2
+// @version      1.2.5
 // @description        Search userscripts for the current site from a floating action button.
 // @description:en     Search userscripts for the current site from a floating action button.
 // @description:zh-CN  从浮动按钮搜索当前网站可用的用户脚本。
@@ -15,6 +15,7 @@
 // @require      https://update.greasyfork.org/scripts/597988/1978784/Shadow%20DOM%20Dialog%20Utility.js
 // @connect      api.greasyfork.org
 // @connect      api.sleazyfork.org
+// @connect      gist.github.com
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_unregisterMenuCommand
@@ -50,6 +51,13 @@
       { labelKey: 'updated', key: 'updated' },
       { labelKey: 'name', key: 'name' }
     ],
+    metadata: [
+      { labelKey: 'score', valueKey: 'rating', format: 'rating' },
+      { labelKey: 'dailyInstalls', valueKey: 'dailyInstalls', format: 'number' },
+      { labelKey: 'totalInstalls', valueKey: 'totalInstalls', format: 'number' },
+      { labelKey: 'created', valueKey: 'createdAt', format: 'date' },
+      { labelKey: 'updated', valueKey: 'updatedAt', format: 'date' }
+    ],
     result: item => {
       const authors = Array.isArray(item.users)
         ? item.users.map(user => ({
@@ -62,16 +70,13 @@
         url: item.url,
         description: item.description || '',
         authors,
-        rating: item.fan_score == null ? null : Number(item.fan_score),
-        ratingCounts: {
-          good: item.good_ratings || 0,
-          ok: item.ok_ratings || 0,
-          bad: item.bad_ratings || 0
-        },
-        dailyInstalls: item.daily_installs || 0,
-        totalInstalls: item.total_installs || 0,
-        createdAt: item.created_at,
-        updatedAt: item.code_updated_at
+        metadata: {
+          rating: item.fan_score == null ? null : Number(item.fan_score),
+          dailyInstalls: item.daily_installs || 0,
+          totalInstalls: item.total_installs || 0,
+          createdAt: item.created_at,
+          updatedAt: item.code_updated_at
+        }
       };
     },
     enable: true
@@ -87,6 +92,39 @@
       name: 'Sleazy Fork',
       apiHost: 'https://api.sleazyfork.org',
       ...SHARED_PROVIDER_CONFIG
+    },
+    {
+      name: 'GitHub Gist',
+      apiHost: 'https://gist.github.com',
+      urlBuilder: ({ host, query, page, sort }) => {
+        const url = new URL('/search', 'https://gist.github.com');
+        const terms = ['"==UserScript=="', '"@include"', `"${host}"`, 'extension:js'];
+        if (query) terms.push(query);
+        url.searchParams.set('q', terms.join(' '));
+        Object.entries(sort?.params || {}).forEach(([key, value]) => {
+          url.searchParams.set(key, value);
+        });
+        if (page > 1) url.searchParams.set('p', String(page));
+        return url.href;
+      },
+      parseResponse: parseGistSearchHtml,
+      serverSearchOnly: true,
+      sort: [
+        { labelKey: 'relevance', key: '', params: { s: '', o: 'desc' } },
+        { labelKey: 'mostStars', key: 'stars-desc', params: { s: 'stars', o: 'desc' } },
+        { labelKey: 'fewestStars', key: 'stars-asc', params: { s: 'stars', o: 'asc' } },
+        { labelKey: 'mostForks', key: 'forks-desc', params: { s: 'forks', o: 'desc' } },
+        { labelKey: 'fewestForks', key: 'forks-asc', params: { s: 'forks', o: 'asc' } },
+        { labelKey: 'recentlyUpdated', key: 'updated-desc', params: { s: 'updated', o: 'desc' } },
+        { labelKey: 'leastRecentlyUpdated', key: 'updated-asc', params: { s: 'updated', o: 'asc' } }
+      ],
+      metadata: [
+        { labelKey: 'stars', valueKey: 'stars', format: 'optionalNumber' },
+        { labelKey: 'forks', valueKey: 'forks', format: 'optionalNumber' },
+        { labelKey: 'comments', valueKey: 'comments', format: 'optionalNumber' },
+        { labelKey: 'updated', valueKey: 'updatedAt', format: 'date' }
+      ],
+      enable: true
     }
   ];
 
@@ -110,7 +148,9 @@
     en: {
       languageChinese: 'Simplified Chinese', languageTraditional: 'Traditional Chinese', languageEnglish: 'English', languageJapanese: 'Japanese',
       topLeft: 'Top left', topRight: 'Top right', bottomLeft: 'Bottom left', bottomRight: 'Bottom right',
-      position: 'Button position', searchDomain: 'Search domain', xOffset: 'X offset', yOffset: 'Y offset',
+      position: 'Button position', searchDomain: 'Search domain', xOffset: 'X offset', yOffset: 'Y offset', relevance: 'Best match',
+      mostStars: 'Most stars', fewestStars: 'Fewest stars', mostForks: 'Most forks', fewestForks: 'Fewest forks',
+      recentlyUpdated: 'Recently updated', leastRecentlyUpdated: 'Least recently updated',
       tempHideFab: 'Temporarily hide FAB (shown)', tempShowFab: 'Temporarily show FAB (hidden)',
       tempTitle: 'Affects this page only; this visibility state is not saved',
       disableFab: 'Disable FAB (enabled)', enableFab: 'Enable FAB (disabled)',
@@ -118,6 +158,7 @@
       dialogTitle: 'Userscript search: {{host}}', currentSite: 'Current site', searchAria: 'Userscript search', apiLanguage: 'API language',
       searchPlaceholder: 'Search by name, author, or description', sort: 'Sort', author: 'Author', authorPrefix: 'Author: ', unknown: 'Unknown',
       noDescription: 'No description', score: 'Rating', dailyInstalls: 'Daily installs', totalInstalls: 'Total installs',
+      stars: 'Stars', forks: 'Forks', comments: 'Comments',
       created: 'Created', updated: 'Updated', name: 'Name', rating: 'Rating',
       notAvailable: '—',
       authorSeparator: ', ',
@@ -130,7 +171,9 @@
     },
     'zh-CN': {
       languageChinese: '简体中文', languageTraditional: '繁體中文', languageEnglish: 'English', languageJapanese: '日本語',
-      topLeft: '左上角', topRight: '右上角', bottomLeft: '左下角', bottomRight: '右下角',
+      topLeft: '左上角', topRight: '右上角', bottomLeft: '左下角', bottomRight: '右下角', relevance: '最佳匹配',
+      mostStars: '最多 Stars', fewestStars: '最少 Stars', mostForks: '最多 Forks', fewestForks: '最少 Forks',
+      recentlyUpdated: '最近更新', leastRecentlyUpdated: '最久未更新',
       position: '按钮位置', searchDomain: '搜索域名', xOffset: 'X 偏移量', yOffset: 'Y 偏移量',
       tempHideFab: '临时隐藏 FAB（当前：显示）', tempShowFab: '临时显示 FAB（当前：隐藏）',
       tempTitle: '仅影响当前页面，不保存此显示状态',
@@ -139,6 +182,7 @@
       dialogTitle: '用户脚本搜索：{{host}}', currentSite: '当前网站', searchAria: '用户脚本搜索', apiLanguage: '接口语言',
       searchPlaceholder: '搜索名称、作者或简介', sort: '排序方式', author: '作者', authorPrefix: '作者：', unknown: '未知',
       noDescription: '暂无简介', score: '评分', dailyInstalls: '日安装量', totalInstalls: '总安装量',
+      stars: 'Stars', forks: 'Forks', comments: '评论',
       created: '创建', updated: '更新', name: '名称', rating: '得分',
       notAvailable: '—',
       authorSeparator: '、',
@@ -151,7 +195,9 @@
     },
     ja: {
       languageChinese: '簡体字中国語', languageTraditional: '繁体字中国語', languageEnglish: 'English', languageJapanese: '日本語',
-      topLeft: '左上', topRight: '右上', bottomLeft: '左下', bottomRight: '右下',
+      topLeft: '左上', topRight: '右上', bottomLeft: '左下', bottomRight: '右下', relevance: '最適な一致',
+      mostStars: 'スター数が多い順', fewestStars: 'スター数が少ない順', mostForks: 'フォーク数が多い順', fewestForks: 'フォーク数が少ない順',
+      recentlyUpdated: '最近更新', leastRecentlyUpdated: '最終更新が古い順',
       position: 'ボタンの位置', searchDomain: '検索ドメイン', xOffset: 'X オフセット', yOffset: 'Y オフセット',
       tempHideFab: '一時的に FAB を非表示（現在：表示）', tempShowFab: '一時的に FAB を表示（現在：非表示）',
       tempTitle: '現在のページだけに適用され、表示状態は保存されません',
@@ -160,6 +206,7 @@
       dialogTitle: 'ユーザースクリプト検索：{{host}}', currentSite: '現在のサイト', searchAria: 'ユーザースクリプト検索', apiLanguage: 'API 言語',
       searchPlaceholder: '名前、作者、説明を検索', sort: '並び順', author: '作者', authorPrefix: '作者：', unknown: '不明',
       noDescription: '説明なし', score: '評価', dailyInstalls: '1日インストール数', totalInstalls: '累計インストール数',
+      stars: 'スター', forks: 'フォーク', comments: 'コメント',
       created: '作成', updated: '更新', name: '名前', rating: '評価',
       notAvailable: '—',
       authorSeparator: '、',
@@ -172,7 +219,9 @@
     },
     'zh-TW': {
       languageChinese: '簡體中文', languageTraditional: '繁體中文', languageEnglish: 'English', languageJapanese: '日本語',
-      topLeft: '左上角', topRight: '右上角', bottomLeft: '左下角', bottomRight: '右下角',
+      topLeft: '左上角', topRight: '右上角', bottomLeft: '左下角', bottomRight: '右下角', relevance: '最佳比對',
+      mostStars: '最多 Stars', fewestStars: '最少 Stars', mostForks: '最多 Forks', fewestForks: '最少 Forks',
+      recentlyUpdated: '最近更新', leastRecentlyUpdated: '最久未更新',
       position: '按鈕位置', searchDomain: '搜尋網域', xOffset: 'X 偏移量', yOffset: 'Y 偏移量',
       tempHideFab: '暫時隱藏 FAB（目前：顯示）', tempShowFab: '暫時顯示 FAB（目前：隱藏）',
       tempTitle: '僅影響目前頁面，不會儲存此顯示狀態',
@@ -181,6 +230,7 @@
       dialogTitle: '使用者腳本搜尋：{{host}}', currentSite: '目前網站', searchAria: '使用者腳本搜尋', apiLanguage: '介面語言',
       searchPlaceholder: '搜尋名稱、作者或簡介', sort: '排序方式', author: '作者', authorPrefix: '作者：', unknown: '未知',
       noDescription: '暫無簡介', score: '評分', dailyInstalls: '每日安裝量', totalInstalls: '總安裝量',
+      stars: 'Stars', forks: 'Forks', comments: '評論',
       created: '建立', updated: '更新', name: '名稱', rating: '評分',
       notAvailable: '—', authorSeparator: '、',
       noMatches: '沒有符合的腳本', noScripts: '此網站沒有可用腳本', loading: '正在載入腳本清單…',
@@ -195,6 +245,18 @@
   function t(key, values = {}) {
     const text = I18N[selectedLanguage]?.[key] || I18N.en[key] || key;
     return text.replace(/\{\{(\w+)\}\}/g, (_, name) => String(values[name] ?? ''));
+  }
+
+  function logInfo(event, details = {}) {
+    console.info('[Userscript Search]', event, details);
+  }
+
+  function logWarn(event, details = {}) {
+    console.warn('[Userscript Search]', event, details);
+  }
+
+  function logError(event, error, details = {}) {
+    console.error('[Userscript Search]', event, error, details);
   }
 
   const styleSupport = SchwiDialog.getStyleSupport();
@@ -237,11 +299,21 @@
 
   // Provider parameters can reference the current search values by name.
   function buildSearchUrl(provider, sortKey, page) {
+    const sortOption = provider.sort.find(option => option.key === sortKey) || provider.sort[0];
+    if (provider.urlBuilder) {
+      return provider.urlBuilder({
+        lang: selectedLanguage,
+        host: selectedHost,
+        query: searchInput.value.trim(),
+        sort: sortOption,
+        page
+      });
+    }
     const values = {
       lang: selectedLanguage,
       host: selectedHost,
       q: searchInput.value.trim(),
-      sort: sortKey || '',
+      sort: sortOption?.value ?? sortOption?.key ?? '',
       page
     };
     const resolveParam = value => String(value ?? '').replace(/\{(lang|host|q|sort|page)\}/g, (_, key) => String(values[key] ?? ''));
@@ -252,6 +324,57 @@
       if (resolved) url.searchParams.set(key, resolved);
     });
     return url.href;
+  }
+
+  function parseGistSearchHtml(html) {
+    const document = new DOMParser().parseFromString(html, 'text/html');
+    const cards = Array.from(document.querySelectorAll('.gist-snippet'));
+    if (!cards.length && !document.title.includes('GitHub')) throw new Error(t('invalidPayload'));
+
+    const items = cards.map(card => {
+      const scriptFile = Array.from(card.querySelectorAll('[data-tagsearch-path]'))
+        .find(element => element.getAttribute('data-tagsearch-path')?.endsWith('.js'));
+      if (!scriptFile) return null;
+
+      const fileName = scriptFile.getAttribute('data-tagsearch-path');
+      const titleElement = card.querySelector('strong.css-truncate-target');
+      const gistLink = titleElement?.closest('a');
+      const gistUrl = gistLink?.getAttribute('href');
+      const lines = Array.from(scriptFile.querySelectorAll('td.js-file-line'), line => line.textContent.trim());
+      const headerValue = key => {
+        const expression = new RegExp(`^\\s*//\\s*@${key}(?::[\\w-]+)?\\s+(.+)$`, 'i');
+        return lines.map(line => line.match(expression)?.[1]?.trim()).find(Boolean) || '';
+      };
+      const authorElement = card.querySelector('.gist-snippet-meta [data-hovercard-type="user"][href]');
+      const authorName = authorElement?.textContent.trim() || authorElement?.querySelector('img')?.alt.replace(/^@/, '') || '';
+      const authorUrl = authorElement?.getAttribute('href');
+      const descriptionElement = card.querySelector('.gist-snippet-meta .px-lg-2 > span.f6.color-fg-muted');
+      const dateElement = card.querySelector('.gist-snippet-meta relative-time[datetime]');
+      const countFor = suffix => {
+        const label = card.querySelector(`.gist-snippet-meta a[href$="${suffix}"]`)?.textContent.trim();
+        const digits = label?.match(/^([\d,]+)(?=\s|$)/)?.[1];
+        return digits ? Number(digits.replace(/,/g, '')) : null;
+      };
+
+      return {
+        name: headerValue('name') || fileName || titleElement?.textContent.trim() || t('unnamedScript'),
+        url: gistUrl ? new URL(gistUrl, 'https://gist.github.com').href : '',
+        description: headerValue('description') || descriptionElement?.textContent.trim() || '',
+        authors: authorName ? [{
+          name: authorName,
+          url: authorUrl ? new URL(authorUrl, 'https://gist.github.com').href : ''
+        }] : [],
+        metadata: {
+          stars: countFor('/stargazers'),
+          forks: countFor('/forks'),
+          comments: countFor('#comments'),
+          updatedAt: dateElement?.getAttribute('datetime') || null
+        }
+      };
+    }).filter(item => item?.url);
+
+    const hasMore = Boolean(document.querySelector('.pagination a[rel="next"], a[rel="next"][href*="/search"]'));
+    return { items, hasMore };
   }
 
   function safeUrl(value) {
@@ -300,8 +423,36 @@
     });
   }
 
+  function requestText(url) {
+    return new Promise((resolve, reject) => {
+      GM_xmlhttpRequest({
+        method: 'GET',
+        url,
+        responseType: 'text',
+        onload: response => {
+          if (response.status < 200 || response.status >= 300) {
+            reject(createRequestError(t('httpError', { status: response.status }), {
+              requestUrl: url,
+              status: response.status,
+              statusText: response.statusText,
+              finalUrl: response.finalUrl
+            }));
+            return;
+          }
+          resolve(response.responseText);
+        },
+        onerror: response => reject(createRequestError(t('networkError'), { requestUrl: url, response })),
+        ontimeout: response => reject(createRequestError(t('timeout'), { requestUrl: url, response }))
+      });
+    });
+  }
+
   function formatNumber(value) {
     return Number(value || 0).toLocaleString(selectedLanguage);
+  }
+
+  function formatOptionalNumber(value) {
+    return value == null ? t('notAvailable') : formatNumber(value);
   }
 
   function formatDate(value) {
@@ -310,6 +461,14 @@
     return Number.isNaN(date.getTime()) ? t('notAvailable') : date.toLocaleString(selectedLanguage, {
       year: 'numeric', month: '2-digit', day: '2-digit'
     });
+  }
+
+  function formatMetadataValue(value, format) {
+    if (format === 'date') return formatDate(value);
+    if (format === 'number') return formatNumber(value);
+    if (format === 'optionalNumber') return formatOptionalNumber(value);
+    if (format === 'rating') return value == null || Number.isNaN(value) ? t('notAvailable') : value.toFixed(1);
+    return value == null ? t('notAvailable') : String(value);
   }
 
   function addText(parent, label, value) {
@@ -330,6 +489,7 @@
       link.href = targetUrl;
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
+      link.addEventListener('click', () => logInfo('result link opened', { text: link.textContent, url: link.href }));
     }
     parent.append(link);
   }
@@ -384,22 +544,22 @@
     GM_setValue(STORAGE_KEY, valid);
   }
 
-  function applyFabOffset(host) {
-    if (!styleSupport.inline) return;
-    host.style.setProperty('--fab-offset-x', `${fabOffset.x}px`);
-    host.style.setProperty('--fab-offset-y', `${fabOffset.y}px`);
+  function applyFabOffset(offsetStyle) {
+    const cssText = `button { transform: translate(${fabOffset.x}px, ${fabOffset.y}px); }`;
+    if (offsetStyle.sheet) offsetStyle.sheet.replaceSync(cssText);
+    else offsetStyle.style.textContent = cssText;
   }
 
   const host = document.createElement('div');
   const fabShadow = host.attachShadow({ mode: 'closed' });
   const fabStyleText = `
-    :host { all: initial; position: fixed; z-index: 2147483646; transform: translate(var(--fab-offset-x, 0px), var(--fab-offset-y, 0px)); }
+    :host { all: initial; position: fixed; z-index: 2147483646; pointer-events: none; }
     :host([hidden]) { display: none; }
     :host([data-corner="top-left"]) { top: 16px; left: 16px; }
     :host([data-corner="top-right"]) { top: 16px; right: 16px; }
     :host([data-corner="bottom-left"]) { bottom: 16px; left: 16px; }
     :host([data-corner="bottom-right"]) { right: 16px; bottom: 16px; }
-    button { width: 52px; height: 52px; padding: 0; border: 0; border-radius: 50%; background: #1967d2; box-shadow: 0 3px 10px rgb(0 0 0 / 28%); color: #fff; cursor: pointer; font: 700 15px Arial, sans-serif; }
+    button { width: 52px; height: 52px; padding: 0; border: 0; border-radius: 50%; background: #1967d2; box-shadow: 0 3px 10px rgb(0 0 0 / 28%); color: #fff; cursor: pointer; pointer-events: auto; font: 700 15px Arial, sans-serif; }
     button:hover { background: #1557b0; }
     button:focus-visible { outline: 3px solid #8ab4f8; outline-offset: 2px; }
   `;
@@ -409,25 +569,40 @@
   fabButton.title = t('searchCurrentSite');
   fabButton.setAttribute('aria-label', t('searchCurrentSite'));
   SchwiDialog.installStyles(fabShadow, fabStyleText, styleSupport);
+  const fabOffsetStyle = SchwiDialog.installStyles(fabShadow, '', styleSupport);
   fabShadow.append(fabButton);
   const savedCorner = GM_getValue(STORAGE_KEY, 'bottom-left');
   applyCorner(host, savedCorner);
-  applyFabOffset(host);
+  applyFabOffset(fabOffsetStyle);
   host.hidden = !fabVisible;
   document.body.append(host);
+  logInfo('initialized', {
+    host: currentHost,
+    selectedHost,
+    language: selectedLanguage,
+    corner: host.dataset.corner,
+    offset: { ...fabOffset },
+    fabVisible,
+    providers: enabledProviders.map(provider => provider.name)
+  });
 
   if (!enabledProviders.length) {
+    logWarn('No enabled providers; FAB is disabled');
     fabButton.disabled = true;
     return;
   }
 
+  logInfo('dialog initialization started');
   const dialog = await SchwiDialog.createDialog('min(94vw, 980px)', '86vh', {
     title: t('dialogTitle', { host: currentHost || t('currentSite') }),
     ariaLabel: t('searchAria'),
     closeOnBackdropClick: true,
     closeOnEscape: true,
-    showCloseButton: true
+    showCloseButton: true,
+    onshow: () => logInfo('dialog shown'),
+    onclose: () => logInfo('dialog closed')
   });
+  logInfo('dialog initialized');
   const languageSelect = document.createElement('select');
   languageSelect.className = 'language-select';
   languageSelect.setAttribute('aria-label', t('apiLanguage'));
@@ -442,6 +617,7 @@
   languageSelect.addEventListener('change', () => {
     selectedLanguage = languageSelect.value;
     GM_setValue(LANGUAGE_STORAGE_KEY, selectedLanguage);
+    logInfo('language changed', { language: selectedLanguage });
     refreshTexts();
     loadResults();
   });
@@ -466,7 +642,10 @@
     radio.name = 'script-search-corner';
     radio.value = corner.key;
     radio.checked = host.dataset.corner === corner.key;
-    radio.addEventListener('change', () => applyCorner(host, radio.value));
+    radio.addEventListener('change', () => {
+      applyCorner(host, radio.value);
+      logInfo('FAB corner changed', { corner: radio.value });
+    });
     const text = document.createTextNode(t(corner.labelKey));
     label.append(radio, text);
     cornerLabels.push({ label, text, corner });
@@ -489,11 +668,12 @@
       const value = Number(input.value);
       if (!Number.isFinite(value)) return;
       fabOffset[axis] = value;
-      applyFabOffset(host);
+      applyFabOffset(fabOffsetStyle);
       GM_setValue(OFFSET_STORAGE_KEY, fabOffset);
     });
     input.addEventListener('change', () => {
       if (!Number.isFinite(Number(input.value))) input.value = String(fabOffset[axis]);
+      logInfo('FAB offset changed', { axis, value: fabOffset[axis], offset: { ...fabOffset } });
     });
     label.append(text, input);
     offsetLabels.push({ axis, label, text, input });
@@ -506,6 +686,7 @@
   temporaryButton.className = 'corner-action';
   temporaryButton.addEventListener('click', () => {
     fabVisible = !fabVisible;
+    logInfo('FAB visibility changed temporarily', { visible: fabVisible });
     updateFabState();
   });
   const persistentButton = document.createElement('button');
@@ -515,6 +696,7 @@
     persistentEnabled = !persistentEnabled;
     fabVisible = persistentEnabled;
     GM_setValue(ENABLED_STORAGE_KEY, persistentEnabled);
+    logInfo('persistent FAB setting changed', { enabled: persistentEnabled, source: 'dialog' });
     updateFabState();
   });
   const cornerActions = document.createElement('span');
@@ -537,6 +719,7 @@
     radio.checked = domain === selectedHost;
     radio.addEventListener('change', () => {
       selectedHost = radio.value;
+      logInfo('search domain changed', { host: selectedHost });
       loadResults();
     });
     const text = document.createTextNode(domain);
@@ -576,6 +759,7 @@
   let hasMore = true;
   let isLoading = false;
   let pageError = '';
+  let lastStatusKey = '';
   let requestId = 0;
   const cache = new Map();
   let searchTimer;
@@ -628,16 +812,22 @@
         persistentEnabled = !persistentEnabled;
         fabVisible = persistentEnabled;
         GM_setValue(ENABLED_STORAGE_KEY, persistentEnabled);
+        logInfo('persistent FAB setting changed', { enabled: persistentEnabled, source: 'userscript menu' });
         updateFabState();
       }
     );
     openMenuId = GM_registerMenuCommand(
       t('openDialog'),
-      openDialog
+      () => openDialog('userscript menu')
     );
   }
 
   function setStatus(message, error = false, count = allItems.length) {
+    const statusKey = JSON.stringify([message, error, count]);
+    if (statusKey !== lastStatusKey) {
+      lastStatusKey = statusKey;
+      logInfo('status changed', { message, error, count });
+    }
     updateNote(count);
     results.replaceChildren();
     const status = document.createElement('div');
@@ -647,7 +837,7 @@
   }
 
   function renderItems() {
-    const query = searchInput.value.trim().toLocaleLowerCase();
+    const query = activeProvider.serverSearchOnly ? '' : searchInput.value.trim().toLocaleLowerCase();
     const filtered = allItems.filter(item => {
       const authorNames = (item.authors || []).map(author => author.name).join(' ');
       const text = [item.name, item.description, authorNames].join(' ').toLocaleLowerCase();
@@ -657,6 +847,7 @@
     updateNote(filtered.length);
     if (!filtered.length) {
       setStatus(query ? t('noMatches') : t('noScripts'), false, filtered.length);
+      if (hasMore || pageError) renderResultFooter();
       return;
     }
     const fragment = document.createDocumentFragment();
@@ -682,11 +873,9 @@
       description.textContent = item.description || t('noDescription');
       const meta = document.createElement('div');
       meta.className = 'meta';
-      addText(meta, t('score'), item.rating == null || Number.isNaN(item.rating) ? t('notAvailable') : item.rating.toFixed(1));
-      addText(meta, t('dailyInstalls'), formatNumber(item.dailyInstalls));
-      addText(meta, t('totalInstalls'), formatNumber(item.totalInstalls));
-      addText(meta, t('created'), formatDate(item.createdAt));
-      addText(meta, t('updated'), formatDate(item.updatedAt));
+      activeProvider.metadata.forEach(({ labelKey, valueKey, format }) => {
+        addText(meta, t(labelKey), formatMetadataValue(item.metadata?.[valueKey], format));
+      });
       card.append(title, author, description, meta);
       fragment.append(card);
     });
@@ -716,13 +905,19 @@
     loadMoreButton.type = 'button';
     loadMoreButton.textContent = isLoading ? t('loadingMore') : hasMore ? t('loadMore') : t('noMore');
     loadMoreButton.disabled = isLoading || !hasMore;
-    loadMoreButton.addEventListener('click', () => loadResults(false));
+    loadMoreButton.addEventListener('click', () => {
+      logInfo('load more clicked', { provider: activeProvider.name, nextPage: activePage + 1 });
+      loadResults(false);
+    });
     const backTopButton = document.createElement('button');
     backTopButton.type = 'button';
     backTopButton.textContent = '↑';
     backTopButton.title = t('backTop');
     backTopButton.setAttribute('aria-label', t('backTop'));
-    backTopButton.addEventListener('click', () => dialog.content.scrollTo({ top: 0, behavior: 'smooth' }));
+    backTopButton.addEventListener('click', () => {
+      logInfo('back to top clicked');
+      dialog.content.scrollTo({ top: 0, behavior: 'smooth' });
+    });
     footer.append(loadMoreButton, backTopButton);
     results.append(footer);
   }
@@ -739,6 +934,7 @@
         if (provider === activeProvider) return;
         activeProvider = provider;
         activeSortKey = provider.sort[0]?.key || '';
+        logInfo('provider changed', { provider: provider.name });
         renderTabs();
         renderSortOptions();
         loadResults();
@@ -763,7 +959,10 @@
   }
 
   async function loadPage(reset) {
-    if (!reset && (isLoading || !hasMore)) return;
+    if (!reset && (isLoading || !hasMore)) {
+      logInfo('load more skipped', { isLoading, hasMore, provider: activeProvider.name });
+      return;
+    }
     const currentRequest = ++requestId;
     const cacheKey = getCacheKey();
     if (reset) {
@@ -778,6 +977,14 @@
         hasMore = cached.hasMore;
         isLoading = false;
         refreshButton.disabled = false;
+        logInfo('results loaded from cache', {
+          provider: activeProvider.name,
+          host: selectedHost,
+          query: searchInput.value.trim(),
+          count: allItems.length,
+          page: activePage,
+          hasMore
+        });
         renderItems();
         return;
       }
@@ -790,29 +997,51 @@
     isLoading = true;
     refreshButton.disabled = true;
     const page = activePage + 1;
-    const providerName = activeProvider.name;
-    const requestUrl = buildSearchUrl(activeProvider, activeSortKey, page);
+    const requestProvider = activeProvider;
+    const providerName = requestProvider.name;
+    const requestUrl = buildSearchUrl(requestProvider, activeSortKey, page);
+    logInfo('loading started', { provider: providerName, page, reset, host: selectedHost, query: searchInput.value.trim(), url: requestUrl });
     try {
-      const payload = await requestJson(requestUrl);
-      if (currentRequest !== requestId) return;
-      if (!Array.isArray(payload)) throw new Error(t('invalidPayload'));
-      const pageItems = payload.map(activeProvider.result).filter(Boolean);
+      const response = requestProvider.parseResponse
+        ? await requestText(requestUrl)
+        : await requestJson(requestUrl);
+      const parsed = requestProvider.parseResponse
+        ? requestProvider.parseResponse(response)
+        : { items: response, hasMore: response.length > 0 };
+      if (currentRequest !== requestId) {
+        logInfo('stale loading result ignored', { provider: providerName, page, requestId: currentRequest, activeRequestId: requestId });
+        return;
+      }
+      if (!Array.isArray(parsed?.items)) throw new Error(t('invalidPayload'));
+      const pageItems = requestProvider.result
+        ? parsed.items.map(requestProvider.result).filter(Boolean)
+        : parsed.items.filter(Boolean);
       allItems = reset ? pageItems : allItems.concat(pageItems);
       activePage = page;
-      hasMore = pageItems.length > 0;
+      hasMore = typeof parsed.hasMore === 'boolean' ? parsed.hasMore : pageItems.length > 0;
       pageError = '';
       cache.set(cacheKey, { items: allItems, page: activePage, hasMore });
       isLoading = false;
       refreshButton.disabled = false;
+      logInfo('loading completed', {
+        provider: providerName,
+        page,
+        received: pageItems.length,
+        total: allItems.length,
+        hasMore
+      });
       renderItems();
     } catch (error) {
-      console.error('[Userscript Search] request failed', error, {
+      logError('loading failed', error, {
         provider: providerName,
         page,
         reset,
         url: requestUrl
       });
-      if (currentRequest !== requestId) return;
+      if (currentRequest !== requestId) {
+        logInfo('stale loading error ignored', { provider: providerName, page, requestId: currentRequest, activeRequestId: requestId });
+        return;
+      }
       isLoading = false;
       refreshButton.disabled = false;
       if (reset) {
@@ -833,22 +1062,28 @@
   searchInput.addEventListener('input', () => {
     renderItems();
     clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => loadResults(), 300);
+    searchTimer = setTimeout(() => {
+      logInfo('search submitted', { query: searchInput.value.trim() });
+      loadResults();
+    }, 300);
   });
   sortSelect.addEventListener('change', () => {
     activeSortKey = sortSelect.value;
+    logInfo('sort changed', { sort: activeSortKey });
     loadResults();
   });
   refreshButton.addEventListener('click', () => {
     cache.delete(getCacheKey());
+    logInfo('refresh clicked', { provider: activeProvider.name, host: selectedHost, query: searchInput.value.trim() });
     loadResults();
   });
-  function openDialog() {
+  function openDialog(source = 'FAB button') {
+    logInfo('open dialog requested', { source });
     dialog.show();
     loadResults();
   }
 
-  fabButton.addEventListener('click', openDialog);
+  fabButton.addEventListener('click', () => openDialog());
   activeSortKey = activeProvider.sort[0]?.key || '';
   renderTabs();
   refreshTexts();
