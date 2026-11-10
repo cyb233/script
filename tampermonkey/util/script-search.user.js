@@ -5,7 +5,7 @@
 // @name:zh-TW   使用者腳本搜尋
 // @name:ja      ユーザースクリプト検索
 // @namespace    Schwi
-// @version      1.2.5
+// @version      1.2.6
 // @description        Search userscripts for the current site from a floating action button.
 // @description:en     Search userscripts for the current site from a floating action button.
 // @description:zh-CN  从浮动按钮搜索当前网站可用的用户脚本。
@@ -166,7 +166,7 @@
       loadingMore: 'Loading more…', loadMore: 'Load more', noMore: 'No more results', backTop: 'Back to top', refresh: 'Refresh', pageError: 'Failed to load more: {{message}}',
       httpError: 'Request failed (HTTP {{status}})', invalidJson: 'The server returned invalid JSON',
       networkError: 'Network request failed', timeout: 'Request timed out', invalidPayload: 'The API returned an invalid data format',
-      loadFailed: 'Loading failed', siteNote: 'Site: {{host}} · Language: {{language}} · Source: {{provider}} · Results: {{count}}',
+      loadFailed: 'Loading failed', siteNotePrefix: 'Site: {{host}} · Language: {{language}} · Source: ', siteNoteSuffix: ' · Results: {{count}}',
       unnamedScript: 'Unnamed script', unknownAuthor: 'Unknown author', openDialog: 'Open userscript search'
     },
     'zh-CN': {
@@ -190,7 +190,7 @@
       loadingMore: '正在加载更多…', loadMore: '加载更多', noMore: '没有更多结果', backTop: '回到顶部', refresh: '刷新', pageError: '加载更多失败：{{message}}',
       httpError: '请求失败（HTTP {{status}}）', invalidJson: '服务器返回的内容不是有效 JSON',
       networkError: '网络请求失败', timeout: '请求超时', invalidPayload: '接口返回的数据格式不正确',
-      loadFailed: '加载失败', siteNote: '站点：{{host}} · 语言：{{language}} · 数据源：{{provider}} · 结果数：{{count}}',
+      loadFailed: '加载失败', siteNotePrefix: '站点：{{host}} · 语言：{{language}} · 数据源：', siteNoteSuffix: ' · 结果数：{{count}}',
       unnamedScript: '未命名脚本', unknownAuthor: '未知作者', openDialog: '打开脚本搜索弹窗'
     },
     ja: {
@@ -214,7 +214,7 @@
       loadingMore: 'さらに読み込み中…', loadMore: 'さらに読み込む', noMore: 'これ以上の結果はありません', backTop: 'トップへ戻る', refresh: '更新', pageError: '追加読み込みに失敗しました：{{message}}',
       httpError: 'リクエストに失敗しました（HTTP {{status}}）', invalidJson: 'サーバーが無効な JSON を返しました',
       networkError: 'ネットワークエラー', timeout: 'リクエストがタイムアウトしました', invalidPayload: 'API のデータ形式が正しくありません',
-      loadFailed: '読み込みに失敗しました', siteNote: 'サイト：{{host}} · 言語：{{language}} · データソース：{{provider}} · 結果数：{{count}}',
+      loadFailed: '読み込みに失敗しました', siteNotePrefix: 'サイト：{{host}} · 言語：{{language}} · データソース：', siteNoteSuffix: ' · 結果数：{{count}}',
       unnamedScript: '無題のスクリプト', unknownAuthor: '不明な作者', openDialog: 'ユーザースクリプト検索を開く'
     },
     'zh-TW': {
@@ -237,7 +237,7 @@
       loadingMore: '正在載入更多…', loadMore: '載入更多', noMore: '沒有更多結果', backTop: '回到頂部', refresh: '重新整理', pageError: '載入更多失敗：{{message}}',
       httpError: '請求失敗（HTTP {{status}}）', invalidJson: '伺服器回傳的內容不是有效 JSON',
       networkError: '網路請求失敗', timeout: '請求逾時', invalidPayload: '介面回傳的資料格式不正確',
-      loadFailed: '載入失敗', siteNote: '網站：{{host}} · 語言：{{language}} · 資料來源：{{provider}} · 結果數：{{count}}',
+      loadFailed: '載入失敗', siteNotePrefix: '網站：{{host}} · 語言：{{language}} · 資料來源：', siteNoteSuffix: ' · 結果數：{{count}}',
       unnamedScript: '未命名腳本', unknownAuthor: '未知作者', openDialog: '開啟使用者腳本搜尋'
     }
   };
@@ -534,6 +534,8 @@
       .description { margin: 0 0 8px; color: #3c4043; white-space: pre-wrap; overflow-wrap: anywhere; }
       .meta { display: flex; flex-wrap: wrap; gap: 4px 14px; color: #5f6368; font-size: 12px; }
       .note { margin: 0 0 10px; color: #5f6368; font-size: 12px; }
+      .note a { color: #1967d2; text-decoration: none; }
+      .note a:hover { text-decoration: underline; }
       @media (max-width: 560px) { .result { padding: 10px; } .toolbar input { flex-basis: 100%; } }
     `;
   }
@@ -884,12 +886,14 @@
   }
 
   function updateNote(count = allItems.length) {
-    note.textContent = t('siteNote', {
+    const values = {
       host: selectedHost || t('currentSite'),
       language: t(LANGUAGES.find(language => language.key === selectedLanguage)?.labelKey || 'languageEnglish'),
-      provider: activeProvider.name,
       count: formatNumber(count)
-    });
+    };
+    note.replaceChildren(document.createTextNode(t('siteNotePrefix', values)));
+    addLink(note, activeProvider.name, buildSearchUrl(activeProvider, activeSortKey, 1));
+    note.append(t('siteNoteSuffix', values));
   }
 
   function renderResultFooter() {
