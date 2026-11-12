@@ -5,7 +5,7 @@
 // @name:zh-TW   使用者腳本搜尋
 // @name:ja      ユーザースクリプト検索
 // @namespace    Schwi
-// @version      1.2.6
+// @version      1.2.7
 // @description        Search userscripts for the current site from a floating action button.
 // @description:en     Search userscripts for the current site from a floating action button.
 // @description:zh-CN  从浮动按钮搜索当前网站可用的用户脚本。
@@ -98,7 +98,7 @@
       apiHost: 'https://gist.github.com',
       urlBuilder: ({ host, query, page, sort }) => {
         const url = new URL('/search', 'https://gist.github.com');
-        const terms = ['"==UserScript=="', '"@include"', `"${host}"`, 'extension:js'];
+        const terms = ['"==UserScript=="', `"${host}"`, 'extension:js', 'anon:true'];
         if (query) terms.push(query);
         url.searchParams.set('q', terms.join(' '));
         Object.entries(sort?.params || {}).forEach(([key, value]) => {
@@ -329,7 +329,13 @@
   function parseGistSearchHtml(html) {
     const document = new DOMParser().parseFromString(html, 'text/html');
     const cards = Array.from(document.querySelectorAll('.gist-snippet'));
-    if (!cards.length && !document.title.includes('GitHub')) throw new Error(t('invalidPayload'));
+    if (!cards.length) {
+      const emptyHeading = document.querySelector('#gist-pjax-container .blankslate-heading');
+      if (/find any gists matching/i.test(emptyHeading?.textContent || '')) {
+        return { items: [], hasMore: false };
+      }
+      throw new Error(t('invalidPayload'));
+    }
 
     const items = cards.map(card => {
       const scriptFile = Array.from(card.querySelectorAll('[data-tagsearch-path]'))
