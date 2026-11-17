@@ -28,6 +28,7 @@ The top of the window lets you configure:
 
 - Button corner.
 - X/Y offset.
+- Drag the `JS` button to move it; its X/Y position is saved and synced across open pages in real time.
 - Temporary button visibility.
 - Persistent FAB visibility.
 

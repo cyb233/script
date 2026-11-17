@@ -5,7 +5,7 @@
 // @name:zh-TW   使用者腳本搜尋
 // @name:ja      ユーザースクリプト検索
 // @namespace    Schwi
-// @version      1.2.7
+// @version      1.3.0
 // @description        Search userscripts for the current site from a floating action button.
 // @description:en     Search userscripts for the current site from a floating action button.
 // @description:zh-CN  从浮动按钮搜索当前网站可用的用户脚本。
@@ -18,6 +18,7 @@
 // @connect      gist.github.com
 // @grant        GM_getValue
 // @grant        GM_setValue
+// @grant        GM_addValueChangeListener
 // @grant        GM_unregisterMenuCommand
 // @grant        GM_registerMenuCommand
 // @grant        GM_xmlhttpRequest
@@ -549,41 +550,69 @@
   function applyCorner(host, corner) {
     const valid = CORNERS.some(item => item.key === corner) ? corner : 'bottom-left';
     host.dataset.corner = valid;
+    host.style.top = valid.startsWith('top') ? '16px' : '';
+    host.style.bottom = valid.startsWith('bottom') ? '16px' : '';
+    host.style.left = valid.endsWith('left') ? '16px' : '';
+    host.style.right = valid.endsWith('right') ? '16px' : '';
     GM_setValue(STORAGE_KEY, valid);
   }
 
-  function applyFabOffset(offsetStyle) {
-    const cssText = `button { transform: translate(${fabOffset.x}px, ${fabOffset.y}px); }`;
-    if (offsetStyle.sheet) offsetStyle.sheet.replaceSync(cssText);
-    else offsetStyle.style.textContent = cssText;
+  function applyFabOffset() {
+    host.style.transform = `translate(${fabOffset.x}px, ${fabOffset.y}px)`;
   }
 
-  const host = document.createElement('div');
-  const fabShadow = host.attachShadow({ mode: 'closed' });
-  const fabStyleText = `
-    :host { all: initial; position: fixed; z-index: 2147483646; pointer-events: none; }
-    :host([hidden]) { display: none; }
-    :host([data-corner="top-left"]) { top: 16px; left: 16px; }
-    :host([data-corner="top-right"]) { top: 16px; right: 16px; }
-    :host([data-corner="bottom-left"]) { bottom: 16px; left: 16px; }
-    :host([data-corner="bottom-right"]) { right: 16px; bottom: 16px; }
-    button { width: 52px; height: 52px; padding: 0; border: 0; border-radius: 50%; background: #1967d2; box-shadow: 0 3px 10px rgb(0 0 0 / 28%); color: #fff; cursor: pointer; pointer-events: auto; font: 700 15px Arial, sans-serif; }
-    button:hover { background: #1557b0; }
-    button:focus-visible { outline: 3px solid #8ab4f8; outline-offset: 2px; }
-  `;
-  const fabButton = document.createElement('button');
+  function clampFabOffset() {
+    const rect = host.getBoundingClientRect();
+    if (!rect.width || !rect.height) return false;
+    const x = Math.round(fabOffset.x + Math.max(0, Math.min(rect.left, window.innerWidth - rect.width)) - rect.left);
+    const y = Math.round(fabOffset.y + Math.max(0, Math.min(rect.top, window.innerHeight - rect.height)) - rect.top);
+    if (x === fabOffset.x && y === fabOffset.y) return false;
+    fabOffset = { x, y };
+    applyFabOffset();
+    return true;
+  }
+
+  const host = document.createElement('iframe');
+  host.title = t('searchCurrentSite');
+  Object.assign(host.style, {
+    all: 'initial', position: 'fixed', zIndex: '2147483646',
+    width: '52px', height: '52px', border: '0', background: 'transparent'
+  });
+  document.body.append(host);
+  const fabDocument = host.contentDocument;
+  fabDocument.documentElement.style.margin = '0';
+  fabDocument.documentElement.style.overflow = 'hidden';
+  fabDocument.body.style.margin = '0';
+  fabDocument.body.style.overflow = 'hidden';
+  const fabButton = fabDocument.createElement('button');
   fabButton.type = 'button';
   fabButton.textContent = 'JS';
   fabButton.title = t('searchCurrentSite');
   fabButton.setAttribute('aria-label', t('searchCurrentSite'));
-  SchwiDialog.installStyles(fabShadow, fabStyleText, styleSupport);
-  const fabOffsetStyle = SchwiDialog.installStyles(fabShadow, '', styleSupport);
-  fabShadow.append(fabButton);
+  Object.assign(fabButton.style, {
+    width: '52px', height: '52px', padding: '0', border: '0', borderRadius: '50%',
+    background: '#1967d2', boxShadow: 'none',
+    color: '#fff', cursor: 'pointer', touchAction: 'none', userSelect: 'none',
+    font: '700 15px Arial, sans-serif'
+  });
+  fabDocument.body.append(fabButton);
+  fabButton.addEventListener('pointerenter', () => { fabButton.style.background = '#1557b0'; });
+  fabButton.addEventListener('pointerleave', () => { fabButton.style.background = '#1967d2'; });
+  fabButton.addEventListener('focus', () => {
+    if (!fabButton.matches(':focus-visible')) return;
+    fabButton.style.outline = '3px solid #8ab4f8';
+    fabButton.style.outlineOffset = '-3px';
+  });
+  fabButton.addEventListener('blur', () => { fabButton.style.outline = ''; });
+  fabButton.addEventListener('contextmenu', event => event.preventDefault());
+  fabButton.addEventListener('dragstart', event => event.preventDefault());
+  fabButton.addEventListener('selectstart', event => event.preventDefault());
   const savedCorner = GM_getValue(STORAGE_KEY, 'bottom-left');
   applyCorner(host, savedCorner);
-  applyFabOffset(fabOffsetStyle);
+  applyFabOffset();
   host.hidden = !fabVisible;
-  document.body.append(host);
+  host.style.display = fabVisible ? 'block' : 'none';
+  if (clampFabOffset()) GM_setValue(OFFSET_STORAGE_KEY, fabOffset);
   logInfo('initialized', {
     host: currentHost,
     selectedHost,
@@ -652,6 +681,10 @@
     radio.checked = host.dataset.corner === corner.key;
     radio.addEventListener('change', () => {
       applyCorner(host, radio.value);
+      if (clampFabOffset()) {
+        offsetLabels.forEach(({ axis, input }) => { input.value = String(fabOffset[axis]); });
+        GM_setValue(OFFSET_STORAGE_KEY, fabOffset);
+      }
       logInfo('FAB corner changed', { corner: radio.value });
     });
     const text = document.createTextNode(t(corner.labelKey));
@@ -676,7 +709,7 @@
       const value = Number(input.value);
       if (!Number.isFinite(value)) return;
       fabOffset[axis] = value;
-      applyFabOffset(fabOffsetStyle);
+      applyFabOffset();
       GM_setValue(OFFSET_STORAGE_KEY, fabOffset);
     });
     input.addEventListener('change', () => {
@@ -688,6 +721,69 @@
     offsetControls.append(label);
   });
   cornerSettings.append(offsetControls);
+
+  let drag = null;
+  let suppressDragClick = false;
+  let offsetSyncFrame = 0;
+  function syncFabOffset(immediate = false) {
+    if (immediate) {
+      if (offsetSyncFrame) cancelAnimationFrame(offsetSyncFrame);
+      offsetSyncFrame = 0;
+      GM_setValue(OFFSET_STORAGE_KEY, { ...fabOffset });
+    } else if (!offsetSyncFrame) offsetSyncFrame = requestAnimationFrame(() => {
+      offsetSyncFrame = 0;
+      GM_setValue(OFFSET_STORAGE_KEY, { ...fabOffset });
+    });
+  }
+
+  GM_addValueChangeListener(OFFSET_STORAGE_KEY, (_key, _oldValue, value, remote) => {
+    if (!remote || drag || !value || !Number.isFinite(Number(value.x)) || !Number.isFinite(Number(value.y))) return;
+    fabOffset = { x: Number(value.x), y: Number(value.y) };
+    applyFabOffset();
+    clampFabOffset();
+    offsetLabels.forEach(({ axis, input }) => { input.value = String(fabOffset[axis]); });
+  });
+  fabButton.addEventListener('pointerdown', event => {
+    if (event.button !== 0 || drag) return;
+    suppressDragClick = false;
+    drag = { id: event.pointerId, x: event.screenX, y: event.screenY, offset: { ...fabOffset }, moved: false };
+    fabButton.setPointerCapture(event.pointerId);
+  });
+  fabButton.addEventListener('pointermove', event => {
+    if (!drag || event.pointerId !== drag.id) return;
+    const dx = event.screenX - drag.x;
+    const dy = event.screenY - drag.y;
+    if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+    drag.moved = true;
+    suppressDragClick = true;
+    fabOffset = { x: Math.round(drag.offset.x + dx), y: Math.round(drag.offset.y + dy) };
+    applyFabOffset();
+    clampFabOffset();
+    syncFabOffset();
+    event.preventDefault();
+  });
+  fabButton.addEventListener('pointerup', event => {
+    if (!drag || event.pointerId !== drag.id) return;
+    if (drag.moved) {
+      offsetLabels.forEach(({ axis, input }) => { input.value = String(fabOffset[axis]); });
+      syncFabOffset(true);
+      logInfo('FAB dragged', { offset: { ...fabOffset } });
+    }
+    drag = null;
+  });
+  fabButton.addEventListener('pointercancel', event => {
+    if (!drag || event.pointerId !== drag.id) return;
+    fabOffset = drag.offset;
+    applyFabOffset();
+    if (drag.moved) syncFabOffset(true);
+    drag = null;
+    suppressDragClick = false;
+  });
+  window.addEventListener('resize', () => {
+    if (!clampFabOffset()) return;
+    offsetLabels.forEach(({ axis, input }) => { input.value = String(fabOffset[axis]); });
+    GM_setValue(OFFSET_STORAGE_KEY, fabOffset);
+  });
 
   const temporaryButton = document.createElement('button');
   temporaryButton.type = 'button';
@@ -777,6 +873,8 @@
 
   function refreshTexts() {
     dialog.setTitle(t('dialogTitle', { host: currentHost || t('currentSite') }));
+    host.title = fabButton.title = t('searchCurrentSite');
+    fabButton.setAttribute('aria-label', t('searchCurrentSite'));
     languageSelect.setAttribute('aria-label', t('apiLanguage'));
     languageSelect.title = t('apiLanguage');
     Array.from(languageSelect.options).forEach((option, index) => {
@@ -802,6 +900,11 @@
 
   function updateFabState() {
     host.hidden = !fabVisible;
+    host.style.display = fabVisible ? 'block' : 'none';
+    if (fabVisible && clampFabOffset()) {
+      offsetLabels.forEach(({ axis, input }) => { input.value = String(fabOffset[axis]); });
+      GM_setValue(OFFSET_STORAGE_KEY, fabOffset);
+    }
     temporaryButton.textContent = fabVisible ? t('tempHideFab') : t('tempShowFab');
     temporaryButton.title = t('tempTitle');
     persistentButton.textContent = persistentEnabled ? t('disableFab') : t('enableFab');
@@ -1093,7 +1196,13 @@
     loadResults();
   }
 
-  fabButton.addEventListener('click', () => openDialog());
+  fabButton.addEventListener('click', event => {
+    if (suppressDragClick && event.detail !== 0) {
+      suppressDragClick = false;
+      return;
+    }
+    openDialog();
+  });
   activeSortKey = activeProvider.sort[0]?.key || '';
   renderTabs();
   refreshTexts();
