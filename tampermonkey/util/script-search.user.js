@@ -5,14 +5,14 @@
 // @name:zh-TW   使用者腳本搜尋
 // @name:ja      ユーザースクリプト検索
 // @namespace    Schwi
-// @version      1.3.0
+// @version      1.3.1
 // @description        Search userscripts for the current site from a floating action button.
 // @description:en     Search userscripts for the current site from a floating action button.
 // @description:zh-CN  从浮动按钮搜索当前网站可用的用户脚本。
 // @description:zh-TW  從浮動按鈕搜尋目前網站可用的使用者腳本。
 // @description:ja     フローティングボタンから現在のサイトで利用できるユーザースクリプトを検索します。
 // @match        *://*/*
-// @require      https://update.greasyfork.org/scripts/597988/1978784/Shadow%20DOM%20Dialog%20Utility.js
+// @require      https://update.greasyfork.org/scripts/597988/2001408/Shadow%20DOM%20Dialog%20Utility.js
 // @connect      api.greasyfork.org
 // @connect      api.sleazyfork.org
 // @connect      gist.github.com
@@ -636,6 +636,7 @@
     closeOnBackdropClick: true,
     closeOnEscape: true,
     showCloseButton: true,
+    draggable: true,
     onshow: () => logInfo('dialog shown'),
     onclose: () => logInfo('dialog closed')
   });
