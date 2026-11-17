@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Shadow DOM Dialog Utility
 // @namespace    Schwi
-// @version      1.4.0
+// @version      1.5.0
 // @description  Reusable Shadow DOM dialog utility for Tampermonkey scripts.
 // @grant        none
 // ==/UserScript==
@@ -13,8 +13,10 @@
  * @property {() => void} show Show the dialog.
  * @property {() => void} close Close the dialog.
  * @property {(title: string) => void} setTitle Set the dialog title.
+ * @property {() => ({x: number, y: number}|null)} getPosition Get viewport coordinates while shown.
  * @property {((dialog: DialogWindow) => void)|null} onshow Called after the dialog is shown.
  * @property {((dialog: DialogWindow) => void)|null} onclose Called after the dialog is closed.
+ * @property {((dialog: DialogWindow, position: {x: number, y: number}) => void)|null} onmove Called when dragging moves the dialog.
  * @property {{inline: boolean, styleElement: boolean, adoptedStyleSheets: boolean}} styleSupport Detected page style capabilities.
  */
 
@@ -25,9 +27,11 @@
  * @property {boolean} [closeOnEscape=true] Close when Escape is pressed.
  * @property {boolean} [showHeader=true] Show the built-in header.
  * @property {boolean} [showCloseButton=true] Show the built-in close button.
+ * @property {boolean} [draggable=false] Allow dragging by the built-in header.
  * @property {string} [ariaLabel] Accessible label used when no title is set.
  * @property {(dialog: DialogWindow) => void} [onshow] Called after the dialog is shown.
  * @property {(dialog: DialogWindow) => void} [onclose] Called after the dialog is closed.
+ * @property {(dialog: DialogWindow, position: {x: number, y: number}) => void} [onmove] Called when dragging moves the dialog.
  */
 
 /**
@@ -56,8 +60,9 @@ async function createDialog(width, height, config = {}) {
     :host { all: initial; }
     *, *::before, *::after { box-sizing: border-box; }
     .overlay { position: fixed; z-index: 2147483647; inset: 0; display: grid; place-items: center; padding: 16px; background: rgb(0 0 0 / 45%); font-family: Arial, "Microsoft YaHei", sans-serif; }
-    .dialog { display: flex; flex-direction: column; width: min(${size(width)}, calc(100vw - 32px)); height: min(${size(height)}, calc(100vh - 32px)); overflow: hidden; outline: none; background: #fff; border-radius: 6px; box-shadow: 0 12px 36px rgb(0 0 0 / 35%); color: #202124; }
+    .dialog { display: flex; flex-direction: column; width: min(${size(width)}, calc(100vw - 32px)); height: min(${size(height)}, calc(100vh - 32px)); overflow: hidden; outline: none; background: #fff; border-radius: 6px; box-shadow: 0 12px 36px rgb(0 0 0 / 35%); color: #202124; color-scheme: light; }
     .header { display: flex; align-items: center; min-height: 44px; padding: 14px; border-bottom: 1px solid #ddd; font-size: 16px; font-weight: 600; }
+    .header.draggable { cursor: move; user-select: none; touch-action: none; }
     .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .close { width: 44px; height: 44px; padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 24px; line-height: 1; }
     .close:hover { background: #f2f2f2; }
@@ -80,19 +85,46 @@ async function createDialog(width, height, config = {}) {
     closeOnEscape: true,
     showHeader: true,
     showCloseButton: true,
+    draggable: false,
     ...config
   };
 
   let dialogWindow;
+  let positionStyle;
+  let dragRule;
+  let offsetX = 0;
+  let offsetY = 0;
+  let activePointer = null;
+  const resetPosition = () => {
+    offsetX = 0;
+    offsetY = 0;
+    dragRule?.style.setProperty('transform', 'translate(0px, 0px)');
+  };
+  const handleResize = () => {
+    activePointer = null;
+    resetPosition();
+  };
+  const getPosition = () => {
+    if (!host.isConnected) return null;
+    const { left, top } = dialog.getBoundingClientRect();
+    return { x: left, y: top };
+  };
   const show = () => {
     if (!host.isConnected) {
       document.body.append(host);
+      if (positionStyle) {
+        dragRule = (positionStyle.sheet || positionStyle.style.sheet)?.cssRules[0];
+        window.addEventListener('resize', handleResize);
+      }
       dialog.focus();
       dialogWindow.onshow?.(dialogWindow);
     }
   };
   const close = () => {
     if (!host.isConnected) return;
+    activePointer = null;
+    if (positionStyle) window.removeEventListener('resize', handleResize);
+    resetPosition();
     host.remove();
     dialogWindow.onclose?.(dialogWindow);
   };
@@ -122,14 +154,46 @@ async function createDialog(width, height, config = {}) {
   shadow.append(overlay);
   installStyles(shadow, styleText, styleSupport);
 
+  if (options.draggable && options.showHeader) {
+    header.classList.add('draggable');
+    positionStyle = installStyles(shadow, '.dialog { transform: translate(0px, 0px); }', styleSupport);
+    header.addEventListener('pointerdown', event => {
+      if (!dragRule || event.button !== 0 || event.target.closest('button, input, select, textarea, a, [contenteditable]')) return;
+      const rect = dialog.getBoundingClientRect();
+      activePointer = { id: event.pointerId, x: event.clientX, y: event.clientY, left: rect.left, top: rect.top, width: rect.width, height: rect.height, offsetX, offsetY };
+      header.setPointerCapture(event.pointerId);
+      event.preventDefault();
+    });
+    header.addEventListener('pointermove', event => {
+      if (!activePointer || event.pointerId !== activePointer.id || !dragRule) return;
+      const left = Math.max(0, Math.min(window.innerWidth - activePointer.width, activePointer.left + event.clientX - activePointer.x));
+      const top = Math.max(0, Math.min(window.innerHeight - activePointer.height, activePointer.top + event.clientY - activePointer.y));
+      const nextX = activePointer.offsetX + left - activePointer.left;
+      const nextY = activePointer.offsetY + top - activePointer.top;
+      if (nextX === offsetX && nextY === offsetY) return;
+      offsetX = nextX;
+      offsetY = nextY;
+      dragRule.style.setProperty('transform', `translate(${offsetX}px, ${offsetY}px)`);
+      dialogWindow.onmove?.(dialogWindow, getPosition());
+    });
+    const endDrag = event => {
+      if (activePointer?.id === event.pointerId) activePointer = null;
+    };
+    header.addEventListener('pointerup', endDrag);
+    header.addEventListener('pointercancel', endDrag);
+    header.addEventListener('lostpointercapture', endDrag);
+  }
+
   dialogWindow = {
     content,
     element: dialog,
     show,
     close,
     setTitle,
+    getPosition,
     onshow: typeof options.onshow === 'function' ? options.onshow : null,
     onclose: typeof options.onclose === 'function' ? options.onclose : null,
+    onmove: typeof options.onmove === 'function' ? options.onmove : null,
     styleSupport
   };
   return dialogWindow;

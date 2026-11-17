@@ -55,8 +55,10 @@ dialog.show();
 | `show()` | 显示弹窗；重复调用不会重复插入 |
 | `close()` | 关闭并移除弹窗；重复调用不会重复触发关闭事件 |
 | `setTitle(title)` | 设置标题及无障碍标签 |
+| `getPosition()` | 显示时返回窗口左上角的视口坐标 `{ x, y }`（像素）；隐藏时返回 `null` |
 | `onshow` | 显示后的回调，可直接赋值 |
 | `onclose` | 关闭后的回调，可直接赋值 |
+| `onmove` | 拖动导致位置变化时的回调，可直接赋值；参数为窗口实例和当前位置 |
 | `styleSupport` | 当前页面的样式能力检测结果：`inline`、`styleElement`、`adoptedStyleSheets` |
 
 回调会收到当前 `DialogWindow` 实例：
@@ -65,6 +67,17 @@ dialog.show();
 dialog.onshow = current => console.log('已显示', current);
 dialog.onclose = current => console.log('已关闭', current);
 ```
+
+启用标题栏拖动后，可以主动读取位置或监听位置变化：
+
+```js
+const dialog = await SchwiDialog.createDialog(480, 300, { title: '示例弹窗', draggable: true });
+dialog.onmove = (current, position) => console.log(position.x, position.y);
+dialog.show();
+console.log(dialog.getPosition());
+```
+
+坐标以视口左上角为原点。关闭后再次打开时，窗口重新居中；关闭按钮不会触发拖动。
 
 ### `config`
 
@@ -75,9 +88,11 @@ dialog.onclose = current => console.log('已关闭', current);
   closeOnEscape: true,
   showHeader: true,
   showCloseButton: true,
+  draggable: false,
   ariaLabel: '无障碍标签',
   onshow: dialog => {},
-  onclose: dialog => {}
+  onclose: dialog => {},
+  onmove: (dialog, position) => {}
 }
 ```
 
@@ -87,9 +102,11 @@ dialog.onclose = current => console.log('已关闭', current);
 - `closeOnEscape: true`：按 Escape 关闭。
 - `showHeader: true`：显示内置标题栏。设为 `false` 时，标题和内置关闭按钮也不会显示。
 - `showCloseButton: true`：显示内置关闭按钮。
+- `draggable: false`：设为 `true` 时可按住内置标题栏拖动；需要 `showHeader: true`。
 - `title`：初始标题；调用 `setTitle()` 可以更新。
 - `ariaLabel`：没有 `title` 时使用的无障碍标签。
 - `onshow`、`onclose`：分别在实际显示、实际关闭后调用。
+- `onmove`：拖动改变位置时调用，传入窗口实例及 `{ x, y }` 视口坐标。
 
 ## 注意事项
 
