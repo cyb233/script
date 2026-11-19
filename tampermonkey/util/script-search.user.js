@@ -5,7 +5,7 @@
 // @name:zh-TW   使用者腳本搜尋
 // @name:ja      ユーザースクリプト検索
 // @namespace    Schwi
-// @version      1.3.1
+// @version      1.3.2
 // @description        Search userscripts for the current site from a floating action button.
 // @description:en     Search userscripts for the current site from a floating action button.
 // @description:zh-CN  从浮动按钮搜索当前网站可用的用户脚本。
@@ -153,6 +153,7 @@
       mostStars: 'Most stars', fewestStars: 'Fewest stars', mostForks: 'Most forks', fewestForks: 'Fewest forks',
       recentlyUpdated: 'Recently updated', leastRecentlyUpdated: 'Least recently updated',
       tempHideFab: 'Temporarily hide FAB (shown)', tempShowFab: 'Temporarily show FAB (hidden)',
+      contextHideFab: 'Temporarily hide FAB', contextDisableFab: 'Disable FAB display',
       tempTitle: 'Affects this page only; this visibility state is not saved',
       disableFab: 'Disable FAB (enabled)', enableFab: 'Enable FAB (disabled)',
       persistentTitle: 'Save whether the FAB is displayed', searchCurrentSite: 'Search userscripts for this site',
@@ -177,6 +178,7 @@
       recentlyUpdated: '最近更新', leastRecentlyUpdated: '最久未更新',
       position: '按钮位置', searchDomain: '搜索域名', xOffset: 'X 偏移量', yOffset: 'Y 偏移量',
       tempHideFab: '临时隐藏 FAB（当前：显示）', tempShowFab: '临时显示 FAB（当前：隐藏）',
+      contextHideFab: '临时隐藏', contextDisableFab: '关闭显示',
       tempTitle: '仅影响当前页面，不保存此显示状态',
       disableFab: '关闭 FAB 显示（当前：开启）', enableFab: '开启 FAB 显示（当前：关闭）',
       persistentTitle: '保存 FAB 是否显示的设置', searchCurrentSite: '搜索当前网站的用户脚本',
@@ -201,6 +203,7 @@
       recentlyUpdated: '最近更新', leastRecentlyUpdated: '最終更新が古い順',
       position: 'ボタンの位置', searchDomain: '検索ドメイン', xOffset: 'X オフセット', yOffset: 'Y オフセット',
       tempHideFab: '一時的に FAB を非表示（現在：表示）', tempShowFab: '一時的に FAB を表示（現在：非表示）',
+      contextHideFab: '一時的に非表示', contextDisableFab: '表示を無効化',
       tempTitle: '現在のページだけに適用され、表示状態は保存されません',
       disableFab: 'FAB を無効化（現在：有効）', enableFab: 'FAB を有効化（現在：無効）',
       persistentTitle: 'FAB の表示設定を保存', searchCurrentSite: 'このサイトのユーザースクリプトを検索',
@@ -225,6 +228,7 @@
       recentlyUpdated: '最近更新', leastRecentlyUpdated: '最久未更新',
       position: '按鈕位置', searchDomain: '搜尋網域', xOffset: 'X 偏移量', yOffset: 'Y 偏移量',
       tempHideFab: '暫時隱藏 FAB（目前：顯示）', tempShowFab: '暫時顯示 FAB（目前：隱藏）',
+      contextHideFab: '暫時隱藏', contextDisableFab: '關閉顯示',
       tempTitle: '僅影響目前頁面，不會儲存此顯示狀態',
       disableFab: '關閉 FAB 顯示（目前：開啟）', enableFab: '開啟 FAB 顯示（目前：關閉）',
       persistentTitle: '儲存 FAB 是否顯示的設定', searchCurrentSite: '搜尋目前網站的使用者腳本',
@@ -604,7 +608,6 @@
     fabButton.style.outlineOffset = '-3px';
   });
   fabButton.addEventListener('blur', () => { fabButton.style.outline = ''; });
-  fabButton.addEventListener('contextmenu', event => event.preventDefault());
   fabButton.addEventListener('dragstart', event => event.preventDefault());
   fabButton.addEventListener('selectstart', event => event.preventDefault());
   const savedCorner = GM_getValue(STORAGE_KEY, 'bottom-left');
@@ -789,21 +792,11 @@
   const temporaryButton = document.createElement('button');
   temporaryButton.type = 'button';
   temporaryButton.className = 'corner-action';
-  temporaryButton.addEventListener('click', () => {
-    fabVisible = !fabVisible;
-    logInfo('FAB visibility changed temporarily', { visible: fabVisible });
-    updateFabState();
-  });
+  temporaryButton.addEventListener('click', () => setTemporaryFabVisibility(!fabVisible));
   const persistentButton = document.createElement('button');
   persistentButton.type = 'button';
   persistentButton.className = 'corner-action';
-  persistentButton.addEventListener('click', () => {
-    persistentEnabled = !persistentEnabled;
-    fabVisible = persistentEnabled;
-    GM_setValue(ENABLED_STORAGE_KEY, persistentEnabled);
-    logInfo('persistent FAB setting changed', { enabled: persistentEnabled, source: 'dialog' });
-    updateFabState();
-  });
+  persistentButton.addEventListener('click', () => setPersistentFabEnabled(!persistentEnabled, 'dialog'));
   const cornerActions = document.createElement('span');
   cornerActions.className = 'corner-actions';
   cornerActions.append(temporaryButton, persistentButton);
@@ -872,6 +865,82 @@
   let persistentMenuId;
   let openMenuId;
 
+  const contextHost = document.createElement('div');
+  contextHost.hidden = true;
+  Object.assign(contextHost.style, { position: 'fixed', zIndex: '2147483647' });
+  const contextRoot = contextHost.attachShadow({ mode: 'closed' });
+  const contextStyle = document.createElement('style');
+  contextStyle.textContent = `
+    :host([hidden]) { display: none; }
+    .menu { min-width: min(176px, 100vw); max-width: 100vw; box-sizing: border-box;
+      padding: 4px; border: 1px solid #dadce0; border-radius: 6px;
+      background: #fff; box-shadow: 0 4px 14px #0003; font: 14px Arial, sans-serif; }
+    button { display: block; width: 100%; min-height: 36px; padding: 7px 12px; border: 0;
+      border-radius: 4px; background: transparent; color: #202124; cursor: pointer;
+      font: inherit; text-align: start; }
+    button:hover, button:focus-visible { background: #e8f0fe; outline: none; }
+  `;
+  const contextMenu = document.createElement('div');
+  contextMenu.className = 'menu';
+  contextMenu.setAttribute('role', 'menu');
+  const contextItems = [
+    { labelKey: 'openDialog', action: () => openDialog('FAB context menu') },
+    { labelKey: 'contextHideFab', action: () => setTemporaryFabVisibility(false) },
+    { labelKey: 'contextDisableFab', action: () => setPersistentFabEnabled(false, 'FAB context menu') }
+  ].map(({ labelKey, action }) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.setAttribute('role', 'menuitem');
+    button.addEventListener('click', () => {
+      closeContextMenu();
+      action();
+    });
+    contextMenu.append(button);
+    return { button, labelKey };
+  });
+  contextMenu.addEventListener('keydown', event => {
+    const currentIndex = contextItems.findIndex(({ button }) => button === event.target);
+    if (currentIndex < 0) return;
+    let nextIndex;
+    if (event.key === 'ArrowDown') nextIndex = (currentIndex + 1) % contextItems.length;
+    else if (event.key === 'ArrowUp') nextIndex = (currentIndex - 1 + contextItems.length) % contextItems.length;
+    else if (event.key === 'Home') nextIndex = 0;
+    else if (event.key === 'End') nextIndex = contextItems.length - 1;
+    else return;
+    event.preventDefault();
+    contextItems[nextIndex].button.focus();
+  });
+  contextRoot.append(contextStyle, contextMenu);
+  document.body.append(contextHost);
+
+  function closeContextMenu() {
+    contextHost.hidden = true;
+  }
+
+  fabButton.addEventListener('contextmenu', event => {
+    event.preventDefault();
+    contextItems.forEach(({ button, labelKey }) => { button.textContent = t(labelKey); });
+    contextHost.hidden = false;
+    const fabRect = host.getBoundingClientRect();
+    const x = fabRect.left + (event.clientX || fabRect.width / 2);
+    const y = fabRect.top + (event.clientY || fabRect.height / 2);
+    const menuRect = contextHost.getBoundingClientRect();
+    contextHost.style.left = `${Math.max(0, Math.min(x, window.innerWidth - menuRect.width))}px`;
+    contextHost.style.top = `${Math.max(0, Math.min(y, window.innerHeight - menuRect.height))}px`;
+    contextItems[0].button.focus();
+  });
+  document.addEventListener('pointerdown', event => {
+    if (!contextHost.hidden && !event.composedPath().includes(contextHost)) closeContextMenu();
+  });
+  fabDocument.addEventListener('pointerdown', () => closeContextMenu());
+  document.addEventListener('keydown', event => {
+    if (contextHost.hidden || event.key !== 'Escape') return;
+    closeContextMenu();
+    fabButton.focus();
+  });
+  window.addEventListener('resize', closeContextMenu);
+  window.addEventListener('scroll', closeContextMenu, true);
+
   function refreshTexts() {
     dialog.setTitle(t('dialogTitle', { host: currentHost || t('currentSite') }));
     host.title = fabButton.title = t('searchCurrentSite');
@@ -894,12 +963,28 @@
     sortSelect.setAttribute('aria-label', t('sort'));
     refreshButton.setAttribute('aria-label', t('refresh'));
     refreshButton.title = t('refresh');
+    contextItems.forEach(({ button, labelKey }) => { button.textContent = t(labelKey); });
     renderSortOptions();
     updateFabState();
     if (allItems.length) renderItems();
   }
 
+  function setTemporaryFabVisibility(visible) {
+    fabVisible = visible;
+    logInfo('FAB visibility changed temporarily', { visible: fabVisible });
+    updateFabState();
+  }
+
+  function setPersistentFabEnabled(enabled, source) {
+    persistentEnabled = enabled;
+    fabVisible = enabled;
+    GM_setValue(ENABLED_STORAGE_KEY, enabled);
+    logInfo('persistent FAB setting changed', { enabled, source });
+    updateFabState();
+  }
+
   function updateFabState() {
+    if (!fabVisible) closeContextMenu();
     host.hidden = !fabVisible;
     host.style.display = fabVisible ? 'block' : 'none';
     if (fabVisible && clampFabOffset()) {
@@ -920,13 +1005,7 @@
     }
     persistentMenuId = GM_registerMenuCommand(
       persistentEnabled ? t('disableFab') : t('enableFab'),
-      () => {
-        persistentEnabled = !persistentEnabled;
-        fabVisible = persistentEnabled;
-        GM_setValue(ENABLED_STORAGE_KEY, persistentEnabled);
-        logInfo('persistent FAB setting changed', { enabled: persistentEnabled, source: 'userscript menu' });
-        updateFabState();
-      }
+      () => setPersistentFabEnabled(!persistentEnabled, 'userscript menu')
     );
     openMenuId = GM_registerMenuCommand(
       t('openDialog'),
